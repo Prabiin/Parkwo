@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using ParkingApp.Api.Infrastructure;
 using ParkingApp.Infrastructure;
 using ParkingApp.Infrastructure.Persistence;
+using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,6 +17,7 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
+    app.MapScalarApiReference();
 }
 
 app.UseHttpsRedirection();
