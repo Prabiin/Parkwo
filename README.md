@@ -544,6 +544,7 @@ docker compose logs -f api
 ```
 
 - API: `http://localhost:8080` (OpenAPI JSON at `/openapi/v1.json` in Development)
+- Interactive API docs (Scalar, try-it included): `http://localhost:8080/scalar` — the mobile team can fill in requests and execute them there (paste the Bearer token from login into Authorize)
 - MinIO console: `http://localhost:9001` (admin / admin12345); S3 endpoint `:9000`
 - The `api` service waits for postgres (healthcheck) and applies pending EF migrations on boot, so no manual `database update` is needed. The MinIO `parkingapp` bucket is auto-created on first image upload.
 - Two hostnames matter for MinIO: inside compose the API uses `minio:9000`; phones/browsers open the stored `PublicBaseUrl` (`http://localhost:9000`). If the mobile team tests from other devices on your LAN, replace `localhost` with your machine's LAN IP in `PublicBaseUrl` and the API port accordingly.
