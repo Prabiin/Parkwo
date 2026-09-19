@@ -16,11 +16,15 @@ public sealed record UpdateProfileCommand(
     DateOnly DateOfBirth)
     : IRequestResult<UpdateProfileCommand, UpdateProfileResponse>;
 
-public sealed class UpdateProfileCommandHandler(IApplicationDbContext context)
+public sealed class UpdateProfileCommandHandler(IApplicationDbContext context, ICurrentUserService currentUser)
     : IRequestResultHandler<UpdateProfileCommand, UpdateProfileResponse>
 {
     public async Task<Result<UpdateProfileResponse>> Handle(UpdateProfileCommand request, CancellationToken cancellationToken = default)
     {
+        var tokenUserId = currentUser.UserId;
+        if (tokenUserId is null)
+            return Result<UpdateProfileResponse>.Failure("Authentication required.", 401);
+
         // Onboarding targets the "dirty" row created at OTP time, identified by the
         // phone number in the request (auto-populated + locked in the mobile form).
         // A changed/unknown number finds no row -> 404.
@@ -31,6 +35,12 @@ public sealed class UpdateProfileCommandHandler(IApplicationDbContext context)
 
         if (user is null)
             return Result<UpdateProfileResponse>.Failure("User not found.", 404);
+
+        // Guard: the request number must belong to the token owner. The mobile form
+        // locks this field, so a mismatch can only be deliberate tampering -> 403.
+        if (user.Id != tokenUserId.Value)
+            return Result<UpdateProfileResponse>.Failure(
+                "Phone number does not match the authenticated account.", 403);
 
         var normalizedEmail = request.Email.Trim();
         var emailTaken = await context.Users

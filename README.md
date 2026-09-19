@@ -6,7 +6,7 @@ A peer-to-peer parking marketplace API where users find parking spaces and land 
 
 ### 2026-09-19 — Onboarding: phone from request, gender/DOB mandatory
 
-- `PUT /profile` takes `FullName`, `PhoneNumber`, `Email`, `Gender`, `DateOfBirth`. The target row is found by the request phone (the OTP-time "dirty" row; UI shows it locked) — a changed/unknown number returns 404. Gender/DOB mandatory; `IsProfileComplete` = name + email + gender + DOB (picture stays optional).
+- `PUT /profile` takes `FullName`, `PhoneNumber`, `Email`, `Gender`, `DateOfBirth`. The target row is found by the request phone (the OTP-time "dirty" row; UI shows it locked) — a changed/unknown number returns 404 — and must belong to the token owner (403 otherwise, blocking cross-account overwrites). Gender/DOB mandatory; `IsProfileComplete` = name + email + gender + DOB (picture stays optional).
 - No migration (no schema change). Build passes.
 
 ### 2026-09-19 — Facility images (MinIO) + ratings & reviews + profile picture
@@ -430,7 +430,7 @@ The auth flow is built with **CQRS**: every write operation is a command, dispat
 - `VerifyOtpCommandHandler` -- Validates the latest pending OTP (max 5 attempts, expiry); then resolves the account by phone number: unknown number → creates a phone-only account (registration), known number → login; marks phone verified; issues JWT access + refresh tokens; sets `IsNewUser` for onboarding
 - `RefreshTokenCommandHandler` -- Rotates refresh token; if a revoked token is reused, revokes ALL user tokens (theft detection)
 - `CreateVehicleCommandHandler` -- (auth required) Registers a user's vehicle via `ICurrentUserService`; rejects duplicate number plates on the same account
-- `UpdateProfileCommandHandler` -- (auth required) Completes the onboarding step; finds the OTP-time row by the request `PhoneNumber` (404 if changed/unknown), saves name/email/gender/DOB (all mandatory), unique-checks email, returns `IsProfileComplete`.
+- `UpdateProfileCommandHandler` -- (auth required) Completes the onboarding step; finds the OTP-time row by the request `PhoneNumber` (404 if changed/unknown), then requires it to belong to the token owner (403 on mismatch — blocks cross-account overwrites), saves name/email/gender/DOB (all mandatory), unique-checks email, returns `IsProfileComplete`.
 
 ### 6. API Endpoints
 
