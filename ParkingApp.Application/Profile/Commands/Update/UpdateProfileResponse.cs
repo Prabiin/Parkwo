@@ -6,8 +6,8 @@ public record UpdateProfileResponse(
     string FullName,
     string PhoneNumber,
     string Email,
-    GenderEnum? Gender,
-    string? GenderDescription,
-    DateOnly? DateOfBirth,
+    GenderEnum Gender,
+    string GenderDescription,
+    DateOnly DateOfBirth,
     bool IsProfileComplete,
     string? ProfileImageUrl);

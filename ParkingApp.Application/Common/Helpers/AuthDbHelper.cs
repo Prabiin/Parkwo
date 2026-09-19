@@ -13,8 +13,11 @@ internal static class AuthDbHelper
 
     public static bool IsProfileComplete(User user)
         // Profile picture is optional: a profile counts as complete without one.
+        // Gender + DOB are mandatory onboarding fields (enforced by UpdateProfileCommand).
         => !string.IsNullOrWhiteSpace(user.FullName)
-           && !string.IsNullOrWhiteSpace(user.Email);
+           && !string.IsNullOrWhiteSpace(user.Email)
+           && user.Gender.HasValue
+           && user.DateOfBirth.HasValue;
 
     public static async Task CancelPendingOtpsAsync(
         IApplicationDbContext dbContext,

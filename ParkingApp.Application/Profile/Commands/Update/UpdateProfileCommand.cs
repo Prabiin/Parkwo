@@ -10,10 +10,9 @@ namespace ParkingApp.Application.Profile.Commands.Update;
 
 public sealed record UpdateProfileCommand(
     string FullName,
-    string PhoneNumber,
     string Email,
-    GenderEnum? Gender,
-    DateOnly? DateOfBirth)
+    GenderEnum Gender,
+    DateOnly DateOfBirth)
     : IRequestResult<UpdateProfileCommand, UpdateProfileResponse>;
 
 public sealed class UpdateProfileCommandHandler(IApplicationDbContext context, ICurrentUserService currentUser)
@@ -38,15 +37,9 @@ public sealed class UpdateProfileCommandHandler(IApplicationDbContext context, I
         if (emailTaken)
             return Result<UpdateProfileResponse>.Failure("A user with this email already exists.", 409);
 
-        var normalizedPhone = request.PhoneNumber.Trim();
-        var phoneTaken = await context.Users
-            .AnyAsync(u => u.Id != userId && u.PhoneNumber == normalizedPhone, cancellationToken);
-
-        if (phoneTaken)
-            return Result<UpdateProfileResponse>.Failure("A user with this phone number already exists.", 409);
-
+        // PhoneNumber is intentionally not updatable here: the account's number is the
+        // OTP-verified one from the token. Number changes go through the ChangePhoneNumber OTP flow.
         user.FullName = request.FullName.Trim();
-        user.PhoneNumber = normalizedPhone;
         user.Email = normalizedEmail;
         user.Gender = request.Gender;
         user.DateOfBirth = request.DateOfBirth;
@@ -59,9 +52,9 @@ public sealed class UpdateProfileCommandHandler(IApplicationDbContext context, I
                 user.FullName,
                 user.PhoneNumber,
                 user.Email,
-                user.Gender,
-                user.Gender?.ToDescription(),
-                user.DateOfBirth,
+                user.Gender!.Value,
+                user.Gender!.Value.ToDescription(),
+                user.DateOfBirth!.Value,
                 AuthDbHelper.IsProfileComplete(user),
                 user.ProfileImageUrl));
     }
