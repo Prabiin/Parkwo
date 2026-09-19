@@ -1,0 +1,9 @@
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+.vs/
+.git/
+[Tt]est[Rr]esult*/
+uploads/
+*.user
+*.binlog

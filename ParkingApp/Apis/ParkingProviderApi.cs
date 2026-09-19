@@ -9,7 +9,7 @@ public class ParkingProviderApi : EndpointGroupBase
 {
     public override void Map(IEndpointRouteBuilder app)
     {
-        app.MapGroup(this, "parking-providers")
+        app.MapGroup("parking-providers")
             .MapPost(CreateParkingProvider, "", "")
             .MapGet(ListMyParkingProviders, "", "")
             .RequireAuthorization();

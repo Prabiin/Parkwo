@@ -14,7 +14,7 @@ public class ProfileApi : EndpointGroupBase
 
     public override void Map(IEndpointRouteBuilder app)
     {
-        app.MapGroup(this, "profile")
+        app.MapGroup("profile")
             .MapGet(GetProfile, "", "")
             .MapPut(UpdateProfile, "", "")
             .MapPost(UploadPicture, "picture", "")

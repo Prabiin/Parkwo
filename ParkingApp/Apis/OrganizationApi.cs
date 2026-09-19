@@ -9,7 +9,7 @@ public class OrganizationApi : EndpointGroupBase
 {
     public override void Map(IEndpointRouteBuilder app)
     {
-        app.MapGroup(this, "organizations")
+        app.MapGroup("organizations")
             .MapPost(CreateOrganization, "", "")
             .MapGet(ListMyOrganizations, "", "")
             .RequireAuthorization();

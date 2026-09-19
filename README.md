@@ -533,6 +533,22 @@ dotnet ef database update --project ParkingApp.Infrastructure --startup-project 
 dotnet run --project ParkingApp
 ```
 
+## Test Server (all-in-one: API + Postgres + MinIO)
+
+```bash
+# From the repo root (Docker Desktop must be running)
+docker compose up -d --build
+
+# Follow the API logs (migrations apply automatically at startup)
+docker compose logs -f api
+```
+
+- API: `http://localhost:8080` (OpenAPI JSON at `/openapi/v1.json` in Development)
+- MinIO console: `http://localhost:9001` (admin / admin12345); S3 endpoint `:9000`
+- The `api` service waits for postgres (healthcheck) and applies pending EF migrations on boot, so no manual `database update` is needed. The MinIO `parkingapp` bucket is auto-created on first image upload.
+- Two hostnames matter for MinIO: inside compose the API uses `minio:9000`; phones/browsers open the stored `PublicBaseUrl` (`http://localhost:9000`). If the mobile team tests from other devices on your LAN, replace `localhost` with your machine's LAN IP in `PublicBaseUrl` and the API port accordingly.
+- Tear down: `docker compose down` (add `-v` to also wipe DB + MinIO data).
+
 ## Testing Auth
 
 Use the `ParkingApp.http` file or Postman:

@@ -21,12 +21,9 @@ public static class EndpointGroupExtensions
         return app;
     }
 
-    public static RouteGroupBuilder MapGroup(this IEndpointRouteBuilder app, EndpointGroupBase group, string prefix)
-    {
-        var builder = app.MapGroup(prefix);
-        group.Map(builder);
-        return builder;
-    }
+    // NOTE: endpoint groups call the framework's app.MapGroup(prefix) directly.
+    // A previous helper overload took the group itself and re-entered group.Map(),
+    // causing infinite recursion (StackOverflow) at startup. Do not reintroduce it.
 
     public static RouteGroupBuilder MapGet(this RouteGroupBuilder builder, Delegate handler, string pattern = "", string groupName = "")
     {

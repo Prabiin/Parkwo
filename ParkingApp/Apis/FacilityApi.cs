@@ -21,7 +21,7 @@ public class FacilityApi : EndpointGroupBase
 
     public override void Map(IEndpointRouteBuilder app)
     {
-        app.MapGroup(this, "facilities")
+        app.MapGroup("facilities")
             .MapPost(CreateFacility, "", "")
             .MapGet(ListMyFacilities, "", "")
             .MapGet(GetFacilityById, "{facilityId}", "")

@@ -11,6 +11,11 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U parkingapp_user -d parkingapp"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   redis:
     image: redis:7-alpine
@@ -34,6 +39,33 @@ services:
       - "9001:9001"
     volumes:
       - minio_data:/data
+
+  api:
+    build: .
+    container_name: parkingapp-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_HTTP_PORTS=8080
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=parkingapp;Username=parkingapp_user;Password=parkingapp_password
+      - Jwt__Secret=ParkingApp-Test-Server-Secret-Key-At-Least-32-Chars-Long
+      - Jwt__Issuer=ParkingApp
+      - Jwt__Audience=ParkingApp.Mobile
+      - Jwt__AccessTokenExpirationMinutes=30
+      - Jwt__RefreshTokenExpirationDays=30
+      - Minio__Endpoint=minio:9000
+      - Minio__AccessKey=admin
+      - Minio__SecretKey=admin12345
+      - Minio__Bucket=parkingapp
+      - Minio__UseSsl=false
+      - Minio__PublicBaseUrl=http://localhost:9000
+    ports:
+      - "8080:8080"
 
 volumes:
   postgres_data:

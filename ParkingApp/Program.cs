@@ -1,5 +1,7 @@
+using Microsoft.EntityFrameworkCore;
 using ParkingApp.Api.Infrastructure;
 using ParkingApp.Infrastructure;
+using ParkingApp.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -22,5 +24,13 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapEndpoints();
+
+// Test-server convenience: apply pending EF migrations at startup
+// (compose brings up postgres first via healthcheck, so this is safe here).
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    await db.Database.MigrateAsync();
+}
 
 app.Run();

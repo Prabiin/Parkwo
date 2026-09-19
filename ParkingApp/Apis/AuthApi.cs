@@ -11,7 +11,7 @@ public class AuthApi : EndpointGroupBase
 {
     public override void Map(IEndpointRouteBuilder app)
     {
-        app.MapGroup(this, "auth")
+        app.MapGroup("auth")
             //.RequireAuthorization()
             .MapPost(SendOtp, "/send-otp", "")
             .MapPost(VerifyOtp, "/verify-otp", "")

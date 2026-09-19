@@ -9,7 +9,7 @@ public class VehicleApi : EndpointGroupBase
 {
     public override void Map(IEndpointRouteBuilder app)
     {
-        app.MapGroup(this, "vehicles")
+        app.MapGroup("vehicles")
             .MapGet(ListVehicles, "", "")
             .MapPost(CreateVehicle, "", "")
             .RequireAuthorization();
