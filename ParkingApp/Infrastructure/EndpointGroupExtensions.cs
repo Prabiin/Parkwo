@@ -32,9 +32,14 @@ public static class EndpointGroupExtensions
         return builder;
     }
 
-    public static RouteGroupBuilder MapPost(this RouteGroupBuilder builder, Delegate handler, string pattern = "", string groupName = "")
+    public static RouteGroupBuilder MapPost(this RouteGroupBuilder builder, Delegate handler, string pattern = "", string groupName = "", bool disableAntiforgery = false)
     {
         var endpoint = builder.MapPost(pattern, handler);
+        // File-upload endpoints bind forms, which .NET auto-protects with cookie-based
+        // antiforgery. Our clients use Bearer tokens (no ambient cookies), so CSRF does
+        // not apply — opt out explicitly, otherwise mobile + browser uploads fail.
+        if (disableAntiforgery)
+            endpoint.DisableAntiforgery();
         ApplyGroupName(endpoint, groupName);
         return builder;
     }

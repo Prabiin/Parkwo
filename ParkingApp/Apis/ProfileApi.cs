@@ -17,7 +17,7 @@ public class ProfileApi : EndpointGroupBase
         app.MapGroup("profile")
             .MapGet(GetProfile, "", "")
             .MapPut(UpdateProfile, "", "")
-            .MapPost(UploadPicture, "picture", "")
+            .MapPost(UploadPicture, "picture", "", disableAntiforgery: true)
             .RequireAuthorization();
     }
 

@@ -26,7 +26,7 @@ public class FacilityApi : EndpointGroupBase
             .MapGet(ListMyFacilities, "", "")
             .MapGet(GetFacilityById, "{facilityId}", "")
             .MapPost(CreateSpots, "{facilityId}/spots", "")
-            .MapPost(UploadImages, "{facilityId}/images", "")
+            .MapPost(UploadImages, "{facilityId}/images", "", disableAntiforgery: true)
             .MapPost(CreateReview, "{facilityId}/reviews", "")
             .MapGet(ListReviews, "{facilityId}/reviews", "")
             .RequireAuthorization();
