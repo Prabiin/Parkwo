@@ -598,6 +598,14 @@ Use the `ParkingApp.http` file or Postman:
 4. `GET /facilities` shows your inventory with spot counts, image counts, ratings and `ApprovalStatus`; compliance sees the same via BackOffice.
 5. Riders review once the facility is `Verified`: `POST /facilities/{id}/reviews` (one per rider; a completed-booking gate follows with bookings).
 
+## Branching & Environments
+
+- `main` — frozen release line. Do not commit here directly.
+- `release/dev` — integration branch. All work lands here via PR.
+- `feature/<what>` — checked out from `release/dev`, e.g. `feature/facility-search`. Commit + push the branch, open a PR against `release/dev`.
+- Merging into `release/dev` triggers the `release-dev` workflow: `dotnet test`, then builds the API image and pushes `ghcr.io/prabiin/parkwo:dev` (+ `dev-<sha>`) to GitHub Container Registry. The hosted dev env pulls `:dev`.
+- Later: `release/sit`, `release/uat` branches with their own workflows once development completes.
+
 ## Roadmap (Plans — focus on ONE item at a time)
 
 ### Phase 0 — Release what works today (unblocks the mobile team)
