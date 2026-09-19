@@ -18,13 +18,14 @@ Content-Type: application/json
   "code": "123456"
 }
 
-### Complete onboarding - name/email/gender/DOB (requires Bearer token; phone stays as OTP-verified, not editable here)
+### Complete onboarding - name/phone/email/gender/DOB (requires Bearer token; phone must be the OTP-verified number from the form)
 PUT {{ParkingApp_HostAddress}}/profile
 Authorization: Bearer paste-access-token-here
 Content-Type: application/json
 
 {
   "fullName": "Prabin Khati",
+  "phoneNumber": "+9779800000000",
   "email": "prabin@example.com",
   "gender": "Male",
   "dateOfBirth": "1998-06-15"

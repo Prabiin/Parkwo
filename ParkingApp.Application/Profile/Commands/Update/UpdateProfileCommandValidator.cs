@@ -11,6 +11,10 @@ public sealed class UpdateProfileCommandValidator : AbstractValidator<UpdateProf
             .NotEmpty()
             .MaximumLength(200);
 
+        RuleFor(x => x.PhoneNumber)
+            .NotEmpty()
+            .MaximumLength(20);
+
         RuleFor(x => x.Email)
             .NotEmpty()
             .MaximumLength(255)

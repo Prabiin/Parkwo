@@ -4,10 +4,9 @@ A peer-to-peer parking marketplace API where users find parking spaces and land 
 
 ## Change Log
 
-### 2026-09-19 — Onboarding hardened: gender/DOB mandatory, phone locked
+### 2026-09-19 — Onboarding: phone from request, gender/DOB mandatory
 
-- `PUT /profile` now requires all four onboarding fields: `FullName`, `Email`, `Gender`, `DateOfBirth` (DOB must be a real past date within 120 years). `IsProfileComplete` = name + email + gender + DOB (picture stays optional).
-- `phoneNumber` removed from the PUT body entirely — the number is the OTP-verified one on the token and can't be changed here (number changes go through the `ChangePhoneNumber` OTP flow). Mobile shows it auto-populated and uneditable on the `isNewUser` form.
+- `PUT /profile` takes `FullName`, `PhoneNumber`, `Email`, `Gender`, `DateOfBirth`. The target row is found by the request phone (the OTP-time "dirty" row; UI shows it locked) — a changed/unknown number returns 404. Gender/DOB mandatory; `IsProfileComplete` = name + email + gender + DOB (picture stays optional).
 - No migration (no schema change). Build passes.
 
 ### 2026-09-19 — Facility images (MinIO) + ratings & reviews + profile picture
@@ -431,7 +430,7 @@ The auth flow is built with **CQRS**: every write operation is a command, dispat
 - `VerifyOtpCommandHandler` -- Validates the latest pending OTP (max 5 attempts, expiry); then resolves the account by phone number: unknown number → creates a phone-only account (registration), known number → login; marks phone verified; issues JWT access + refresh tokens; sets `IsNewUser` for onboarding
 - `RefreshTokenCommandHandler` -- Rotates refresh token; if a revoked token is reused, revokes ALL user tokens (theft detection)
 - `CreateVehicleCommandHandler` -- (auth required) Registers a user's vehicle via `ICurrentUserService`; rejects duplicate number plates on the same account
-- `UpdateProfileCommandHandler` -- (auth required) Completes the onboarding step; saves name/email/gender/DOB (all mandatory), unique-checks email, returns `IsProfileComplete`. Phone is never editable here — it stays the OTP-verified number on the token.
+- `UpdateProfileCommandHandler` -- (auth required) Completes the onboarding step; finds the OTP-time row by the request `PhoneNumber` (404 if changed/unknown), saves name/email/gender/DOB (all mandatory), unique-checks email, returns `IsProfileComplete`.
 
 ### 6. API Endpoints
 
@@ -474,7 +473,7 @@ SendOtpCommand      (PhoneNumber, Channel?)                                    -
 VerifyOtpCommand    (PhoneNumber, Code)                                       -> VerifyOtpResponse  (UserId, AccessToken, RefreshToken, AccessTokenExpiresAt, IsNewUser, IsProfileComplete)
 RefreshTokenCommand (RefreshToken)                                            -> RefreshTokenResponse (UserId, AccessToken, RefreshToken, AccessTokenExpiresAt, IsProfileComplete)
 LogoutCommand       (RefreshToken)                                            -> LogoutResponse     (Message)
-UpdateProfileCommand(FullName, Email, Gender, DateOfBirth)                       -> UpdateProfileResponse (FullName, PhoneNumber, Email, Gender, GenderDescription, DateOfBirth, IsProfileComplete)
+UpdateProfileCommand(FullName, PhoneNumber, Email, Gender, DateOfBirth)            -> UpdateProfileResponse (FullName, PhoneNumber, Email, Gender, GenderDescription, DateOfBirth, IsProfileComplete)
 CreateVehicleCommand(VehicleType, Name, VehicleNumber)                        -> CreateVehicleResponse (Id, VehicleType, VehicleTypeDescription, Name, VehicleNumber)
 CreateOrganizationCommand (Name, RegistrationNumber, ContactNumber, Address)   -> CreateOrganizationResponse (Id, Name, RegistrationNumber, ContactNumber, Address, OwnerUserId, ApprovalStatus, ApprovalStatusDescription, MyRole, MyRoleDescription)
 CreateParkingProviderCommand (ProviderType, OrganizationId?)                   -> CreateParkingProviderResponse (Id, ProviderType, ProviderTypeDescription, ApprovalStatus, ApprovalStatusDescription, OwnerUserId, OwnerOrganizationId)
@@ -562,7 +561,7 @@ Use the `ParkingApp.http` file or Postman:
 
 1. **Request OTP**: `POST /api/auth/send-otp` with just the phone number (+ optional `channel`). The code is returned as `DevCode` in the response (dev stand-in for SMS).
 2. **Verify**: `POST /api/auth/verify-otp` with phone + code. Check `isNewUser` / `isProfileComplete` — a phone-only account is auto-created on first use.
-3. **Onboard**: if `isNewUser` (or `!isProfileComplete`), the app routes to the user form: phone number auto-populated from the token and uneditable, user fills full name, email, gender and date of birth (all mandatory) → `PUT /profile`. `IsProfileComplete` = name + email + gender + DOB present (picture stays optional).
+3. **Onboard**: if `isNewUser` (or `!isProfileComplete`), the app routes to the user form: phone number auto-populated from the OTP step and locked, user fills full name, email, gender and date of birth (all mandatory) → `PUT /profile` with all five fields. `IsProfileComplete` = name + email + gender + DOB present (picture stays optional).
 4. **Add vehicle from the app**: from the Vehicles tab, `POST /api/vehicles` with vehicle type + number plate (Bearer token). Vehicle-dependent actions prompt "Add vehicle first" until at least one plate exists.
 5. **Use the access token** in `Authorization: Bearer <token>` header
 6. **Refresh**: `POST /api/auth/refresh-token` when access token expires (returns `isProfileComplete` so unfinished onboarding is re-queued)

@@ -10,35 +10,35 @@ namespace ParkingApp.Application.Profile.Commands.Update;
 
 public sealed record UpdateProfileCommand(
     string FullName,
+    string PhoneNumber,
     string Email,
     GenderEnum Gender,
     DateOnly DateOfBirth)
     : IRequestResult<UpdateProfileCommand, UpdateProfileResponse>;
 
-public sealed class UpdateProfileCommandHandler(IApplicationDbContext context, ICurrentUserService currentUser)
+public sealed class UpdateProfileCommandHandler(IApplicationDbContext context)
     : IRequestResultHandler<UpdateProfileCommand, UpdateProfileResponse>
 {
     public async Task<Result<UpdateProfileResponse>> Handle(UpdateProfileCommand request, CancellationToken cancellationToken = default)
     {
-        var userId = currentUser.UserId;
-        if (userId is null)
-            return Result<UpdateProfileResponse>.Failure("Authentication required.", 401);
+        // Onboarding targets the "dirty" row created at OTP time, identified by the
+        // phone number in the request (auto-populated + locked in the mobile form).
+        // A changed/unknown number finds no row -> 404.
+        var normalizedPhone = request.PhoneNumber.Trim();
 
         var user = await context.Users
-            .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
+            .FirstOrDefaultAsync(u => u.PhoneNumber == normalizedPhone, cancellationToken);
 
         if (user is null)
             return Result<UpdateProfileResponse>.Failure("User not found.", 404);
 
         var normalizedEmail = request.Email.Trim();
         var emailTaken = await context.Users
-            .AnyAsync(u => u.Id != userId && u.Email == normalizedEmail, cancellationToken);
+            .AnyAsync(u => u.Id != user.Id && u.Email == normalizedEmail, cancellationToken);
 
         if (emailTaken)
             return Result<UpdateProfileResponse>.Failure("A user with this email already exists.", 409);
 
-        // PhoneNumber is intentionally not updatable here: the account's number is the
-        // OTP-verified one from the token. Number changes go through the ChangePhoneNumber OTP flow.
         user.FullName = request.FullName.Trim();
         user.Email = normalizedEmail;
         user.Gender = request.Gender;
