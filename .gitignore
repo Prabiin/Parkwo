@@ -55,6 +55,10 @@ migrate-bundle*
 # Local dev uploads (MinIO holds the real files)
 uploads/
 
+# Environment secrets (server .env — never commit)
+.env
+!.env.example
+
 ## OS
 
 .DS_Store

@@ -555,6 +555,26 @@ docker compose logs -f api
 - Two hostnames matter for MinIO: inside compose the API uses `minio:9000`; phones/browsers open the stored `PublicBaseUrl` (`http://localhost:9000`). If the mobile team tests from other devices on your LAN, replace `localhost` with your machine's LAN IP in `PublicBaseUrl` and the API port accordingly.
 - Tear down: `docker compose down` (add `-v` to also wipe DB + MinIO data).
 
+## Hosting the Integration Server (for the mobile team)
+
+Any Linux VPS with Docker works (2 vCPU / 4 GB RAM is plenty for integration).
+
+```bash
+# 1. On the server: install Docker, open ports 22/80/443
+# 2. Point DNS A records at the server: api.<domain>, files.<domain>, minio.<domain>
+# 3. Clone + configure:
+git clone git@github.com:Prabiin/Parkwo.git && cd Parkwo
+cp .env.example .env && nano .env   # fill domains + secrets
+# 4. Launch:
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+```
+
+- API: `https://api.<domain>` — Scalar docs at `https://api.<domain>/scalar`
+- Images served from `https://files.<domain>` (stored in DB URLs, openable on phones)
+- MinIO console: `https://minio.<domain>`
+- Caddy terminates TLS automatically (Let's Encrypt) — required, since mobile OSes reject plain-HTTP APIs.
+- This sandbox intentionally runs `ASPNETCORE_ENVIRONMENT=Development` (Scalar + DevCode OTP visible) so the team can integrate without real SMS. It is **not** a production posture: rotate all secrets and add real SMS + locked-down config before any public launch.
+
 ## Testing Auth
 
 Use the `ParkingApp.http` file or Postman:
