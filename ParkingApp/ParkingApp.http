@@ -1,0 +1,211 @@
+@ParkingApp_HostAddress = http://localhost:5059
+
+### Request an OTP (new or existing user - backend decides purpose)
+POST {{ParkingApp_HostAddress}}/auth/send-otp
+Content-Type: application/json
+
+{
+  "phoneNumber": "+9779800000000",
+  "channel": "Sms"
+}
+
+### Verify OTP (routes to login or auto-registration server-side)
+POST {{ParkingApp_HostAddress}}/auth/verify-otp
+Content-Type: application/json
+
+{
+  "phoneNumber": "+9779800000000",
+  "code": "123456"
+}
+
+### Complete onboarding - name/phone/email/gender/DOB (requires Bearer token)
+PUT {{ParkingApp_HostAddress}}/profile
+Authorization: Bearer paste-access-token-here
+Content-Type: application/json
+
+{
+  "fullName": "Prabin Khati",
+  "phoneNumber": "+9779800000000",
+  "email": "prabin@example.com",
+  "gender": "Male",
+  "dateOfBirth": "1998-06-15"
+}
+
+### Refresh Token
+POST {{ParkingApp_HostAddress}}/auth/refresh-token
+Content-Type: application/json
+
+{
+  "refreshToken": "paste-refresh-token-here"
+}
+
+### Logout (revokes the refresh token)
+POST {{ParkingApp_HostAddress}}/auth/logout
+Content-Type: application/json
+
+{
+  "refreshToken": "paste-refresh-token-here"
+}
+
+### Get profile (requires Bearer token)
+GET {{ParkingApp_HostAddress}}/profile
+Authorization: Bearer paste-access-token-here
+
+### List my vehicles (requires Bearer token)
+GET {{ParkingApp_HostAddress}}/vehicles
+Authorization: Bearer paste-access-token-here
+
+### Add a vehicle (requires Bearer token)
+POST {{ParkingApp_HostAddress}}/vehicles
+Authorization: Bearer paste-access-token-here
+Content-Type: application/json
+
+{
+  "vehicleType": "TwoWheeler",
+  "name": "My Bike",
+  "vehicleNumber": "01-234-Pa-4567"
+}
+
+### BackOffice login (password based, no OTP)
+POST {{ParkingApp_HostAddress}}/backoffice/auth/login
+Content-Type: application/json
+
+{
+  "userNameOrEmail": "SuperAdmin",
+  "password": "P@ssw0rd"
+}
+
+### BackOffice: list riders (optional ?vehicleType)
+GET {{ParkingApp_HostAddress}}/backoffice/riders?vehicleType=TwoWheeler
+Authorization: Bearer paste-backoffice-token-here
+
+### BackOffice: list organizations (optional ?approvalStatus=Pending|Verified|UnderReview|Rejected)
+GET {{ParkingApp_HostAddress}}/backoffice/organizations?approvalStatus=Pending
+Authorization: Bearer paste-backoffice-token-here
+
+### BackOffice: list parking providers (optional ?approvalStatus=Pending|Verified|UnderReview|Rejected)
+GET {{ParkingApp_HostAddress}}/backoffice/parking-providers?approvalStatus=Verified
+Authorization: Bearer paste-backoffice-token-here
+
+### Create an organization (caller becomes Owner; ApprovalStatus=Pending until backoffice approves)
+POST {{ParkingApp_HostAddress}}/organizations
+Content-Type: application/json
+Authorization: Bearer paste-app-token-here
+
+{
+  "name": "Everest Mall",
+  "registrationNumber": "PAN-2026-001",
+  "contactNumber": "+977-1-4455667",
+  "address": "Kamaladi, Kathmandu"
+}
+
+### List organizations I belong to (with my role in each)
+GET {{ParkingApp_HostAddress}}/organizations
+Authorization: Bearer paste-app-token-here
+
+### Become an Individual parking provider (land owner / garage operator; one per account)
+POST {{ParkingApp_HostAddress}}/parking-providers
+Content-Type: application/json
+Authorization: Bearer paste-app-token-here
+
+{
+  "providerType": "Individual"
+}
+
+### Register an owned organization as a Company parking provider
+POST {{ParkingApp_HostAddress}}/parking-providers
+Content-Type: application/json
+Authorization: Bearer paste-app-token-here
+
+{
+  "providerType": "Company",
+  "organizationId": "paste-organization-id-here"
+}
+
+### List my parking providers (individual + companies I own)
+GET {{ParkingApp_HostAddress}}/parking-providers
+Authorization: Bearer paste-app-token-here
+
+### Create a parking facility under a provider I own (ApprovalStatus=Pending until compliance verifies)
+POST {{ParkingApp_HostAddress}}/facilities
+Content-Type: application/json
+Authorization: Bearer paste-app-token-here
+
+{
+  "providerId": "paste-provider-id-here",
+  "name": "Baneshwor Parking",
+  "description": "Ground floor, 24h, staff on site",
+  "address": "Baneshwor, Kathmandu",
+  "latitude": 27.6964,
+  "longitude": 85.3247
+}
+
+### List my facilities (with two/four-wheeler spot counts + approval status)
+GET {{ParkingApp_HostAddress}}/facilities
+Authorization: Bearer paste-app-token-here
+
+### Facility detail with its spots
+GET {{ParkingApp_HostAddress}}/facilities/paste-facility-id-here
+Authorization: Bearer paste-app-token-here
+
+### Add spots in batch (two-wheeler + four-wheeler, per-hour price in NPR)
+POST {{ParkingApp_HostAddress}}/facilities/paste-facility-id-here/spots
+Content-Type: application/json
+Authorization: Bearer paste-app-token-here
+
+{
+  "spots": [
+    { "spotNumber": "B1", "vehicleType": "TwoWheeler", "pricePerHourNpr": 40 },
+    { "spotNumber": "B2", "vehicleType": "TwoWheeler", "pricePerHourNpr": 40 },
+    { "spotNumber": "C1", "vehicleType": "FourWheeler", "pricePerHourNpr": 100 }
+  ]
+}
+
+### BackOffice: list facilities for compliance review (optional ?approvalStatus=Pending)
+GET {{ParkingApp_HostAddress}}/backoffice/facilities?approvalStatus=Pending
+Authorization: Bearer paste-backoffice-token-here
+
+### BackOffice: facility detail incl. every spot (verifies counts + pricing)
+GET {{ParkingApp_HostAddress}}/backoffice/facilities/paste-facility-id-here
+Authorization: Bearer paste-backoffice-token-here
+
+### Upload facility images (optional, MinIO-backed; more images = faster compliance review)
+# NOTE: set Content-Type: multipart/form-data with file fields named "files" (REST Client sends files via $file variables in .http files)
+POST {{ParkingApp_HostAddress}}/facilities/paste-facility-id-here/images
+Authorization: Bearer paste-app-token-here
+Content-Type: multipart/form-data; boundary=----imageboundary
+
+------imageboundary
+Content-Disposition: form-data; name="files"; filename="gate.jpg"
+Content-Type: image/jpeg
+
+< ./gate.jpg
+------imageboundary--
+
+### Upload profile picture (single file, MinIO profile-images/; replaces previous)
+POST {{ParkingApp_HostAddress}}/profile/picture
+Authorization: Bearer paste-app-token-here
+Content-Type: multipart/form-data; boundary=----imageboundary
+
+------imageboundary
+Content-Disposition: form-data; name="file"; filename="me.jpg"
+Content-Type: image/jpeg
+
+< ./me.jpg
+------imageboundary--
+
+### Review a facility (verified facilities only, one review per rider)
+POST {{ParkingApp_HostAddress}}/facilities/paste-facility-id-here/reviews
+Content-Type: application/json
+Authorization: Bearer paste-rider-token-here
+
+{
+  "rating": 5,
+  "comment": "Easy entry, guard on site."
+}
+
+### List facility reviews (newest first, with aggregate rating)
+GET {{ParkingApp_HostAddress}}/facilities/paste-facility-id-here/reviews
+Authorization: Bearer paste-app-token-here
+
+###

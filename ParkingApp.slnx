@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/Solution Items/">
+    <File Path="docker-compose.yml" />
+  </Folder>
+  <Project Path="ParkingApp.Application/ParkingApp.Application.csproj" />
+  <Project Path="ParkingApp.Domain/ParkingApp.Domain.csproj" />
+  <Project Path="ParkingApp.Infrastructure/ParkingApp.Infrastructure.csproj" />
+  <Project Path="ParkingApp.Tests/ParkingApp.Tests.csproj" />
+  <Project Path="ParkingApp/ParkingApp.Api.csproj" />
+</Solution>

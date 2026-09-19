@@ -1,0 +1,27 @@
+using System.Text.RegularExpressions;
+using FluentValidation;
+using ParkingApp.Domain.Common.Enums;
+
+namespace ParkingApp.Application.Vehicles.Commands.Create;
+
+public sealed class CreateVehicleCommandValidator : AbstractValidator<CreateVehicleCommand>
+{
+    public CreateVehicleCommandValidator()
+    {
+        RuleFor(x => x.VehicleType)
+            .NotEmpty()
+            .IsEnumName(typeof(VehicleTypeEnum));
+
+        RuleFor(x => x.Name)
+            .NotEmpty()
+            .MaximumLength(100);
+
+        RuleFor(x => x.VehicleNumber)
+            .NotEmpty()
+            .MinimumLength(3)
+            .MaximumLength(20)
+            .Matches(@"^\s*[\p{IsDevanagari}A-Za-z0-9][\p{IsDevanagari}A-Za-z0-9\s\-\.]{1,19}\s*$",
+                RegexOptions.IgnoreCase)
+            .WithMessage("Vehicle number does not look like a valid number plate.");
+    }
+}
