@@ -9,4 +9,4 @@ FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app
 COPY --from=build /app/publish .
 EXPOSE 8080
-ENTRYPOINT ["dotnet", "ParkingApp.Api.dll"]
+ENTRYPOINT ["sh", "-c", "dotnet ParkingApp.Api.dll --urls http://0.0.0.0:${PORT:-8080}"]

@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using ParkingApp.Api.Infrastructure;
 using ParkingApp.Infrastructure;
@@ -35,6 +36,19 @@ builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
+
+// Behind Render (or any TLS-terminating proxy) the app receives plain HTTP
+// plus X-Forwarded-Proto/For headers. Honor them so generated URLs (OpenAPI
+// server, Scalar Try-it) use the public https scheme. Must run first.
+// KnownNetworks/Proxies are cleared because cloud proxy IPs are dynamic;
+// Render only routes to this app through its own proxy.
+var forwardedOptions = new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+};
+forwardedOptions.KnownIPNetworks.Clear();
+forwardedOptions.KnownProxies.Clear();
+app.UseForwardedHeaders(forwardedOptions);
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
