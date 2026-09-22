@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using ParkingApp.Api.Infrastructure;
@@ -32,6 +33,14 @@ builder.Host.UseSerilog();
 
 // Add services to the container.
 builder.Services.AddInfrastructure(builder.Configuration);
+
+// Allow enum names ("TwoWheeler", "Male") in JSON bodies, not just ints.
+// Integer values still bind too. Needed now that commands take enums directly
+// (e.g. CreateVehicleCommand.VehicleType, UpdateProfileCommand.Gender).
+builder.Services.ConfigureHttpJsonOptions(options =>
+{
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
+});
 
 builder.Services.AddOpenApi();
 

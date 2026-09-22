@@ -10,19 +10,19 @@ namespace ParkingApp.Application.ParkingProviders.Commands.Create;
 public sealed record CreateParkingProviderCommand(
     string ProviderType,
     Guid? OrganizationId)
-    : IRequestResult<CreateParkingProviderCommand, CreateParkingProviderResponse>;
+    : IRequestResult<CreateParkingProviderCommand, Guid>;
 
 public sealed class CreateParkingProviderCommandHandler(IApplicationDbContext context, ICurrentUserService currentUser)
-    : IRequestResultHandler<CreateParkingProviderCommand, CreateParkingProviderResponse>
+    : IRequestResultHandler<CreateParkingProviderCommand, Guid>
 {
-    public async Task<Result<CreateParkingProviderResponse>> Handle(CreateParkingProviderCommand request, CancellationToken cancellationToken = default)
+    public async Task<Result<Guid>> Handle(CreateParkingProviderCommand request, CancellationToken cancellationToken = default)
     {
         var userId = currentUser.UserId;
         if (userId is null)
-            return Result<CreateParkingProviderResponse>.Failure("Authentication required.", 401);
+            return Result<Guid>.Failure("Authentication required.", 401);
 
         if (!Enum.TryParse<ProviderTypeEnum>(request.ProviderType, ignoreCase: true, out var providerType))
-            return Result<CreateParkingProviderResponse>.Failure("Invalid provider type.");
+            return Result<Guid>.Failure("Invalid provider type.");
 
         var provider = new ParkingProvider
         {
@@ -33,14 +33,14 @@ public sealed class CreateParkingProviderCommandHandler(IApplicationDbContext co
         if (providerType == ProviderTypeEnum.Individual)
         {
             if (request.OrganizationId is not null)
-                return Result<CreateParkingProviderResponse>.Failure(
+                return Result<Guid>.Failure(
                     "OrganizationId is not allowed for an individual parking provider.");
 
             var alreadyIndividual = await context.ParkingProviders
                 .AnyAsync(p => p.OwnerUserId == userId, cancellationToken);
 
             if (alreadyIndividual)
-                return Result<CreateParkingProviderResponse>.Failure(
+                return Result<Guid>.Failure(
                     "You already have an individual parking provider profile.", 409);
 
             provider.OwnerUserId = userId;
@@ -48,7 +48,7 @@ public sealed class CreateParkingProviderCommandHandler(IApplicationDbContext co
         else
         {
             if (request.OrganizationId is null)
-                return Result<CreateParkingProviderResponse>.Failure(
+                return Result<Guid>.Failure(
                     "OrganizationId is required for a company parking provider.");
 
             var isOwner = await context.UserOrganizations
@@ -57,14 +57,14 @@ public sealed class CreateParkingProviderCommandHandler(IApplicationDbContext co
                                && m.Role == OrganizationRoleEnum.Owner, cancellationToken);
 
             if (!isOwner)
-                return Result<CreateParkingProviderResponse>.Failure(
+                return Result<Guid>.Failure(
                     "You must own the organization to register it as a parking provider.", 403);
 
             var alreadyRegistered = await context.ParkingProviders
                 .AnyAsync(p => p.OwnerOrganizationId == request.OrganizationId, cancellationToken);
 
             if (alreadyRegistered)
-                return Result<CreateParkingProviderResponse>.Failure(
+                return Result<Guid>.Failure(
                     "This organization already has a parking provider profile.", 409);
 
             provider.OwnerOrganizationId = request.OrganizationId;
@@ -73,14 +73,6 @@ public sealed class CreateParkingProviderCommandHandler(IApplicationDbContext co
         context.ParkingProviders.Add(provider);
         await context.SaveChangesAsync(cancellationToken);
 
-        return Result<CreateParkingProviderResponse>.Success(
-            new CreateParkingProviderResponse(
-                provider.Id,
-                provider.ProviderType,
-                provider.ProviderType.ToDescription(),
-                provider.ApprovalStatus,
-                provider.ApprovalStatus.ToDescription(),
-                provider.OwnerUserId,
-                provider.OwnerOrganizationId));
+        return Result<Guid>.Success(provider.Id);
     }
 }

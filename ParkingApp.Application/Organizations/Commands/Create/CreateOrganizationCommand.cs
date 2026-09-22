@@ -12,16 +12,16 @@ public sealed record CreateOrganizationCommand(
     string RegistrationNumber,
     string ContactNumber,
     string Address)
-    : IRequestResult<CreateOrganizationCommand, CreateOrganizationResponse>;
+    : IRequestResult<CreateOrganizationCommand, Guid>;
 
 public sealed class CreateOrganizationCommandHandler(IApplicationDbContext context, ICurrentUserService currentUser)
-    : IRequestResultHandler<CreateOrganizationCommand, CreateOrganizationResponse>
+    : IRequestResultHandler<CreateOrganizationCommand, Guid>
 {
-    public async Task<Result<CreateOrganizationResponse>> Handle(CreateOrganizationCommand request, CancellationToken cancellationToken = default)
+    public async Task<Result<Guid>> Handle(CreateOrganizationCommand request, CancellationToken cancellationToken = default)
     {
         var userId = currentUser.UserId;
         if (userId is null)
-            return Result<CreateOrganizationResponse>.Failure("Authentication required.", 401);
+            return Result<Guid>.Failure("Authentication required.", 401);
 
         var registrationNumber = request.RegistrationNumber.Trim();
 
@@ -29,7 +29,7 @@ public sealed class CreateOrganizationCommandHandler(IApplicationDbContext conte
             .AnyAsync(o => o.RegistrationNumber == registrationNumber, cancellationToken);
 
         if (exists)
-            return Result<CreateOrganizationResponse>.Failure(
+            return Result<Guid>.Failure(
                 "An organization with this registration number already exists.", 409);
 
         var organization = new Organization
@@ -55,17 +55,6 @@ public sealed class CreateOrganizationCommandHandler(IApplicationDbContext conte
         context.UserOrganizations.Add(membership);
         await context.SaveChangesAsync(cancellationToken);
 
-        return Result<CreateOrganizationResponse>.Success(
-            new CreateOrganizationResponse(
-                organization.Id,
-                organization.Name,
-                organization.RegistrationNumber,
-                organization.ContactNumber,
-                organization.Address,
-                organization.OwnerUserId,
-                organization.ApprovalStatus,
-                organization.ApprovalStatus.ToDescription(),
-                OrganizationRoleEnum.Owner,
-                OrganizationRoleEnum.Owner.ToDescription()));
+        return Result<Guid>.Success(organization.Id);
     }
 }

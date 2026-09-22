@@ -17,7 +17,7 @@ public class OrganizationApi : EndpointGroupBase
 
     private static async Task<IResult> CreateOrganization(ISender sender, IServiceProvider serviceProvider,
         CreateOrganizationCommand request, CancellationToken cancellationToken)
-        => await ExecuteCommand<CreateOrganizationCommand, CreateOrganizationResponse>(sender,
+        => await ExecuteCommand<CreateOrganizationCommand, Guid>(sender,
             request, serviceProvider, cancellationToken);
 
     private static async Task<IResult> ListMyOrganizations(ISender sender, IServiceProvider serviceProvider,

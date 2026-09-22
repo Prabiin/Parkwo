@@ -2,8 +2,10 @@ using Microsoft.EntityFrameworkCore;
 using ParkingApp.Api.Infrastructure;
 using ParkingApp.Application.Common.Cqrs;
 using ParkingApp.Application.Common.Interfaces;
+using ParkingApp.Application.Common.Models;
 using ParkingApp.Application.Profile.Commands.Update;
 using ParkingApp.Application.Profile.Queries.GetProfile;
+using ParkingApp.Domain.Common.Enums;
 
 namespace ParkingApp.Api.Apis;
 
@@ -16,10 +18,14 @@ public class ProfileApi : EndpointGroupBase
     {
         app.MapGroup("profile")
             .MapGet(GetProfile, "", "")
+            .MapGet(GetProfileInit, "init", "")
             .MapPut(UpdateProfile, "", "")
             .MapPost(UploadPicture, "picture", "", disableAntiforgery: true)
             .RequireAuthorization();
     }
+
+    private static IResult GetProfileInit()
+        => Results.Ok(new { Genders = ListModel<GenderEnum>.FromEnum() });
 
     private static async Task<IResult> GetProfile(ISender sender, IServiceProvider serviceProvider,
         CancellationToken cancellationToken)
@@ -28,7 +34,7 @@ public class ProfileApi : EndpointGroupBase
 
     private static async Task<IResult> UpdateProfile(ISender sender, IServiceProvider serviceProvider,
         UpdateProfileCommand request, CancellationToken cancellationToken)
-        => await ExecuteCommand<UpdateProfileCommand, UpdateProfileResponse>(sender,
+        => await ExecuteCommand<UpdateProfileCommand, Guid>(sender,
             request, serviceProvider, cancellationToken);
 
     private static async Task<IResult> UploadPicture(IFormFile file,

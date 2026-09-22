@@ -1,6 +1,5 @@
 using System.Text.RegularExpressions;
 using FluentValidation;
-using ParkingApp.Domain.Common.Enums;
 
 namespace ParkingApp.Application.Vehicles.Commands.Create;
 
@@ -9,8 +8,7 @@ public sealed class CreateVehicleCommandValidator : AbstractValidator<CreateVehi
     public CreateVehicleCommandValidator()
     {
         RuleFor(x => x.VehicleType)
-            .NotEmpty()
-            .IsEnumName(typeof(VehicleTypeEnum));
+            .IsInEnum();
 
         RuleFor(x => x.Name)
             .NotEmpty()

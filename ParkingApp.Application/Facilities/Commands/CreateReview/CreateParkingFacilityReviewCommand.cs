@@ -11,25 +11,25 @@ public sealed record CreateParkingFacilityReviewCommand(
     Guid FacilityId,
     int Rating,
     string? Comment)
-    : IRequestResult<CreateParkingFacilityReviewCommand, CreateParkingFacilityReviewResponse>;
+    : IRequestResult<CreateParkingFacilityReviewCommand, Guid>;
 
 public sealed class CreateParkingFacilityReviewCommandHandler(IApplicationDbContext context, ICurrentUserService currentUser)
-    : IRequestResultHandler<CreateParkingFacilityReviewCommand, CreateParkingFacilityReviewResponse>
+    : IRequestResultHandler<CreateParkingFacilityReviewCommand, Guid>
 {
-    public async Task<Result<CreateParkingFacilityReviewResponse>> Handle(CreateParkingFacilityReviewCommand request, CancellationToken cancellationToken = default)
+    public async Task<Result<Guid>> Handle(CreateParkingFacilityReviewCommand request, CancellationToken cancellationToken = default)
     {
         var userId = currentUser.UserId;
         if (userId is null)
-            return Result<CreateParkingFacilityReviewResponse>.Failure("Authentication required.", 401);
+            return Result<Guid>.Failure("Authentication required.", 401);
 
         var facility = await context.ParkingFacilities
             .FirstOrDefaultAsync(f => f.Id == request.FacilityId, cancellationToken);
 
         if (facility is null)
-            return Result<CreateParkingFacilityReviewResponse>.Failure("Parking facility not found.", 404);
+            return Result<Guid>.Failure("Parking facility not found.", 404);
 
         if (facility.ApprovalStatus != ApprovalStatusEnum.Verified)
-            return Result<CreateParkingFacilityReviewResponse>.Failure(
+            return Result<Guid>.Failure(
                 "This facility must be verified before it can be reviewed.");
 
         // TODO(bookings): require a completed booking/payment for this facility + author,
@@ -40,7 +40,7 @@ public sealed class CreateParkingFacilityReviewCommandHandler(IApplicationDbCont
             .AnyAsync(r => r.FacilityId == request.FacilityId && r.AuthorId == userId, cancellationToken);
 
         if (alreadyReviewed)
-            return Result<CreateParkingFacilityReviewResponse>.Failure(
+            return Result<Guid>.Failure(
                 "You have already reviewed this facility.", 409);
 
         var review = new ParkingFacilityReview
@@ -63,15 +63,6 @@ public sealed class CreateParkingFacilityReviewCommandHandler(IApplicationDbCont
         context.ParkingFacilityReviews.Add(review);
         await context.SaveChangesAsync(cancellationToken);
 
-        return Result<CreateParkingFacilityReviewResponse>.Success(
-            new CreateParkingFacilityReviewResponse(
-                review.Id,
-                review.FacilityId,
-                review.Rating,
-                review.Comment,
-                review.AuthorId,
-                review.CreatedAtUtc,
-                facility.AverageRating,
-                facility.RatingCount));
+        return Result<Guid>.Success(review.Id);
     }
 }

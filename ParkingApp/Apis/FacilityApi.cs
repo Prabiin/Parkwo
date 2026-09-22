@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using ParkingApp.Api.Infrastructure;
+using ParkingApp.Application.Common;
 using ParkingApp.Application.Common.Cqrs;
 using ParkingApp.Application.Common.Helpers;
 using ParkingApp.Application.Common.Interfaces;
@@ -34,7 +35,7 @@ public class FacilityApi : EndpointGroupBase
 
     private static async Task<IResult> CreateFacility(ISender sender, IServiceProvider serviceProvider,
         CreateParkingFacilityCommand request, CancellationToken cancellationToken)
-        => await ExecuteCommand<CreateParkingFacilityCommand, CreateParkingFacilityResponse>(sender,
+        => await ExecuteCommand<CreateParkingFacilityCommand, Guid>(sender,
             request, serviceProvider, cancellationToken);
 
     private static async Task<IResult> ListMyFacilities(ISender sender, IServiceProvider serviceProvider,
@@ -49,12 +50,12 @@ public class FacilityApi : EndpointGroupBase
 
     private static async Task<IResult> CreateSpots(ISender sender, IServiceProvider serviceProvider,
         Guid facilityId, CreateParkingSpotsCommand request, CancellationToken cancellationToken)
-        => await ExecuteCommand<CreateParkingSpotsCommand, CreateParkingSpotsResponse>(sender,
+        => await ExecuteCommand<CreateParkingSpotsCommand, Unit>(sender,
             request with { FacilityId = facilityId }, serviceProvider, cancellationToken);
 
     private static async Task<IResult> CreateReview(ISender sender, IServiceProvider serviceProvider,
         Guid facilityId, CreateParkingFacilityReviewCommand request, CancellationToken cancellationToken)
-        => await ExecuteCommand<CreateParkingFacilityReviewCommand, CreateParkingFacilityReviewResponse>(sender,
+        => await ExecuteCommand<CreateParkingFacilityReviewCommand, Guid>(sender,
             request with { FacilityId = facilityId }, serviceProvider, cancellationToken);
 
     private static async Task<IResult> ListReviews(ISender sender, IServiceProvider serviceProvider,

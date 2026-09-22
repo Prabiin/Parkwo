@@ -17,7 +17,7 @@ public class ParkingProviderApi : EndpointGroupBase
 
     private static async Task<IResult> CreateParkingProvider(ISender sender, IServiceProvider serviceProvider,
         CreateParkingProviderCommand request, CancellationToken cancellationToken)
-        => await ExecuteCommand<CreateParkingProviderCommand, CreateParkingProviderResponse>(sender,
+        => await ExecuteCommand<CreateParkingProviderCommand, Guid>(sender,
             request, serviceProvider, cancellationToken);
 
     private static async Task<IResult> ListMyParkingProviders(ISender sender, IServiceProvider serviceProvider,

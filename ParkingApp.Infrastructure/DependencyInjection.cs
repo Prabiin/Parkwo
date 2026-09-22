@@ -15,6 +15,7 @@ using ParkingApp.Application.BackOffice.Queries.GetParkingFacilities;
 using ParkingApp.Application.BackOffice.Queries.GetParkingFacilityDetail;
 using ParkingApp.Application.BackOffice.Queries.GetParkingProviders;
 using ParkingApp.Application.BackOffice.Queries.GetRiders;
+using ParkingApp.Application.Common;
 using ParkingApp.Application.Common.Cqrs;
 using ParkingApp.Application.Common.Interfaces;
 using ParkingApp.Application.Configuration;
@@ -109,8 +110,8 @@ public static class DependencyInjection
         services.AddScoped<IRequestResultHandler<VerifyOtpCommand, VerifyOtpResponse>, VerifyOtpCommandHandler>();
         services.AddScoped<IRequestResultHandler<RefreshTokenCommand, RefreshTokenResponse>, RefreshTokenCommandHandler>();
         services.AddScoped<IRequestResultHandler<LogoutCommand, LogoutResponse>, LogoutCommandHandler>();
-        services.AddScoped<IRequestResultHandler<CreateVehicleCommand, CreateVehicleResponse>, CreateVehicleCommandHandler>();
-        services.AddScoped<IRequestResultHandler<UpdateProfileCommand, UpdateProfileResponse>, UpdateProfileCommandHandler>();
+        services.AddScoped<IRequestResultHandler<CreateVehicleCommand, Guid>, CreateVehicleCommandHandler>();
+        services.AddScoped<IRequestResultHandler<UpdateProfileCommand, Guid>, UpdateProfileCommandHandler>();
         services.AddScoped<IRequestResultHandler<GetProfileQuery, GetProfileResponse>, GetProfileQueryHandler>();
         services.AddScoped<IRequestResultHandler<GetVehiclesQuery, GetVehiclesResponse>, GetVehiclesQueryHandler>();
         services.AddScoped<IRequestResultHandler<BackOfficeLoginCommand, BackOfficeLoginResponse>, BackOfficeLoginCommandHandler>();
@@ -118,19 +119,19 @@ public static class DependencyInjection
         services.AddScoped<IRequestResultHandler<GetOrganizationsQuery, GetOrganizationsResponse>, GetOrganizationsQueryHandler>();
         services.AddScoped<IRequestResultHandler<GetParkingProvidersQuery, GetParkingProvidersResponse>, GetParkingProvidersQueryHandler>();
 
-        services.AddScoped<IRequestResultHandler<CreateOrganizationCommand, CreateOrganizationResponse>, CreateOrganizationCommandHandler>();
+        services.AddScoped<IRequestResultHandler<CreateOrganizationCommand, Guid>, CreateOrganizationCommandHandler>();
         services.AddScoped<IRequestResultHandler<GetMyOrganizationsQuery, GetMyOrganizationsResponse>, GetMyOrganizationsQueryHandler>();
-        services.AddScoped<IRequestResultHandler<CreateParkingProviderCommand, CreateParkingProviderResponse>, CreateParkingProviderCommandHandler>();
+        services.AddScoped<IRequestResultHandler<CreateParkingProviderCommand, Guid>, CreateParkingProviderCommandHandler>();
         services.AddScoped<IRequestResultHandler<GetMyParkingProvidersQuery, GetMyParkingProvidersResponse>, GetMyParkingProvidersQueryHandler>();
 
-        services.AddScoped<IRequestResultHandler<CreateParkingFacilityCommand, CreateParkingFacilityResponse>, CreateParkingFacilityCommandHandler>();
-        services.AddScoped<IRequestResultHandler<CreateParkingSpotsCommand, CreateParkingSpotsResponse>, CreateParkingSpotsCommandHandler>();
+        services.AddScoped<IRequestResultHandler<CreateParkingFacilityCommand, Guid>, CreateParkingFacilityCommandHandler>();
+        services.AddScoped<IRequestResultHandler<CreateParkingSpotsCommand, Unit>, CreateParkingSpotsCommandHandler>();
         services.AddScoped<IRequestResultHandler<GetMyParkingFacilitiesQuery, GetMyParkingFacilitiesResponse>, GetMyParkingFacilitiesQueryHandler>();
         services.AddScoped<IRequestResultHandler<GetParkingFacilityByIdQuery, GetParkingFacilityByIdResponse>, GetParkingFacilityByIdQueryHandler>();
         services.AddScoped<IRequestResultHandler<GetParkingFacilitiesQuery, GetParkingFacilitiesResponse>, GetParkingFacilitiesQueryHandler>();
         services.AddScoped<IRequestResultHandler<GetParkingFacilityDetailQuery, GetParkingFacilityDetailResponse>, GetParkingFacilityDetailQueryHandler>();
 
-        services.AddScoped<IRequestResultHandler<CreateParkingFacilityReviewCommand, CreateParkingFacilityReviewResponse>, CreateParkingFacilityReviewCommandHandler>();
+        services.AddScoped<IRequestResultHandler<CreateParkingFacilityReviewCommand, Guid>, CreateParkingFacilityReviewCommandHandler>();
         services.AddScoped<IRequestResultHandler<GetParkingFacilityReviewsQuery, GetParkingFacilityReviewsResponse>, GetParkingFacilityReviewsQueryHandler>();
 
         // Command validators

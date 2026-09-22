@@ -4,6 +4,16 @@ A peer-to-peer parking marketplace API where users find parking spaces and land 
 
 ## Change Log
 
+### 2026-09-22 — Enum-as-request, dropdown init APIs, slim write responses
+
+- `CreateVehicleCommand.VehicleType` changed from `string` to `VehicleTypeEnum` — the manual `Enum.TryParse` in the handler is gone; the validator moved from `IsEnumName` (string-only) to `IsInEnum()`, matching the existing `UpdateProfileCommand.Gender` precedent.
+- `Program.cs` now registers `JsonStringEnumConverter` via `ConfigureHttpJsonOptions`, so enum names (`"TwoWheeler"`, `"Male"`, case-insensitive) bind from JSON bodies — plain ints (`1`, `2`) still bind, and numeric strings (`"1"`) bind too. This also fixes `PUT /profile` `"gender": "Male"`, which had the same latent issue.
+- New common dropdown model `ListModel<T>` (`ParkingApp.Application/Common/Models/ListModel.cs`, `Code` = enum int value as string, `Text` = `[Description]` via `ToDescription()`) with `ListModel<T>.FromEnum()` factory.
+- New auth-required init endpoints for dropdowns: `GET /profile/init` → `{ genders[] }`, `GET /vehicles/init` → `{ vehicleTypes[] }`, e.g. `{ "code": "1", "text": "Two wheeler" }`. Mobile shows `text`, posts back `code`.
+- Write responses slimmed to ids — creates/updates no longer echo the request: `CreateVehicle` / `UpdateProfile` / `CreateOrganization` / `CreateParkingProvider` / `CreateParkingFacility` / `CreateParkingFacilityReview` → `Guid`; batch `CreateParkingSpots` → `Unit` (new `Application/Common/Unit.cs`; the client already has the `facilityId` from the URL). The 7 echo response DTOs were deleted and a dead re-query for spot counts (only used to build the echo) was removed from the spots handler. Mobile re-fetches display data via the existing `GET`s. Auth/OTP/login payloads untouched.
+- Documented contracts: `DateOfBirth` is `DateOnly` — mobile sends `"yyyy-MM-dd"` (e.g. `"1998-06-15"`; no time component, other formats 400); `Vehicle.Name` is a free-text display label (`"Daily Dio"`) so riders can tell multiple plates apart — `VehicleType` drives spot matching, `VehicleNumber` is identity.
+- No migration (no schema change). Build passes.
+
 ### 2026-09-19 — Onboarding: phone from request, gender/DOB mandatory
 
 - `PUT /profile` takes `FullName`, `PhoneNumber`, `Email`, `Gender`, `DateOfBirth`. The target row is found by the request phone (the OTP-time "dirty" row; UI shows it locked) — a changed/unknown number returns 404 — and must belong to the token owner (403 otherwise, blocking cross-account overwrites). Gender/DOB mandatory; `IsProfileComplete` = name + email + gender + DOB (picture stays optional).
@@ -91,6 +101,47 @@ No business-logic changes today. The goal was to lock in the folder pattern the 
 - [ ] Move `ISender`, `IRequestResult`, `IRequestResultHandler` from `Common/Interfaces/` → `Common/Cqrs/`.
 - [ ] Move `JwtSettings` from `Common/` → a `Configuration/` folder.
 - [ ] Move `AuthDbHelper` from `Common/Helpers/` → `Auth/Shared/`.
+
+## Business Logic (till now)
+
+> Read-first section — skim this at the start of every session before touching code. If a flow isn't written here, it isn't decided yet.
+
+**Parkwo in one line:** one app, one account, three hats — the same `User` is a **rider**, a **parking provider**, and a **company admin** at the same time, with no role or app switching (Pathao rider + pillion model). The hat is decided per action, not per login.
+
+### Hat 1 — Rider (demand): register → find → book → park → pay
+
+1. OTP login/registration (phone-first), then onboarding (`PUT /profile`).
+2. Register vehicle from the Vehicles tab (`GET /vehicles/init` → `POST /vehicles`).
+3. Find nearby parking → book → park → pay.
+4. Step 3 is **planned, not built** — no search/booking/payment code exists yet (Roadmap Phases 3–4).
+
+### Hat 2 — Provider (supply): land → provider → facility → spots → verified
+
+1. Rider with land calls `POST /parking-providers` (`Individual` — one per account, no org needed).
+2. App immediately asks for the facility: `POST /facilities` (name, address, lat/long, description).
+3. Pricing/spots/images follow on the other Facilities endpoints (`POST .../spots` batch, `POST .../images` multipart).
+4. Compliance verifies in BackOffice (`Pending` → `Verified`); only then can riders book/review it.
+5. Nothing about the `User` row changes — the rider just gains a provider profile.
+
+### Hat 3 — Company (fleet demand): register → approval → employee subscriptions
+
+1. Rider as company owner calls `POST /organizations` (name, registrationNumber unique, contactNumber, address); caller becomes `Owner`.
+2. Compliance checks the profile from BackOffice; on approval the company can book parking **subscriptions for all its employees**.
+3. Step 2's subscription model is **decided as direction, not designed** — no subscription/employee-booking code exists. Open questions before Phase 4: whose vehicle, whose wallet, who may book on the company's behalf (`Owner`? `Admin`?).
+
+### Rules that must not break
+
+- **One user, many profiles.** Hats are rows (`ParkingProvider`, `UserOrganization`), never a role switch on the user.
+- **Phone is identity.** OTP-time row is found by request phone (`PUT /profile`: 404 on unknown number, 403 when the number isn't the token owner's); email is unique-checked.
+- **Ownership gating.** Facility writes require `ProviderOwnership`: direct `OwnerUserId`, or `Owner` role on the owning org.
+- **Approval gates supply, never demand.** Riders need no KYC; orgs/providers/facilities trade only after `Verified`.
+- **Uniqueness:** plate per account; `registrationNumber` global; spot number per facility; one `Individual` provider per user; one provider per org; one review per rider per facility (and only on `Verified` facilities).
+- **Write responses are ids** (`Guid`/`Unit`) — display data always comes from the `GET`s.
+
+### Built vs planned (2026-09-22)
+
+- Built: OTP auth, onboarding, vehicles, dropdown inits (`/profile/init`, `/vehicles/init`), org/provider/facility/spots/images/reviews, BackOffice lists + login.
+- Planned: nearby search, booking, parking/QR, payments (eSewa/Khalti/IME/Fonepay), company employee subscriptions + on-behalf booking rules.
 
 ## Tech Stack
 
@@ -443,19 +494,21 @@ Endpoints are defined as **minimal API endpoint groups** (`ParkingApp/Apis/AuthA
 | POST | `/api/auth/refresh-token` | `RefreshTokenRequest` | `RefreshTokenResponse` | No |
 | POST | `/api/auth/logout` | `LogoutRequest` | `LogoutResponse` | No |
 | GET | `/api/profile` | — | `GetProfileResponse` | Bearer token |
-| PUT | `/api/profile` | `UpdateProfileRequest` | `UpdateProfileResponse` | Bearer token |
+| PUT | `/api/profile` | `UpdateProfileRequest` | `Guid` (user id; re-fetch via `GET /profile`) | Bearer token |
+| GET | `/profile/init` | — | `{ Genders[Code, Text] }` | Bearer token |
 | GET | `/api/vehicles` | — | `GetVehiclesResponse` | Bearer token |
-| POST | `/api/vehicles` | `CreateVehicleRequest` | `CreateVehicleResponse` | Bearer token |
+| POST | `/api/vehicles` | `CreateVehicleRequest` | `Guid` (vehicle id; re-fetch via `GET /vehicles`) | Bearer token |
+| GET | `/vehicles/init` | — | `{ VehicleTypes[Code, Text] }` | Bearer token |
 | GET | `/organizations` | — | `GetMyOrganizationsResponse` | Bearer token |
-| POST | `/organizations` | `CreateOrganizationRequest` | `CreateOrganizationResponse` | Bearer token |
+| POST | `/organizations` | `CreateOrganizationRequest` | `Guid` (organization id) | Bearer token |
 | GET | `/parking-providers` | — | `GetMyParkingProvidersResponse` | Bearer token |
-| POST | `/parking-providers` | `CreateParkingProviderRequest` | `CreateParkingProviderResponse` | Bearer token |
+| POST | `/parking-providers` | `CreateParkingProviderRequest` | `Guid` (provider id) | Bearer token |
 | GET | `/facilities` | — | `GetMyParkingFacilitiesResponse` | Bearer token |
-| POST | `/facilities` | `CreateParkingFacilityRequest` | `CreateParkingFacilityResponse` | Bearer token |
+| POST | `/facilities` | `CreateParkingFacilityRequest` | `Guid` (facility id) | Bearer token |
 | GET | `/facilities/{facilityId}` | — | `GetParkingFacilityByIdResponse` | Bearer token |
-| POST | `/facilities/{facilityId}/spots` | `CreateParkingSpotsRequest` | `CreateParkingSpotsResponse` | Bearer token |
+| POST | `/facilities/{facilityId}/spots` | `CreateParkingSpotsRequest` | `Unit` (`{}`; re-fetch via `GET /facilities/{id}`) | Bearer token |
 | POST | `/facilities/{facilityId}/images` | multipart `files` | `{ Images[] }` | Bearer token |
-| POST | `/facilities/{facilityId}/reviews` | `CreateParkingFacilityReviewRequest` | `CreateParkingFacilityReviewResponse` | Bearer token |
+| POST | `/facilities/{facilityId}/reviews` | `CreateParkingFacilityReviewRequest` | `Guid` (review id) | Bearer token |
 | GET | `/facilities/{facilityId}/reviews` | — | `GetParkingFacilityReviewsResponse` | Bearer token |
 | POST | `/profile/picture` | multipart `file` | `{ ProfileImageUrl }` | Bearer token |
 | POST | `/backoffice/auth/login` | `BackOfficeLoginRequest` | `BackOfficeLoginResponse` | No |
@@ -473,15 +526,15 @@ SendOtpCommand      (PhoneNumber, Channel?)                                    -
 VerifyOtpCommand    (PhoneNumber, Code)                                       -> VerifyOtpResponse  (UserId, AccessToken, RefreshToken, AccessTokenExpiresAt, IsNewUser, IsProfileComplete)
 RefreshTokenCommand (RefreshToken)                                            -> RefreshTokenResponse (UserId, AccessToken, RefreshToken, AccessTokenExpiresAt, IsProfileComplete)
 LogoutCommand       (RefreshToken)                                            -> LogoutResponse     (Message)
-UpdateProfileCommand(FullName, PhoneNumber, Email, Gender, DateOfBirth)            -> UpdateProfileResponse (FullName, PhoneNumber, Email, Gender, GenderDescription, DateOfBirth, IsProfileComplete)
-CreateVehicleCommand(VehicleType, Name, VehicleNumber)                        -> CreateVehicleResponse (Id, VehicleType, VehicleTypeDescription, Name, VehicleNumber)
-CreateOrganizationCommand (Name, RegistrationNumber, ContactNumber, Address)   -> CreateOrganizationResponse (Id, Name, RegistrationNumber, ContactNumber, Address, OwnerUserId, ApprovalStatus, ApprovalStatusDescription, MyRole, MyRoleDescription)
-CreateParkingProviderCommand (ProviderType, OrganizationId?)                   -> CreateParkingProviderResponse (Id, ProviderType, ProviderTypeDescription, ApprovalStatus, ApprovalStatusDescription, OwnerUserId, OwnerOrganizationId)
-CreateParkingFacilityCommand (ProviderId, Name, Description?, Address, Latitude?, Longitude?) -> CreateParkingFacilityResponse (Id, ProviderId, Name, Description, Address, Latitude, Longitude, ApprovalStatus, ApprovalStatusDescription, TwoWheelerCount, FourWheelerCount)
-CreateParkingSpotsCommand (FacilityId, Spots[SpotNumber, VehicleType, PricePerHourNpr, IsActive?]) -> CreateParkingSpotsResponse (FacilityId, Spots[...], TwoWheelerCount, FourWheelerCount)
+UpdateProfileCommand(FullName, PhoneNumber, Email, Gender, DateOfBirth)            -> Guid (user id; Gender is GenderEnum, DateOfBirth is DateOnly "yyyy-MM-dd")
+CreateVehicleCommand(VehicleTypeEnum, Name, VehicleNumber)                        -> Guid (vehicle id)
+CreateOrganizationCommand (Name, RegistrationNumber, ContactNumber, Address)   -> Guid (organization id)
+CreateParkingProviderCommand (ProviderType, OrganizationId?)                   -> Guid (provider id)
+CreateParkingFacilityCommand (ProviderId, Name, Description?, Address, Latitude?, Longitude?) -> Guid (facility id)
+CreateParkingSpotsCommand (FacilityId, Spots[SpotNumber, VehicleType, PricePerHourNpr, IsActive?]) -> Unit (re-fetch facility detail for counts)
 UploadImages (multipart files, owner-only, MinIO)                               -> { Images[Id, Url, FileName, ContentType, SizeInBytes, SortOrder] }
 UploadProfilePicture (multipart file, replaces previous)                        -> { ProfileImageUrl }
-CreateParkingFacilityReviewCommand (FacilityId, Rating 1-5, Comment?)           -> CreateParkingFacilityReviewResponse (Id, FacilityId, Rating, Comment, AuthorId, CreatedAtUtc, AverageRating, RatingCount) — requires Verified facility (booking check: TODO)
+CreateParkingFacilityReviewCommand (FacilityId, Rating 1-5, Comment?)           -> Guid (review id) — requires Verified facility (booking check: TODO)
 ```
 
 **Queries** (`GET`, no body):

@@ -8,22 +8,19 @@ using ParkingApp.Domain.Common.Enums;
 namespace ParkingApp.Application.Vehicles.Commands.Create;
 
 public sealed record CreateVehicleCommand(
-    string VehicleType,
+    VehicleTypeEnum VehicleType,
     string Name,
     string VehicleNumber)
-    : IRequestResult<CreateVehicleCommand, CreateVehicleResponse>;
+    : IRequestResult<CreateVehicleCommand, Guid>;
 
 public sealed class CreateVehicleCommandHandler(IApplicationDbContext context, ICurrentUserService currentUser)
-    : IRequestResultHandler<CreateVehicleCommand, CreateVehicleResponse>
+    : IRequestResultHandler<CreateVehicleCommand, Guid>
 {
-    public async Task<Result<CreateVehicleResponse>> Handle(CreateVehicleCommand request, CancellationToken cancellationToken = default)
+    public async Task<Result<Guid>> Handle(CreateVehicleCommand request, CancellationToken cancellationToken = default)
     {
         var userId = currentUser.UserId;
         if (userId is null)
-            return Result<CreateVehicleResponse>.Failure("Authentication required.", 401);
-
-        if (!Enum.TryParse<VehicleTypeEnum>(request.VehicleType, ignoreCase: true, out var vehicleType))
-            return Result<CreateVehicleResponse>.Failure("Invalid vehicle type.");
+            return Result<Guid>.Failure("Authentication required.", 401);
 
         var normalizedNumber = request.VehicleNumber.Trim().ToUpperInvariant();
 
@@ -32,24 +29,18 @@ public sealed class CreateVehicleCommandHandler(IApplicationDbContext context, I
                            && v.VehicleNumber == normalizedNumber, cancellationToken);
 
         if (alreadyRegistered)
-            return Result<CreateVehicleResponse>.Failure(
+            return Result<Guid>.Failure(
                 "This vehicle number is already registered to your account.", 409);
 
         var vehicle = Vehicle.Create(
             userId.Value,
-            vehicleType,
+            request.VehicleType,
             request.Name,
             normalizedNumber);
 
         context.Vehicles.Add(vehicle);
         await context.SaveChangesAsync(cancellationToken);
 
-        return Result<CreateVehicleResponse>.Success(
-            new CreateVehicleResponse(
-                vehicle.Id,
-                vehicle.VehicleType,
-                vehicle.VehicleType.ToDescription(),
-                vehicle.Name,
-                vehicle.VehicleNumber));
+        return Result<Guid>.Success(vehicle.Id);
     }
 }
