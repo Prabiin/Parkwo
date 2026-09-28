@@ -16,12 +16,12 @@ public record NearbyFacilityItemResponse(
     int ImageCount,
     string? FirstImageUrl,
     bool HasMarkedParkingLot,
-    int TwoWheelerFreeCount,
-    int TwoWheelerTotalCount,
-    decimal? TwoWheelerFromPriceNpr,
-    int FourWheelerFreeCount,
-    int FourWheelerTotalCount,
-    decimal? FourWheelerFromPriceNpr);
+    int TwoWheelerAvailable,
+    int TwoWheelerOccupancy,
+    decimal TwoWheelerPricePerHourNpr,
+    int FourWheelerAvailable,
+    int FourWheelerOccupancy,
+    decimal FourWheelerPricePerHourNpr);
 
 public record GetNearbyFacilitiesResponse(
     IReadOnlyList<NearbyFacilityItemResponse> Facilities);

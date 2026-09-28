@@ -4,6 +4,20 @@ A peer-to-peer parking marketplace API where users find parking spaces and land 
 
 ## Change Log
 
+### 2026-09-28 — Config env parity + license pipeline cleanup
+
+- `ParkingStandards__*` env keys added to `docker-compose.yml` (test server now carries both `Upload__*` and `ParkingStandards__*`; on Render/AWS set the same keys as plain env — only secrets belong in a vault).
+- License submission pipeline moved out of the API tier: `POST /licenses` only maps the multipart form to `CreateDrivingLicenseCommand` (raw strings + file records); parsing, `UploadValidation`, MinIO upload, duplicate checks and persistence all run in the handler. Shared helpers (`UploadValidation`, `LicenseCategoryParser`, `ApprovalTransitions`, `ParkingCapacity`) live in `Application/Common/Helpers`.
+- No migration (no schema change). Build + tests pass.
+
+### 2026-09-28 — Capacity counts replace spot rows (approval-gated increases)
+
+- Deleted `ParkingSpot` entirely (entity, table, `POST /facilities/{id}/spots`, config, responses). Lots are no longer bay rows — a facility declares `twoWheelerOccupancy` + `fourWheelerOccupancy` (each ≥ 0, sum ≥ 1), nullable `landAreaSqM`, and per-type hourly prices (`twoWheelerPricePerHourNpr`, `fourWheelerPricePerHourNpr` > 0, replacing per-spot pricing for future billing). Migration `ReplaceSpotsWithOccupancy` drops `ParkingSpots` (existing bay data is dev-only).
+- Capacity increases are approval-gated: `PUT /facilities/{id}/capacity` (owner, partial allowed) writes straight through for non-Verified lots, but stages merged totals into `pending*` columns for `Verified` lots — the app keeps serving current numbers. `PUT /backoffice/facilities/{id}/capacity-approval { approve, rejectionReason? }` flips pending live (reason required on reject, shown to owner). The lot stays `Verified` throughout.
+- Compliance assist: `ParkingStandards` config (`twoWheelerAreaSqM: 2`, `fourWheelerAreaSqM: 12.5`, overridable via `ParkingStandards__*` env); BackOffice detail computes `estimatedAreaRequiredSqM` + `exceedsLandArea` from claimed occupancy vs declared area (advisory — layout varies). `ParkingCapacity` helper covered by 8 xUnit tests.
+- Nearby/booking implications: `GET /facilities/nearby` filters `occupancy > 0` of the requested type and returns `available/occupancy/price` per type (`available == occupancy` until bookings subtract holds). Rider-facing copy becomes "7/12" per type. Seat-map stays a future `HasMarkedParkingLot` upgrade.
+- Owner visibility: my list/detail carry `hasPendingCapacityChange` + the pending set. Build + tests pass (49/49).
+
 ### 2026-09-28 — Single approval per trust question (provider approval removed)
 
 - `ParkingProvider` is no longer approvable: dropped `ApprovalStatus` + `RejectionReason` columns (migration `RemoveParkingProviderApproval`), deleted `PUT /backoffice/parking-providers/{id}/approval` + its command/validator, and removed the `?approvalStatus=` filter from `GET /backoffice/parking-providers` (now an unfiltered oversight list). Provider responses (mobile + BackOffice) no longer carry status fields.
@@ -27,8 +41,8 @@ A peer-to-peer parking marketplace API where users find parking spaces and land 
 
 - New `ParkingFacility.HasMarkedParkingLot` (`bool`, default `false`) — set at `POST /facilities` via the UI toggle; surfaced in all facility responses (my list/detail, BackOffice list/detail). Later decides seat-map vs slot-count UI per facility.
 - New `ParkingFacility.Location` (PostGIS `geography(Point, 4326)`, GiST-indexed, derived from lat/long at create) — `Latitude`/`Longitude` doubles stay the API contract; `Location` is query-only. Backfilled for existing rows in-migration.
-- New `GET /facilities/nearby?latitude=&longitude=&radiusKm=&vehicleType=` (auth, nearest-first, max 50) with two modes: no `vehicleType` = **"parkings near me"** (pure spatial, `Verified` + has coords + within radius); with `vehicleType` (code `1`/`2`) = **"available spaces near me"** (adds `Spots.Any(active of type)` filter). `radiusKm` default 5, max 20 (400 beyond); lat/lng range-validated.
-- Response per lot: `distanceMeters`, rating, `imageCount` + `firstImageUrl`, `hasMarkedParkingLot`, and per type `freeCount`/`totalCount`/`fromPriceNpr` (active spots only; `free == total` until bookings land — overlapping holds subtract here via `TODO(bookings)`).
+- New `GET /facilities/nearby?latitude=&longitude=&radiusKm=&vehicleType=` (auth, nearest-first, max 50) with two modes: no `vehicleType` = **"parkings near me"** (pure spatial, `Verified` + has coords + within radius); with `vehicleType` (code `1`/`2`) = **"available spaces near me"** (adds `occupancy > 0` filter for that type). `radiusKm` default 5, max 20 (400 beyond); lat/lng range-validated.
+- Response per lot: `distanceMeters`, rating, `imageCount` + `firstImageUrl`, `hasMarkedParkingLot`, and per type `available`/`occupancy`/`pricePerHourNpr` (`available == occupancy` until bookings land — overlapping holds subtract here via `TODO(bookings)`).
 - `NetTopologySuite` referenced by Domain (geometry only) + Application; `UseNetTopologySuite` was already wired in DI.
 - Migration `20260928151516_AddFacilityMarkedFlagAndLocation` (flag + geography column + backfill + GiST). Build + tests pass.
 
@@ -159,11 +173,11 @@ No business-logic changes today. The goal was to lock in the folder pattern the 
 4. Find nearby parking → book → park → pay.
 5. Step 4 is **planned, not built** — no search/booking/payment code exists yet (Roadmap Phases 3–4). Booking will hard-gate on a Verified, unexpired, covering license.
 
-### Hat 2 — Provider (supply): land → provider → facility → spots → verified
+### Hat 2 — Provider (supply): land → provider → facility → verified
 
 1. Rider with land calls `POST /parking-providers` (`Individual` — one per account, no org needed).
 2. App immediately asks for the facility: `POST /facilities` (name, address, lat/long, description).
-3. Pricing/spots/images follow on the other Facilities endpoints (`POST .../spots` batch, `POST .../images` multipart).
+3. Occupancy/prices/images follow at create (`twoWheelerOccupancy`, `fourWheelerOccupancy`, `landAreaSqM`, per-type prices, `POST .../images` multipart); later increases stage via `PUT .../capacity` pending compliance.
 4. Compliance verifies in BackOffice (`Pending` → `Verified`); only then can riders book/review it.
 5. Nothing about the `User` row changes — the rider just gains a provider profile.
 
@@ -184,7 +198,7 @@ No business-logic changes today. The goal was to lock in the folder pattern the 
 
 ### Built vs planned (2026-09-22)
 
-- Built: OTP auth, onboarding, vehicles (+ brand/model/color/category, dropdown inits for `/vehicles/init` + `/licenses/init`), driving-license submission/view (verification queue pending), org/provider/facility/spots/images/reviews, BackOffice lists + login.
+- Built: OTP auth, onboarding, vehicles (+ brand/model/color/category, dropdown inits for `/vehicles/init` + `/licenses/init`), driving-license submission/view + license queue, org/provider/facility (occupancy + prices)/images/reviews, BackOffice lists + approvals + capacity-approval.
 - Planned: BackOffice license verification queue, booking-time license gate (Verified + covering category + unexpired → else 403), nearby search, booking, parking/QR, payments (eSewa/Khalti/IME/Fonepay), company employee subscriptions + on-behalf booking rules.
 
 ## Tech Stack
@@ -436,7 +450,7 @@ An internal Parkwo admin/compliance account — password login only (no OTP). Se
 | LastLoginAtUtc | DateTimeOffset? | Optional |
 
 #### ParkingFacility (`ParkingApp.Domain/ParkingFacility.cs`)
-A single parking location a provider runs. Created by the provider's owner; each facility carries an `ApprovalStatus` the compliance team verifies against (spot counts included).
+A single parking location a provider runs. Created by the provider's owner; each facility carries an `ApprovalStatus` the compliance team verifies against (claimed occupancy vs land area included). No bay rows — capacity is declared counts.
 
 | Property | Type | Constraints |
 |---|---|---|
@@ -447,23 +461,15 @@ A single parking location a provider runs. Created by the provider's owner; each
 | Latitude / Longitude | double? | Optional GPS (derives the PostGIS `Location` geography at create) |
 | Location | Point? | Query-only PostGIS `geography(Point, 4326)`, GiST-indexed (nearby search) |
 | HasMarkedParkingLot | bool | UI toggle at create (default false) — later decides seat-map vs slot-count UI |
+| TwoWheelerOccupancy / FourWheelerOccupancy | int | Required, each ≥ 0, sum ≥ 1 (total claimable spaces per type) |
+| LandAreaSqM | decimal? | Optional, > 0 when present (compliance plausibility base) |
+| TwoWheelerPricePerHourNpr / FourWheelerPricePerHourNpr | decimal | Required, > 0, numeric(10,2) (per-type billing rate) |
+| PendingTwoWheelerOccupancy / PendingFourWheelerOccupancy / PendingLandAreaSqM | — | Nullable staging columns for Verified-lot increases (live only after capacity approval) |
 | ApprovalStatus | ApprovalStatusEnum | Pending (1, default), Verified, UnderReview, Rejected |
 | AverageRating | double? | Denormalized aggregate, recomputed on each review |
 | RatingCount | int | Denormalized review count, default 0 |
-| Spots | ICollection\<ParkingSpot\> | Navigation |
 | Images | ICollection\<ParkingFacilityImage\> | Navigation |
 | Reviews | ICollection\<ParkingFacilityReview\> | Navigation |
-
-#### ParkingSpot (`ParkingApp.Domain/ParkingSpot.cs`)
-An individual bookable space inside a facility. Vehicle type + per-hour price are what riders will search on later.
-
-| Property | Type | Constraints |
-|---|---|---|
-| FacilityId | Guid | FK to ParkingFacility, cascade delete |
-| SpotNumber | string | Required, max 20, unique per facility (e.g. "B1") |
-| VehicleType | VehicleTypeEnum | TwoWheeler (1), FourWheeler (2) |
-| PricePerHourNpr | decimal | Required, numeric(10,2) |
-| IsActive | bool | Default true |
 
 #### ParkingFacilityImage (`ParkingApp.Domain/ParkingFacilityImage.cs`)
 Optional onboarding evidence. Bytes live in MinIO (`parkingapp` bucket, `facilities/` prefix); the row stores the public URL + metadata so compliance can review thumbnails without touching storage.
@@ -500,7 +506,8 @@ One row per rider review (the standard pattern: aggregate on the facility, bodie
 - Facility images + reviews + profile picture migration generated (`20260919113358_AddFacilityImagesReviewsAndProfilePicture`) -- creates `ParkingFacilityImages`, `ParkingFacilityReviews` (unique per rider per facility); adds `AverageRating` + `RatingCount` to `ParkingFacilities`, `ProfileImageUrl` to `Users`
 - Driving license + vehicle details migration generated (`20260928134240_AddDrivingLicenseAndVehicleDetails`) -- creates `DrivingLicenses` (unique `UserId`, unique `LicenseNumber`); adds `VehicleCategory`, `Brand`, `Model`, `Color` to `Vehicles` (existing rows default to `""`/`0` — re-register or wipe dev DBs)
 - Facility marked-flag + location migration generated (`20260928151516_AddFacilityMarkedFlagAndLocation`) -- adds `HasMarkedParkingLot` (default false) + `Location` geography with GiST index (backfilled from lat/long for existing rows)
-- Creates 13 tables: `Users`, `Otps`, `RefreshTokens`, `Vehicles`, `DrivingLicenses`, `Organizations`, `UserOrganizations`, `ParkingProviders`, `BackOfficeUsers`, `ParkingFacilities`, `ParkingSpots`, `ParkingFacilityImages`, `ParkingFacilityReviews`
+- Occupancy migration generated (`ReplaceSpotsWithOccupancy`) -- drops `ParkingSpots`; adds occupancy/prices/landArea/pending columns to `ParkingFacilities`
+- Creates 12 tables: `Users`, `Otps`, `RefreshTokens`, `Vehicles`, `DrivingLicenses`, `Organizations`, `UserOrganizations`, `ParkingProviders`, `BackOfficeUsers`, `ParkingFacilities`, `ParkingFacilityImages`, `ParkingFacilityReviews`
 - PostGIS extension enabled
 - Unique indexes on `Users.PhoneNumber`, `Users.Email`, `RefreshTokens.Token`
 - FK index on `RefreshTokens.UserId`
@@ -576,10 +583,11 @@ Endpoints are defined as **minimal API endpoint groups** (`ParkingApp/Apis/AuthA
 | GET | `/parking-providers` | — | `GetParkingProvidersResponse` (user) | Bearer token |
 | POST | `/parking-providers` | `CreateParkingProviderRequest` | `Guid` (provider id) | Bearer token |
 | GET | `/facilities` | — | `GetParkingFacilitiesResponse` (user) | Bearer token |
-| GET | `/facilities/nearby?latitude=&longitude=&radiusKm=&vehicleType=` | — | `GetNearbyFacilitiesResponse` (distance + free counts + from-prices, nearest first) | Bearer token |
+| GET | `/facilities/nearby?latitude=&longitude=&radiusKm=&vehicleType=` | — | `GetNearbyFacilitiesResponse` (distance + available/occupancy/price per type, nearest first) | Bearer token |
 | POST | `/facilities` | `CreateParkingFacilityRequest` | `Guid` (facility id) | Bearer token |
-| GET | `/facilities/{facilityId}` | — | `GetParkingFacilityByIdResponse` | Bearer token |
-| POST | `/facilities/{facilityId}/spots` | `CreateParkingSpotsRequest` | `Unit` (`{}`; re-fetch via `GET /facilities/{id}`) | Bearer token |
+| GET | `/facilities` | — | `GetParkingFacilitiesResponse` (user, with occupancy + pending flag) | Bearer token |
+| GET | `/facilities/{facilityId}` | — | `GetParkingFacilityByIdResponse` (occupancy + pending set, no spot list) | Bearer token |
+| PUT | `/facilities/{facilityId}/capacity` | `UpdateFacilityCapacityRequest` | `Unit` (`{}`; Verified lots stage to pending) | Bearer token |
 | POST | `/facilities/{facilityId}/images` | multipart `files` | `{ Images[] }` | Bearer token |
 | POST | `/facilities/{facilityId}/reviews` | `CreateParkingFacilityReviewRequest` | `Guid` (review id) | Bearer token |
 | GET | `/facilities/{facilityId}/reviews` | — | `GetParkingFacilityReviewsResponse` | Bearer token |
@@ -593,6 +601,7 @@ Endpoints are defined as **minimal API endpoint groups** (`ParkingApp/Apis/AuthA
 | GET | `/backoffice/licenses` | `(?approvalStatus=)` | `GetLicensesResponse` (license queue with rider contact) | BackOffice bearer |
 | PUT | `/backoffice/organizations/{id}/approval` | `UpdateOrganizationApprovalRequest` | `Unit` (`{}`; re-fetch list) | BackOffice bearer |
 | PUT | `/backoffice/facilities/{id}/approval` | `UpdateParkingFacilityApprovalRequest` | `Unit` (`{}`; re-fetch list) | BackOffice bearer |
+| PUT | `/backoffice/facilities/{id}/capacity-approval` | `UpdateFacilityCapacityApprovalRequest` | `Unit` (`{}`; re-fetch detail) | BackOffice bearer |
 | PUT | `/backoffice/licenses/{id}/approval` | `UpdateDrivingLicenseApprovalRequest` | `Unit` (`{}`; re-fetch list) | BackOffice bearer |
 
 Note: BackOffice list endpoints use the **`BackOfficeOnly`** authorization policy (`Role = BackOffice` claim) — app-user tokens are rejected. BackOffice routes are `/backoffice/*` (no `/api` prefix); organization, parking-provider and facility routes are top-level (`/organizations`, `/parking-providers`, `/facilities`) using app-user Bearer tokens.
@@ -608,8 +617,8 @@ CreateVehicleCommand(VehicleTypeEnum, VehicleCategoryEnum, Name, VehicleNumber, 
 CreateDrivingLicenseCommand(LicenseNumber, CategoriesRaw "2,4", ExpiryDateRaw yyyy-MM-dd, Front/Back file uploads) -> Guid (license id; parsing + MinIO upload + resubmission-after-Rejected all in the handler; API tier only maps the multipart form)
 CreateOrganizationCommand (Name, RegistrationNumber, ContactNumber, Address)   -> Guid (organization id)
 CreateParkingProviderCommand (ProviderType, OrganizationId?)                   -> Guid (provider id)
-CreateParkingFacilityCommand (ProviderId, Name, Description?, Address, Latitude?, Longitude?, HasMarkedParkingLot) -> Guid (facility id)
-CreateParkingSpotsCommand (FacilityId, Spots[SpotNumber, VehicleType, PricePerHourNpr, IsActive?]) -> Unit (re-fetch facility detail for counts)
+CreateParkingFacilityCommand (ProviderId, Name, Description?, Address, Latitude?, Longitude?, HasMarkedParkingLot, TwoWheelerOccupancy, FourWheelerOccupancy, LandAreaSqM?, TwoWheelerPricePerHourNpr, FourWheelerPricePerHourNpr) -> Guid (facility id)
+UpdateFacilityCapacityCommand (FacilityId, TwoWheelerOccupancy?, FourWheelerOccupancy?, LandAreaSqM?) -> Unit (Verified → pending columns; else live)
 UploadImages (multipart files, owner-only, MinIO)                               -> { Images[Id, Url, FileName, ContentType, SizeInBytes, SortOrder] }
 UploadProfilePicture (multipart file, replaces previous)                        -> { ProfileImageUrl }
 CreateParkingFacilityReviewCommand (FacilityId, Rating 1-5, Comment?)           -> Guid (review id) — requires Verified facility (booking check: TODO)
@@ -622,15 +631,15 @@ GetVehiclesQuery    ()                                                        ->
 GetDrivingLicenseQuery ()                                                     -> DrivingLicenseResponse (Id, LicenseNumber, Categories[], CategoryDescriptions[], FrontImageUrl, BackImageUrl, ExpiryDate, ApprovalStatus, ApprovalStatusDescription; 404 when nothing submitted)
 GetOrganizationsQuery () [user]                                                  -> GetOrganizationsResponse (Organizations[Id, Name, RegistrationNumber, ContactNumber, Address, ApprovalStatus, ApprovalStatusDescription, Role, RoleDescription])
 GetParkingProvidersQuery () [user]                                               -> GetParkingProvidersResponse (ParkingProviders[Id, ProviderType, ProviderTypeDescription, OwnerUserId, OwnerOrganizationId])
-GetParkingFacilitiesQuery () [user]                                              -> GetParkingFacilitiesResponse (Facilities[Id, ProviderId, Name, Description, Address, Latitude, Longitude, ApprovalStatus, ApprovalStatusDescription, TwoWheelerCount, FourWheelerCount])
-GetParkingFacilityByIdQuery (FacilityId)                                      -> GetParkingFacilityByIdResponse (Facility[...] + Spots + Images, TwoWheelerCount, FourWheelerCount, AverageRating, RatingCount, HasMarkedParkingLot)
-GetNearbyFacilitiesQuery (Latitude, Longitude, RadiusKm? default 5/max 20, VehicleType?) -> GetNearbyFacilitiesResponse (Facilities[Id, Name, Address, Lat/Lng, DistanceMeters, Approval..., Rating..., ImageCount, FirstImageUrl, HasMarkedParkingLot, TwoWheeler{Free,Total,FromPrice}, FourWheeler{...}] nearest-first, max 50)
+GetParkingFacilitiesQuery () [user]                                              -> GetParkingFacilitiesResponse (Facilities[Id, ..., Occupancy×2, LandAreaSqM, Prices×2, HasPendingCapacityChange, ...])
+GetParkingFacilityByIdQuery (FacilityId)                                      -> GetParkingFacilityByIdResponse (Facility[...] + Images + pending set, no spot list)
+GetNearbyFacilitiesQuery (Latitude, Longitude, RadiusKm? default 5/max 20, VehicleType?) -> GetNearbyFacilitiesResponse (Facilities[..., TwoWheeler{Available,Occupancy,Price}, FourWheeler{...}] nearest-first, max 50; available == occupancy until bookings)
 GetParkingFacilityReviewsQuery (FacilityId)                                   -> GetParkingFacilityReviewsResponse (FacilityId, AverageRating, RatingCount, Reviews[Id, Rating, Comment, AuthorId, AuthorFullName, CreatedAtUtc] newest-first)
 GetRidersQuery      (VehicleType?)                                             -> GetRidersResponse (Users[Id, FullName, PhoneNumber, IsProfileComplete, Vehicles])
 GetOrganizationsQuery (ApprovalStatus?) [BackOffice]                              -> GetOrganizationsResponse (Organizations[Id, Name, RegistrationNumber, ContactNumber, Address, ApprovalStatus, ApprovalStatusDescription])
 GetParkingProvidersQuery () [BackOffice]                                              -> GetParkingProvidersResponse (ParkingProviders[Id, ProviderType, ProviderTypeDescription, Owner...] — oversight list, no approval)
-GetParkingFacilitiesQuery (ApprovalStatus?) [BackOffice]                          -> GetParkingFacilitiesResponse (Facilities[Id, Name, Description, Address, ApprovalStatus, ApprovalStatusDescription, ProviderOwnerName, ProviderOwnerContactNumber, TwoWheelerCount, FourWheelerCount])
-GetParkingFacilityDetailQuery (FacilityId)                                     -> GetParkingFacilityDetailResponse (Facility[...] + every Spot, TwoWheelerCount, FourWheelerCount)
+GetParkingFacilitiesQuery (ApprovalStatus?) [BackOffice]                          -> GetParkingFacilitiesResponse (Facilities[Id, ..., Occupancy×2, LandAreaSqM, Prices×2, HasPendingCapacityChange, ...])
+GetParkingFacilityDetailQuery (FacilityId)                                     -> GetParkingFacilityDetailResponse (Facility[...] + Images + pending set + estimatedAreaRequiredSqM/exceedsLandArea)
 ```
 
 **BackOffice commands** (Password-based auth — no OTP):
@@ -638,6 +647,7 @@ GetParkingFacilityDetailQuery (FacilityId)                                     -
 BackOfficeLoginCommand (UserNameOrEmail, Password)                             -> BackOfficeLoginResponse (AccessToken, AccessTokenExpiresAt, FullName, UserName, Email)
 UpdateOrganizationApprovalCommand (OrganizationId, ApprovalStatus, RejectionReason?) -> Unit (transition-matrix enforced; reason required on Rejected)
 UpdateParkingFacilityApprovalCommand (FacilityId, ApprovalStatus, RejectionReason?) -> Unit
+UpdateFacilityCapacityApprovalCommand (FacilityId, Approve, RejectionReason?) -> Unit (approve flips pending live; reject clears with reason)
 UpdateDrivingLicenseApprovalCommand (LicenseId, ApprovalStatus, RejectionReason?) -> Unit
 ```
 
@@ -730,7 +740,7 @@ Use the `ParkingApp.http` file or Postman:
 
 **Provider catalog flow** (supply side):
 1. Become a provider: `POST /parking-providers` (`Individual`, or `Company` + owned `organizationId`).
-2. `POST /facilities` under your provider, then `POST /facilities/{id}/spots` to add spots (batch, two/four-wheeler + price).
+2. `POST /facilities` under your provider with occupancy + per-type prices, then optionally `POST /facilities/{id}/images` (multipart) — more evidence, faster compliance review. Later capacity increases via `PUT /facilities/{id}/capacity` (Verified lots stage to pending).
 3. Optionally `POST /facilities/{id}/images` (multipart) — more evidence, faster compliance review.
 4. `GET /facilities` shows your inventory with spot counts, image counts, ratings and `ApprovalStatus`; compliance sees the same via BackOffice.
 5. Riders review once the facility is `Verified`: `POST /facilities/{id}/reviews` (one per rider; a completed-booking gate follows with bookings).

@@ -15,6 +15,7 @@ public class BackOfficeFacilitiesApi : BackOfficeGroup
         group.MapGet("facilities", Facilities).RequireAuthorization(BackOfficePolicy);
         group.MapGet("facilities/{facilityId}", FacilityDetail).RequireAuthorization(BackOfficePolicy);
         group.MapPut("facilities/{facilityId}/approval", UpdateParkingFacilityApproval).RequireAuthorization(BackOfficePolicy);
+        group.MapPut("facilities/{facilityId}/capacity-approval", UpdateFacilityCapacityApproval).RequireAuthorization(BackOfficePolicy);
     }
 
     private static async Task<IResult> Facilities(ISender sender, IServiceProvider serviceProvider,
@@ -40,5 +41,10 @@ public class BackOfficeFacilitiesApi : BackOfficeGroup
     private static async Task<IResult> UpdateParkingFacilityApproval(ISender sender, IServiceProvider serviceProvider,
         Guid facilityId, UpdateParkingFacilityApprovalCommand request, CancellationToken cancellationToken)
         => await ExecuteCommand<UpdateParkingFacilityApprovalCommand, Unit>(sender,
+            request with { FacilityId = facilityId }, serviceProvider, cancellationToken);
+
+    private static async Task<IResult> UpdateFacilityCapacityApproval(ISender sender, IServiceProvider serviceProvider,
+        Guid facilityId, UpdateFacilityCapacityApprovalCommand request, CancellationToken cancellationToken)
+        => await ExecuteCommand<UpdateFacilityCapacityApprovalCommand, Unit>(sender,
             request with { FacilityId = facilityId }, serviceProvider, cancellationToken);
 }

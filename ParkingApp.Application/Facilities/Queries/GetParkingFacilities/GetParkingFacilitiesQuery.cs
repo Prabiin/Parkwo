@@ -41,13 +41,19 @@ public sealed class GetParkingFacilitiesQueryHandler(IApplicationDbContext conte
                 f.Longitude,
                 f.ApprovalStatus,
                 f.CreatedAtUtc,
-                TwoWheelerCount = f.Spots.Count(s => s.VehicleType == VehicleTypeEnum.TwoWheeler),
-                FourWheelerCount = f.Spots.Count(s => s.VehicleType == VehicleTypeEnum.FourWheeler),
                 ImageCount = f.Images.Count,
                 f.AverageRating,
                 f.RatingCount,
                 f.HasMarkedParkingLot,
-                f.RejectionReason
+                f.RejectionReason,
+                f.TwoWheelerOccupancy,
+                f.FourWheelerOccupancy,
+                f.LandAreaSqM,
+                f.TwoWheelerPricePerHourNpr,
+                f.FourWheelerPricePerHourNpr,
+                HasPendingCapacityChange = f.PendingTwoWheelerOccupancy != null
+                    || f.PendingFourWheelerOccupancy != null
+                    || f.PendingLandAreaSqM != null
             })
             .OrderByDescending(f => f.CreatedAtUtc)
             .ToListAsync(cancellationToken);
@@ -64,13 +70,17 @@ public sealed class GetParkingFacilitiesQueryHandler(IApplicationDbContext conte
                 f.ApprovalStatus,
                 f.ApprovalStatus.ToDescription(),
                 f.CreatedAtUtc,
-                f.TwoWheelerCount,
-                f.FourWheelerCount,
                 f.ImageCount,
                 f.AverageRating,
                 f.RatingCount,
                 f.HasMarkedParkingLot,
-                f.RejectionReason))
+                f.RejectionReason,
+                f.TwoWheelerOccupancy,
+                f.FourWheelerOccupancy,
+                f.LandAreaSqM,
+                f.TwoWheelerPricePerHourNpr,
+                f.FourWheelerPricePerHourNpr,
+                f.HasPendingCapacityChange))
             .ToList();
 
         return Result<GetParkingFacilitiesResponse>.Success(

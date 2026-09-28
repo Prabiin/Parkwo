@@ -8,7 +8,7 @@ using ParkingApp.Application.Configuration;
 using ParkingApp.Application.Facilities;
 using ParkingApp.Application.Facilities.Commands.Create;
 using ParkingApp.Application.Facilities.Commands.CreateReview;
-using ParkingApp.Application.Facilities.Commands.CreateSpots;
+using ParkingApp.Application.Facilities.Commands.UpdateCapacity;
 using ParkingApp.Application.Facilities.Queries.GetNearbyFacilities;
 using ParkingApp.Application.Facilities.Queries.GetParkingFacilities;
 using ParkingApp.Application.Facilities.Queries.GetParkingFacilityById;
@@ -28,7 +28,7 @@ public class FacilityApi : EndpointGroupBase
             .MapGet(ListFacilities, "", "")
             .MapGet(ListNearbyFacilities, "nearby", "")
             .MapGet(GetFacilityById, "{facilityId}", "")
-            .MapPost(CreateSpots, "{facilityId}/spots", "")
+            .MapPut(UpdateCapacity, "{facilityId}/capacity", "")
             .MapPost(UploadImages, "{facilityId}/images", "", disableAntiforgery: true)
             .MapPost(CreateReview, "{facilityId}/reviews", "")
             .MapGet(ListReviews, "{facilityId}/reviews", "")
@@ -50,9 +50,9 @@ public class FacilityApi : EndpointGroupBase
         => await ExecuteQuery<GetParkingFacilityByIdQuery, GetParkingFacilityByIdResponse>(sender,
             new GetParkingFacilityByIdQuery(facilityId), serviceProvider, cancellationToken);
 
-    private static async Task<IResult> CreateSpots(ISender sender, IServiceProvider serviceProvider,
-        Guid facilityId, CreateParkingSpotsCommand request, CancellationToken cancellationToken)
-        => await ExecuteCommand<CreateParkingSpotsCommand, Unit>(sender,
+    private static async Task<IResult> UpdateCapacity(ISender sender, IServiceProvider serviceProvider,
+        Guid facilityId, UpdateFacilityCapacityCommand request, CancellationToken cancellationToken)
+        => await ExecuteCommand<UpdateFacilityCapacityCommand, Unit>(sender,
             request with { FacilityId = facilityId }, serviceProvider, cancellationToken);
 
     private static async Task<IResult> ListNearbyFacilities(ISender sender, IServiceProvider serviceProvider,

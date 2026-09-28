@@ -13,13 +13,17 @@ public record ParkingFacilityItemResponse(
     ApprovalStatusEnum ApprovalStatus,
     string ApprovalStatusDescription,
     DateTimeOffset CreatedAtUtc,
-    int TwoWheelerCount,
-    int FourWheelerCount,
     int ImageCount,
     double? AverageRating,
     int RatingCount,
     bool HasMarkedParkingLot,
-    string? RejectionReason);
+    string? RejectionReason,
+    int TwoWheelerOccupancy,
+    int FourWheelerOccupancy,
+    decimal? LandAreaSqM,
+    decimal TwoWheelerPricePerHourNpr,
+    decimal FourWheelerPricePerHourNpr,
+    bool HasPendingCapacityChange);
 
 public record GetParkingFacilitiesResponse(
     IReadOnlyList<ParkingFacilityItemResponse> Facilities);

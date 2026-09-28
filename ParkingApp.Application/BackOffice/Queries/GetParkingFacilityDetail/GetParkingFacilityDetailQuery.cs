@@ -1,7 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using ParkingApp.Application.Common;
 using ParkingApp.Application.Common.Cqrs;
+using ParkingApp.Application.Common.Helpers;
 using ParkingApp.Application.Common.Interfaces;
+using ParkingApp.Application.Configuration;
 using ParkingApp.Application.Facilities;
 using ParkingApp.Domain.Common.Enums;
 
@@ -10,7 +12,9 @@ namespace ParkingApp.Application.BackOffice.Queries.GetParkingFacilityDetail;
 public sealed record GetParkingFacilityDetailQuery(Guid FacilityId)
     : IRequestResult<GetParkingFacilityDetailQuery, GetParkingFacilityDetailResponse>;
 
-public sealed class GetParkingFacilityDetailQueryHandler(IApplicationDbContext context)
+public sealed class GetParkingFacilityDetailQueryHandler(
+    IApplicationDbContext context,
+    ParkingStandards standards)
     : IRequestResultHandler<GetParkingFacilityDetailQuery, GetParkingFacilityDetailResponse>
 {
     public async Task<Result<GetParkingFacilityDetailResponse>> Handle(
@@ -40,29 +44,20 @@ public sealed class GetParkingFacilityDetailQueryHandler(IApplicationDbContext c
                 f.AverageRating,
                 f.RatingCount,
                 f.HasMarkedParkingLot,
-                f.RejectionReason
+                f.RejectionReason,
+                f.TwoWheelerOccupancy,
+                f.FourWheelerOccupancy,
+                f.LandAreaSqM,
+                f.TwoWheelerPricePerHourNpr,
+                f.FourWheelerPricePerHourNpr,
+                f.PendingTwoWheelerOccupancy,
+                f.PendingFourWheelerOccupancy,
+                f.PendingLandAreaSqM
             })
             .FirstOrDefaultAsync(cancellationToken);
 
         if (facility is null)
             return Result<GetParkingFacilityDetailResponse>.Failure("Parking facility not found.", 404);
-
-        var spots = await context.ParkingSpots
-            .AsNoTracking()
-            .Where(s => s.FacilityId == request.FacilityId)
-            .OrderBy(s => s.SpotNumber)
-            .Select(s => new { s.Id, s.SpotNumber, s.VehicleType, s.PricePerHourNpr, s.IsActive })
-            .ToListAsync(cancellationToken);
-
-        var items = spots
-            .Select(s => new ParkingSpotItemResponse(
-                s.Id,
-                s.SpotNumber,
-                s.VehicleType,
-                s.VehicleType.ToDescription(),
-                s.PricePerHourNpr,
-                s.IsActive))
-            .ToList();
 
         var images = await context.ParkingFacilityImages
             .AsNoTracking()
@@ -103,9 +98,23 @@ public sealed class GetParkingFacilityDetailQueryHandler(IApplicationDbContext c
                 facility.CreatedAtUtc,
                 facility.ProviderOwnerName,
                 facility.ProviderOwnerContactNumber,
-                items,
-                items.Count(s => s.VehicleType == VehicleTypeEnum.TwoWheeler),
-                items.Count(s => s.VehicleType == VehicleTypeEnum.FourWheeler),
+                facility.TwoWheelerOccupancy,
+                facility.FourWheelerOccupancy,
+                facility.LandAreaSqM,
+                facility.TwoWheelerPricePerHourNpr,
+                facility.FourWheelerPricePerHourNpr,
+                facility.PendingTwoWheelerOccupancy,
+                facility.PendingFourWheelerOccupancy,
+                facility.PendingLandAreaSqM,
+                ParkingCapacity.EstimatedAreaRequiredSqM(
+                    facility.TwoWheelerOccupancy,
+                    facility.FourWheelerOccupancy,
+                    standards),
+                ParkingCapacity.ExceedsLandArea(
+                    facility.TwoWheelerOccupancy,
+                    facility.FourWheelerOccupancy,
+                    facility.LandAreaSqM,
+                    standards),
                 imageItems,
                 facility.AverageRating,
                 facility.RatingCount,

@@ -23,7 +23,7 @@ using ParkingApp.Application.Common.Interfaces;
 using ParkingApp.Application.Configuration;
 using ParkingApp.Application.Facilities.Commands.Create;
 using ParkingApp.Application.Facilities.Commands.CreateReview;
-using ParkingApp.Application.Facilities.Commands.CreateSpots;
+using ParkingApp.Application.Facilities.Commands.UpdateCapacity;
 using ParkingApp.Application.Facilities.Queries.GetNearbyFacilities;
 using ParkingApp.Application.Facilities.Queries.GetParkingFacilities;
 using ParkingApp.Application.Facilities.Queries.GetParkingFacilityById;
@@ -87,6 +87,14 @@ public static class DependencyInjection
         services.Configure<UploadSettings>(configuration.GetSection(UploadSettings.SectionName));
         services.AddSingleton(uploadSettings);
 
+        // Parking area standards for compliance plausibility checks. Optional
+        // section with code defaults, overridable via ParkingStandards__* env.
+        var parkingStandards = configuration.GetSection(ParkingStandards.SectionName).Get<ParkingStandards>()
+                               ?? new ParkingStandards();
+
+        services.Configure<ParkingStandards>(configuration.GetSection(ParkingStandards.SectionName));
+        services.AddSingleton(parkingStandards);
+
         services.AddAuthentication(options =>
         {
             options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -139,7 +147,8 @@ public static class DependencyInjection
         services.AddScoped<IRequestResultHandler<GetParkingProvidersQuery, GetParkingProvidersResponse>, GetParkingProvidersQueryHandler>();
 
         services.AddScoped<IRequestResultHandler<CreateParkingFacilityCommand, Guid>, CreateParkingFacilityCommandHandler>();
-        services.AddScoped<IRequestResultHandler<CreateParkingSpotsCommand, Unit>, CreateParkingSpotsCommandHandler>();
+        services.AddScoped<IRequestResultHandler<UpdateFacilityCapacityCommand, Unit>, UpdateFacilityCapacityCommandHandler>();
+        services.AddScoped<IRequestResultHandler<UpdateFacilityCapacityApprovalCommand, Unit>, UpdateFacilityCapacityApprovalCommandHandler>();
         services.AddScoped<IRequestResultHandler<GetParkingFacilitiesQuery, GetParkingFacilitiesResponse>, GetParkingFacilitiesQueryHandler>();
         services.AddScoped<IRequestResultHandler<GetParkingFacilityByIdQuery, GetParkingFacilityByIdResponse>, GetParkingFacilityByIdQueryHandler>();
         services.AddScoped<IRequestResultHandler<BackOfficeFacilities.GetParkingFacilitiesQuery, BackOfficeFacilities.GetParkingFacilitiesResponse>, BackOfficeFacilities.GetParkingFacilitiesQueryHandler>();
@@ -169,7 +178,8 @@ public static class DependencyInjection
         services.AddScoped<IValidator<CreateOrganizationCommand>, CreateOrganizationCommandValidator>();
         services.AddScoped<IValidator<CreateParkingProviderCommand>, CreateParkingProviderCommandValidator>();
         services.AddScoped<IValidator<CreateParkingFacilityCommand>, CreateParkingFacilityCommandValidator>();
-        services.AddScoped<IValidator<CreateParkingSpotsCommand>, CreateParkingSpotsCommandValidator>();
+        services.AddScoped<IValidator<UpdateFacilityCapacityCommand>, UpdateFacilityCapacityCommandValidator>();
+        services.AddScoped<IValidator<UpdateFacilityCapacityApprovalCommand>, UpdateFacilityCapacityApprovalCommandValidator>();
         services.AddScoped<IValidator<GetParkingFacilityByIdQuery>, GetParkingFacilityByIdQueryValidator>();
         services.AddScoped<IValidator<BackOfficeFacilities.GetParkingFacilitiesQuery>, BackOfficeFacilities.GetParkingFacilitiesQueryValidator>();
         services.AddScoped<IValidator<GetParkingFacilityDetailQuery>, GetParkingFacilityDetailQueryValidator>();

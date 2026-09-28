@@ -184,7 +184,12 @@ Authorization: Bearer paste-app-token-here
   "address": "Baneshwor, Kathmandu",
   "latitude": 27.6964,
   "longitude": 85.3247,
-  "hasMarkedParkingLot": false
+  "hasMarkedParkingLot": false,
+  "twoWheelerOccupancy": 20,
+  "fourWheelerOccupancy": 10,
+  "landAreaSqM": 165.5,
+  "twoWheelerPricePerHourNpr": 40,
+  "fourWheelerPricePerHourNpr": 100
 }
 
 ### Nearby parkings (pure spatial: Verified lots within radiusKm, nearest first; radiusKm default 5, max 20)
@@ -203,17 +208,25 @@ Authorization: Bearer paste-app-token-here
 GET {{ParkingApp_HostAddress}}/facilities/paste-facility-id-here
 Authorization: Bearer paste-app-token-here
 
-### Add spots in batch (two-wheeler + four-wheeler, per-hour price in NPR)
-POST {{ParkingApp_HostAddress}}/facilities/paste-facility-id-here/spots
+### Update capacity (owner; Verified lots stage to pending for compliance, others update live)
+PUT {{ParkingApp_HostAddress}}/facilities/paste-facility-id-here/capacity
 Content-Type: application/json
 Authorization: Bearer paste-app-token-here
 
 {
-  "spots": [
-    { "spotNumber": "B1", "vehicleType": "TwoWheeler", "pricePerHourNpr": 40 },
-    { "spotNumber": "B2", "vehicleType": "TwoWheeler", "pricePerHourNpr": 40 },
-    { "spotNumber": "C1", "vehicleType": "FourWheeler", "pricePerHourNpr": 100 }
-  ]
+  "twoWheelerOccupancy": 30,
+  "fourWheelerOccupancy": 12,
+  "landAreaSqM": 210
+}
+
+### BackOffice: approve/reject a pending capacity change (reason required when false)
+PUT {{ParkingApp_HostAddress}}/backoffice/facilities/paste-facility-id-here/capacity-approval
+Content-Type: application/json
+Authorization: Bearer paste-backoffice-token-here
+
+{
+  "approve": true,
+  "rejectionReason": null
 }
 
 ### BackOffice: list facilities for compliance review (optional ?approvalStatus=Pending)

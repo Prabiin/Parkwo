@@ -92,6 +92,8 @@ services:
       - Upload__AllowedImageTypes__0=jpg
       - Upload__AllowedImageTypes__1=jpeg
       - Upload__AllowedImageTypes__2=png
+      - ParkingStandards__TwoWheelerAreaSqM=2
+      - ParkingStandards__FourWheelerAreaSqM=12.5
       - Elastic__Url=http://elasticsearch:9200
     ports:
       - "8080:8080"

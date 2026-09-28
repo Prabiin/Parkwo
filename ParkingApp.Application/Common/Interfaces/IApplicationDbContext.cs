@@ -14,7 +14,6 @@ public interface IApplicationDbContext
     DbSet<UserOrganization> UserOrganizations { get; }
     DbSet<ParkingProvider> ParkingProviders { get; }
     DbSet<ParkingFacility> ParkingFacilities { get; }
-    DbSet<ParkingSpot> ParkingSpots { get; }
     DbSet<ParkingFacilityImage> ParkingFacilityImages { get; }
     DbSet<ParkingFacilityReview> ParkingFacilityReviews { get; }
     DbSet<BackOfficeUser> BackOfficeUsers { get; }

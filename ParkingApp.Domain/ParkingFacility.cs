@@ -14,6 +14,14 @@ public class ParkingFacility : AuditableEntity
     public double? Longitude { get; set; }
     public Point? Location { get; set; }
     public bool HasMarkedParkingLot { get; set; }
+    public int TwoWheelerOccupancy { get; set; }
+    public int FourWheelerOccupancy { get; set; }
+    public decimal? LandAreaSqM { get; set; }
+    public decimal TwoWheelerPricePerHourNpr { get; set; }
+    public decimal FourWheelerPricePerHourNpr { get; set; }
+    public int? PendingTwoWheelerOccupancy { get; set; }
+    public int? PendingFourWheelerOccupancy { get; set; }
+    public decimal? PendingLandAreaSqM { get; set; }
     public ApprovalStatusEnum ApprovalStatus { get; set; }
     public string? RejectionReason { get; set; }
     public double? AverageRating { get; set; }
@@ -21,7 +29,6 @@ public class ParkingFacility : AuditableEntity
 
     // Navigation properties
     public ParkingProvider? Provider { get; set; }
-    public ICollection<ParkingSpot> Spots { get; set; } = [];
     public ICollection<ParkingFacilityImage> Images { get; set; } = [];
     public ICollection<ParkingFacilityReview> Reviews { get; set; } = [];
 }

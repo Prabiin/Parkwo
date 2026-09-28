@@ -21,7 +21,6 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<UserOrganization> UserOrganizations => Set<UserOrganization>();
     public DbSet<ParkingProvider> ParkingProviders => Set<ParkingProvider>();
     public DbSet<ParkingFacility> ParkingFacilities => Set<ParkingFacility>();
-    public DbSet<ParkingSpot> ParkingSpots => Set<ParkingSpot>();
     public DbSet<ParkingFacilityImage> ParkingFacilityImages => Set<ParkingFacilityImage>();
     public DbSet<ParkingFacilityReview> ParkingFacilityReviews => Set<ParkingFacilityReview>();
     public DbSet<BackOfficeUser> BackOfficeUsers => Set<BackOfficeUser>();

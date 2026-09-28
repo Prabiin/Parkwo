@@ -10,10 +10,10 @@ namespace ParkingApp.Application.Facilities.Queries.GetNearbyFacilities;
 /// <summary>
 /// Two modes in one endpoint:
 /// - no vehicleType: "parkings near me" — pure spatial query (map pins).
-/// - with vehicleType: "available spaces near me" — spatial + capacity filter,
-///   only facilities with at least one free spot of that type.
-/// Free counts currently equal active spots; overlapping bookings will be
-/// subtracted here once bookings exist (TODO(bookings)).
+/// - with vehicleType: "available spaces near me" — spatial + occupancy filter,
+///   only facilities claiming at least one space of that type.
+/// Available equals occupancy until bookings land; overlapping bookings will be
+/// subtracted here once they exist (TODO(bookings)).
 /// </summary>
 public sealed record GetNearbyFacilitiesQuery(
     double Latitude,
@@ -48,8 +48,12 @@ public sealed class GetNearbyFacilitiesQueryHandler(
 
         if (request.VehicleType.HasValue)
         {
-            var type = request.VehicleType.Value;
-            query = query.Where(f => f.Spots.Any(s => s.VehicleType == type && s.IsActive));
+            query = request.VehicleType.Value switch
+            {
+                VehicleTypeEnum.TwoWheeler => query.Where(f => f.TwoWheelerOccupancy > 0),
+                VehicleTypeEnum.FourWheeler => query.Where(f => f.FourWheelerOccupancy > 0),
+                _ => query
+            };
         }
 
         var rows = await query
@@ -72,16 +76,10 @@ public sealed class GetNearbyFacilitiesQueryHandler(
                     .Select(i => i.Url)
                     .FirstOrDefault(),
                 f.HasMarkedParkingLot,
-                TwoWheelerTotal = f.Spots.Count(s =>
-                    s.VehicleType == VehicleTypeEnum.TwoWheeler && s.IsActive),
-                TwoWheelerFromPrice = f.Spots
-                    .Where(s => s.VehicleType == VehicleTypeEnum.TwoWheeler && s.IsActive)
-                    .Min(s => (decimal?)s.PricePerHourNpr),
-                FourWheelerTotal = f.Spots.Count(s =>
-                    s.VehicleType == VehicleTypeEnum.FourWheeler && s.IsActive),
-                FourWheelerFromPrice = f.Spots
-                    .Where(s => s.VehicleType == VehicleTypeEnum.FourWheeler && s.IsActive)
-                    .Min(s => (decimal?)s.PricePerHourNpr)
+                f.TwoWheelerOccupancy,
+                f.TwoWheelerPricePerHourNpr,
+                f.FourWheelerOccupancy,
+                f.FourWheelerPricePerHourNpr
             })
             .ToListAsync(cancellationToken);
 
@@ -100,12 +98,12 @@ public sealed class GetNearbyFacilitiesQueryHandler(
                 f.ImageCount,
                 f.FirstImageUrl,
                 f.HasMarkedParkingLot,
-                f.TwoWheelerTotal,
-                f.TwoWheelerTotal,
-                f.TwoWheelerFromPrice,
-                f.FourWheelerTotal,
-                f.FourWheelerTotal,
-                f.FourWheelerFromPrice))
+                f.TwoWheelerOccupancy,
+                f.TwoWheelerOccupancy,
+                f.TwoWheelerPricePerHourNpr,
+                f.FourWheelerOccupancy,
+                f.FourWheelerOccupancy,
+                f.FourWheelerPricePerHourNpr))
             .ToList();
 
         return Result<GetNearbyFacilitiesResponse>.Success(

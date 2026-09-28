@@ -42,13 +42,19 @@ public sealed class GetParkingFacilitiesQueryHandler(IApplicationDbContext conte
                 ProviderOwnerContactNumber = f.Provider!.OwnerUserId != null
                     ? f.Provider.OwnerUser!.PhoneNumber
                     : (f.Provider.OwnerOrganization != null ? f.Provider.OwnerOrganization.ContactNumber : null),
-                TwoWheelerCount = f.Spots.Count(s => s.VehicleType == VehicleTypeEnum.TwoWheeler),
-                FourWheelerCount = f.Spots.Count(s => s.VehicleType == VehicleTypeEnum.FourWheeler),
                 ImageCount = f.Images.Count,
                 f.AverageRating,
                 f.RatingCount,
                 f.HasMarkedParkingLot,
-                f.RejectionReason
+                f.RejectionReason,
+                f.TwoWheelerOccupancy,
+                f.FourWheelerOccupancy,
+                f.LandAreaSqM,
+                f.TwoWheelerPricePerHourNpr,
+                f.FourWheelerPricePerHourNpr,
+                HasPendingCapacityChange = f.PendingTwoWheelerOccupancy != null
+                    || f.PendingFourWheelerOccupancy != null
+                    || f.PendingLandAreaSqM != null
             })
             .OrderByDescending(f => f.CreatedAtUtc)
             .ToListAsync(cancellationToken);
@@ -67,8 +73,12 @@ public sealed class GetParkingFacilitiesQueryHandler(IApplicationDbContext conte
                 f.CreatedAtUtc,
                 f.ProviderOwnerName,
                 f.ProviderOwnerContactNumber,
-                f.TwoWheelerCount,
-                f.FourWheelerCount,
+                f.TwoWheelerOccupancy,
+                f.FourWheelerOccupancy,
+                f.LandAreaSqM,
+                f.TwoWheelerPricePerHourNpr,
+                f.FourWheelerPricePerHourNpr,
+                f.HasPendingCapacityChange,
                 f.ImageCount,
                 f.AverageRating,
                 f.RatingCount,

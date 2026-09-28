@@ -14,7 +14,12 @@ public sealed record CreateParkingFacilityCommand(
     string Address,
     double? Latitude,
     double? Longitude,
-    bool HasMarkedParkingLot)
+    bool HasMarkedParkingLot,
+    int TwoWheelerOccupancy,
+    int FourWheelerOccupancy,
+    decimal? LandAreaSqM,
+    decimal TwoWheelerPricePerHourNpr,
+    decimal FourWheelerPricePerHourNpr)
     : IRequestResult<CreateParkingFacilityCommand, Guid>;
 
 public sealed class CreateParkingFacilityCommandHandler(IApplicationDbContext context, ICurrentUserService currentUser)
@@ -42,6 +47,11 @@ public sealed class CreateParkingFacilityCommandHandler(IApplicationDbContext co
                 ? new Point(request.Longitude.Value, request.Latitude.Value) { SRID = 4326 }
                 : null,
             HasMarkedParkingLot = request.HasMarkedParkingLot,
+            TwoWheelerOccupancy = request.TwoWheelerOccupancy,
+            FourWheelerOccupancy = request.FourWheelerOccupancy,
+            LandAreaSqM = request.LandAreaSqM,
+            TwoWheelerPricePerHourNpr = request.TwoWheelerPricePerHourNpr,
+            FourWheelerPricePerHourNpr = request.FourWheelerPricePerHourNpr,
             CreatedAtUtc = DateTimeOffset.UtcNow
         };
 

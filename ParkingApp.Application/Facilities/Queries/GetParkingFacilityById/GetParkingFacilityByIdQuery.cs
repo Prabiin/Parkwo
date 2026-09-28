@@ -36,7 +36,15 @@ public sealed class GetParkingFacilityByIdQueryHandler(IApplicationDbContext con
                 f.AverageRating,
                 f.RatingCount,
                 f.HasMarkedParkingLot,
-                f.RejectionReason
+                f.RejectionReason,
+                f.TwoWheelerOccupancy,
+                f.FourWheelerOccupancy,
+                f.LandAreaSqM,
+                f.TwoWheelerPricePerHourNpr,
+                f.FourWheelerPricePerHourNpr,
+                f.PendingTwoWheelerOccupancy,
+                f.PendingFourWheelerOccupancy,
+                f.PendingLandAreaSqM
             })
             .FirstOrDefaultAsync(cancellationToken);
 
@@ -46,23 +54,6 @@ public sealed class GetParkingFacilityByIdQueryHandler(IApplicationDbContext con
         if (!await ProviderOwnership.IsOwnerAsync(context, userId.Value, facility.ProviderId, cancellationToken))
             return Result<GetParkingFacilityByIdResponse>.Failure(
                 "You must own the parking provider to view this facility.", 403);
-
-        var spots = await context.ParkingSpots
-            .AsNoTracking()
-            .Where(s => s.FacilityId == request.FacilityId)
-            .OrderBy(s => s.SpotNumber)
-            .Select(s => new { s.Id, s.SpotNumber, s.VehicleType, s.PricePerHourNpr, s.IsActive })
-            .ToListAsync(cancellationToken);
-
-        var items = spots
-            .Select(s => new ParkingSpotItemResponse(
-                s.Id,
-                s.SpotNumber,
-                s.VehicleType,
-                s.VehicleType.ToDescription(),
-                s.PricePerHourNpr,
-                s.IsActive))
-            .ToList();
 
         var images = await context.ParkingFacilityImages
             .AsNoTracking()
@@ -101,9 +92,14 @@ public sealed class GetParkingFacilityByIdQueryHandler(IApplicationDbContext con
                 facility.ApprovalStatus,
                 facility.ApprovalStatus.ToDescription(),
                 facility.CreatedAtUtc,
-                items,
-                items.Count(s => s.VehicleType == VehicleTypeEnum.TwoWheeler),
-                items.Count(s => s.VehicleType == VehicleTypeEnum.FourWheeler),
+                facility.TwoWheelerOccupancy,
+                facility.FourWheelerOccupancy,
+                facility.LandAreaSqM,
+                facility.TwoWheelerPricePerHourNpr,
+                facility.FourWheelerPricePerHourNpr,
+                facility.PendingTwoWheelerOccupancy,
+                facility.PendingFourWheelerOccupancy,
+                facility.PendingLandAreaSqM,
                 imageItems,
                 facility.AverageRating,
                 facility.RatingCount,

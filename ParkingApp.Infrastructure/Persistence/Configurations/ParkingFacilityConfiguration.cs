@@ -38,6 +38,30 @@ public class ParkingFacilityConfiguration : IEntityTypeConfiguration<ParkingFaci
             .IsRequired()
             .HasDefaultValue(false);
 
+        builder.Property(x => x.TwoWheelerOccupancy)
+            .IsRequired();
+
+        builder.Property(x => x.FourWheelerOccupancy)
+            .IsRequired();
+
+        builder.Property(x => x.LandAreaSqM)
+            .HasColumnType("numeric(12,2)");
+
+        builder.Property(x => x.TwoWheelerPricePerHourNpr)
+            .IsRequired()
+            .HasColumnType("numeric(10,2)");
+
+        builder.Property(x => x.FourWheelerPricePerHourNpr)
+            .IsRequired()
+            .HasColumnType("numeric(10,2)");
+
+        builder.Property(x => x.PendingTwoWheelerOccupancy);
+
+        builder.Property(x => x.PendingFourWheelerOccupancy);
+
+        builder.Property(x => x.PendingLandAreaSqM)
+            .HasColumnType("numeric(12,2)");
+
         builder.Property(x => x.ApprovalStatus)
             .IsRequired()
             .HasDefaultValue(ApprovalStatusEnum.Pending);
