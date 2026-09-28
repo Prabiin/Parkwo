@@ -1,7 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using ParkingApp.Domain;
-using ParkingApp.Domain.Common.Enums;
 
 namespace ParkingApp.Infrastructure.Persistence.Configurations;
 
@@ -15,10 +14,6 @@ public class ParkingProviderConfiguration : IEntityTypeConfiguration<ParkingProv
 
         builder.Property(x => x.ProviderType)
             .IsRequired();
-
-        builder.Property(x => x.ApprovalStatus)
-            .IsRequired()
-            .HasDefaultValue(ApprovalStatusEnum.Pending);
 
         builder.Property(x => x.OwnerUserId);
 

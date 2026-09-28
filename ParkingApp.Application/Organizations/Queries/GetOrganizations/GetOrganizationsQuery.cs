@@ -38,7 +38,8 @@ public sealed class GetOrganizationsQueryHandler(IApplicationDbContext context, 
                 m.Organization.ApprovalStatus,
                 m.Organization.ApprovalStatus.ToDescription(),
                 m.Role,
-                m.Role.ToDescription()))
+                m.Role.ToDescription(),
+                m.Organization.RejectionReason))
             .ToList();
 
         return Result<GetOrganizationsResponse>.Success(

@@ -16,6 +16,7 @@ public class User : AuditableEntity
     // Navigation properties
     public ICollection<RefreshToken> RefreshTokens { get; set; } = [];
     public ICollection<Vehicle> Vehicles { get; set; } = [];
+    public DrivingLicense? DrivingLicense { get; set; }
     public ParkingProvider? ParkingProvider { get; set; }
     public ICollection<UserOrganization> OrganizationMemberships { get; set; } = [];
 }

@@ -1,3 +1,4 @@
+using NetTopologySuite.Geometries;
 using ParkingApp.Domain.Common.Base;
 using ParkingApp.Domain.Common.Enums;
 
@@ -11,7 +12,10 @@ public class ParkingFacility : AuditableEntity
     public string Address { get; set; } = default!;
     public double? Latitude { get; set; }
     public double? Longitude { get; set; }
+    public Point? Location { get; set; }
+    public bool HasMarkedParkingLot { get; set; }
     public ApprovalStatusEnum ApprovalStatus { get; set; }
+    public string? RejectionReason { get; set; }
     public double? AverageRating { get; set; }
     public int RatingCount { get; set; }
 

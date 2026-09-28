@@ -4,6 +4,49 @@ A peer-to-peer parking marketplace API where users find parking spaces and land 
 
 ## Change Log
 
+### 2026-09-28 — Single approval per trust question (provider approval removed)
+
+- `ParkingProvider` is no longer approvable: dropped `ApprovalStatus` + `RejectionReason` columns (migration `RemoveParkingProviderApproval`), deleted `PUT /backoffice/parking-providers/{id}/approval` + its command/validator, and removed the `?approvalStatus=` filter from `GET /backoffice/parking-providers` (now an unfiltered oversight list). Provider responses (mobile + BackOffice) no longer carry status fields.
+- Rationale: the provider row carries no reviewable evidence — compliance reviews the combined lot (facility + owner info + photos + prices) on the facility detail screen. One operator can run many facilities; each lot is approved on its own evidence. Approvable entities are now exactly three: **Organization** (PAN body), **Facility** (lot quality), **DrivingLicense** (rider permit, verified for record — soft, no hard booking gate).
+- Mobile effect: creating a provider returns immediately with no pending state; `GET /facilities` lists **all** facilities across the caller's providers with per-lot status. No migration backfill (columns dropped pre-launch). Build + tests pass.
+
+### 2026-09-28 — BackOffice API split per area
+
+- Deleted the `BackOfficeApi` monolith; now one group per area under `ParkingApp/Apis/BackOffice/` sharing a `BackOfficeGroup` base (`BackOfficeOnly` policy + init-code parsers): `Auth/BackOfficeAuthApi.cs` (`auth/login`, `init`; future `auth/logout`, `auth/change-password`), `Riders/`, `Organizations/`, `Providers/` (list only, no approval), `Facilities/`, `Licenses/` (each with its list/detail + `{id}/approval` PUT). Routes unchanged — auto-discovered via `MapEndpoints()`.
+- No migration (no schema change). Build + tests pass.
+
+### 2026-09-28 — BackOffice approve/decline flow (supply unblocked)
+
+- New `PUT /backoffice/organizations/{id}/approval`, `PUT /backoffice/facilities/{id}/approval`, `PUT /backoffice/licenses/{id}/approval` (BackOffice-only; body `{ approvalStatus, rejectionReason? }`, route id wins via `request with`) → `Unit` (re-fetch the list). Until now the BackOffice was read-only, so nothing could ever leave `Pending` — nearby search would have returned zero lots. (Provider approval was cut same-day — see "Single approval" entry; approvable = org, facility, license.)
+- Shared transition matrix (`ApprovalTransitions.IsAllowed`, 16 xUnit tests): `Pending → Verified|UnderReview|Rejected`; `UnderReview → Verified|Rejected`; `Rejected → UnderReview`; `Verified → UnderReview` (re-audit only); same-status and all other moves rejected with an explicit message.
+- New nullable `RejectionReason` (max 500) on the approvable entities — required when rejecting (validator), cleared on verify, cleared on license resubmit. Surfaced in every related response (my orgs/facilities/license + all BackOffice lists/details) so owners see *why*.
+- New `GET /backoffice/licenses?approvalStatus=` queue (license id, rider contact, number, categories, photo URLs, expiry) — licenses previously had no compliance surface at all.
+- Migration `AddApprovalRejectionReason` (4 nullable columns, no backfill needed). Build + tests pass.
+
+### 2026-09-28 — Nearby search + HasMarkedParkingLot flag
+
+- New `ParkingFacility.HasMarkedParkingLot` (`bool`, default `false`) — set at `POST /facilities` via the UI toggle; surfaced in all facility responses (my list/detail, BackOffice list/detail). Later decides seat-map vs slot-count UI per facility.
+- New `ParkingFacility.Location` (PostGIS `geography(Point, 4326)`, GiST-indexed, derived from lat/long at create) — `Latitude`/`Longitude` doubles stay the API contract; `Location` is query-only. Backfilled for existing rows in-migration.
+- New `GET /facilities/nearby?latitude=&longitude=&radiusKm=&vehicleType=` (auth, nearest-first, max 50) with two modes: no `vehicleType` = **"parkings near me"** (pure spatial, `Verified` + has coords + within radius); with `vehicleType` (code `1`/`2`) = **"available spaces near me"** (adds `Spots.Any(active of type)` filter). `radiusKm` default 5, max 20 (400 beyond); lat/lng range-validated.
+- Response per lot: `distanceMeters`, rating, `imageCount` + `firstImageUrl`, `hasMarkedParkingLot`, and per type `freeCount`/`totalCount`/`fromPriceNpr` (active spots only; `free == total` until bookings land — overlapping holds subtract here via `TODO(bookings)`).
+- `NetTopologySuite` referenced by Domain (geometry only) + Application; `UseNetTopologySuite` was already wired in DI.
+- Migration `20260928151516_AddFacilityMarkedFlagAndLocation` (flag + geography column + backfill + GiST). Build + tests pass.
+
+### 2026-09-28 — Upload limits moved to config (extensions jpg/jpeg/png)
+
+- Deleted the `AllowedImageTypes` / `MaxImageBytes` constants duplicated in `ProfileApi`, `FacilityApi`, `LicenseApi`. New `UploadSettings` section (`MaxImageSizeInMB: 5`, `AllowedImageTypes: [jpg, jpeg, png]`) in `appsettings.Development.json` + `Upload__*` env passthrough in compose — override on the server later via `Upload__MaxImageSizeInMB` / `Upload__AllowedImageTypes__0..n` env vars, no code change. Code defaults match when the section is absent (no startup throw, unlike Jwt/Minio).
+- Validation is now extension-based (`Path.GetExtension`, case-insensitive) + size check in one shared helper (`UploadValidation.ValidateImage`); MIME-type sniffing dropped. Note the type allowlist narrowed: **webp/gif no longer accepted** (was jpeg/png/webp/gif).
+- No migration (no schema change). Build + tests pass.
+
+### 2026-09-28 — Driving licenses + vehicle details (brand/model/color/category)
+
+- New `VehicleCategoryEnum` (`Scooter = 1`, `Motorcycle = 2`, `CarJeepVan = 3`) — what the vehicle **is**. `VehicleTypeEnum` (`TwoWheeler`/`FourWheeler`) stays as the **spot-size** class; the two must agree (`Scooter`/`Motorcycle` ↔ `TwoWheeler`, `CarJeepVan` ↔ `FourWheeler`, enforced by `LicenseCoverage.MatchesSpotType` in the vehicle validator).
+- New `LicenseCategoryEnum` (Nepal DoTM letters on the card: `K = 1` scooter/moped, `A = 2` motorcycle, `A1 = 3` heavy motorcycle, `B = 4` car/jeep/van) with a server-side coverage matrix (`LicenseCoverage.Covers`): Scooter ← K/A/A1, Motorcycle ← A/A1 (K rejected), Car/Jeep/Van ← B only. No cross two↔four coverage. 17 xUnit tests lock the matrix.
+- New `DrivingLicense` entity (one row per user: `LicenseNumber` globally unique, `Categories` as Postgres `integer[]`, front/back photo URLs in MinIO `license-images/`, `ExpiryDate`, `ApprovalStatus` default `Pending`) + table `DrivingLicenses` (unique `UserId`, unique `LicenseNumber`, cascade delete).
+- New endpoints (auth): `POST /licenses` (multipart: `licenseNumber`, `categories` comma-separated codes e.g. `"2,4"`, `expiryDate` `yyyy-MM-dd`, files `front`+`back` jpg/jpeg/png ≤ 5 MB (limits from `Upload` config — see Change Log 2026-09-28) — creates `Pending`; resubmission allowed only after `Rejected`, old photos deleted best-effort) → `Guid`; `GET /licenses` → license with category descriptions + approval status (404 when nothing submitted); `GET /licenses/init` → `{ licenseCategories[] }`. `GET /vehicles/init` now also returns `{ vehicleCategories[] }`.
+- `Vehicle` gains `VehicleCategory`, `Brand`, `Model`, `Color` (all mandatory at `POST /vehicles`, surfaced in `GET /vehicles` with descriptions — for lost-bike identification). `POST /vehicles` additionally checks a **Verified** license: insufficient categories → 409 (no license / non-Verified license → allowed; the hard gate moves to bookings). The booking-time license gate + BackOffice license verification queue are next.
+- Migration `20260928134240_AddDrivingLicenseAndVehicleDetails`. Build + tests pass.
+
 ### 2026-09-22 — Enum-as-request, dropdown init APIs, slim write responses
 
 - `CreateVehicleCommand.VehicleType` changed from `string` to `VehicleTypeEnum` — the manual `Enum.TryParse` in the handler is gone; the validator moved from `IsEnumName` (string-only) to `IsInEnum()`, matching the existing `UpdateProfileCommand.Gender` precedent.
@@ -21,7 +64,7 @@ A peer-to-peer parking marketplace API where users find parking spaces and land 
 
 ### 2026-09-19 — Facility images (MinIO) + ratings & reviews + profile picture
 
-- **Images are optional at onboarding, MinIO-backed.** One `parkingapp` bucket, two prefixes: `facility-images/` and `profile-images/` (S3/MinIO "folders" are key prefixes). `POST /facilities/{id}/images` (multipart, owner-only) and `POST /profile/picture` (single file, replaces the previous one — the old object is deleted best-effort). Only the public URL is persisted (`ParkingFacilityImages` rows / `Users.ProfileImageUrl`); jpeg/png/webp/gif ≤ 5 MB.
+- **Images are optional at onboarding, MinIO-backed.** One `parkingapp` bucket, two prefixes: `facility-images/` and `profile-images/` (S3/MinIO "folders" are key prefixes). `POST /facilities/{id}/images` (multipart, owner-only) and `POST /profile/picture` (single file, replaces the previous one — the old object is deleted best-effort). Only the public URL is persisted (`ParkingFacilityImages` rows / `Users.ProfileImageUrl`); jpg/jpeg/png ≤ 5 MB (limits from `Upload` config — override via `Upload__*` env vars).
 - **Compliance sees the evidence.** Facility list/detail responses (mobile + BackOffice) carry `ImageCount` and the image list — facilities with no images are the ones compliance spends manual review time on.
 - **Rating stored on the table, reviews in their own table** (the standard Booking/Google pattern): `ParkingFacilities` gains `AverageRating` + `RatingCount`, recomputed transactionally on each accepted review; `ParkingFacilityReviews` holds one row per review (`FacilityId`, `AuthorId`, `Rating` 1–5, optional `Comment`), with a **unique `(FacilityId, AuthorId)`** constraint = one review per rider per facility.
 - **Usage proof deferred to bookings (no visit table).** A dedicated `ParkingFacilityVisits` entity was considered and removed — an owner-recorded visit is gameable and becomes dead code once bookings arrive. Reviews currently require a `Verified` facility + the one-review rule; a `TODO(bookings)` in the handler marks where a completed-booking/payment check slots in.
@@ -111,9 +154,10 @@ No business-logic changes today. The goal was to lock in the folder pattern the 
 ### Hat 1 — Rider (demand): register → find → book → park → pay
 
 1. OTP login/registration (phone-first), then onboarding (`PUT /profile`).
-2. Register vehicle from the Vehicles tab (`GET /vehicles/init` → `POST /vehicles`).
-3. Find nearby parking → book → park → pay.
-4. Step 3 is **planned, not built** — no search/booking/payment code exists yet (Roadmap Phases 3–4).
+2. Register vehicle from the Vehicles tab (`GET /vehicles/init` → `POST /vehicles`: category Scooter/Motorcycle/CarJeepVan + brand/model/color for identification).
+3. Submit driving license (`GET /licenses/init` → `POST /licenses` multipart with front/back photos; starts `Pending`).
+4. Find nearby parking → book → park → pay.
+5. Step 4 is **planned, not built** — no search/booking/payment code exists yet (Roadmap Phases 3–4). Booking will hard-gate on a Verified, unexpired, covering license.
 
 ### Hat 2 — Provider (supply): land → provider → facility → spots → verified
 
@@ -134,14 +178,14 @@ No business-logic changes today. The goal was to lock in the folder pattern the 
 - **One user, many profiles.** Hats are rows (`ParkingProvider`, `UserOrganization`), never a role switch on the user.
 - **Phone is identity.** OTP-time row is found by request phone (`PUT /profile`: 404 on unknown number, 403 when the number isn't the token owner's); email is unique-checked.
 - **Ownership gating.** Facility writes require `ProviderOwnership`: direct `OwnerUserId`, or `Owner` role on the owning org.
-- **Approval gates supply, never demand.** Riders need no KYC; orgs/providers/facilities trade only after `Verified`.
-- **Uniqueness:** plate per account; `registrationNumber` global; spot number per facility; one `Individual` provider per user; one provider per org; one review per rider per facility (and only on `Verified` facilities).
+- **Approval gates supply, never demand.** Riders need no KYC; orgs/facilities trade only after `Verified`. Licenses are verified for record (soft — no hard booking gate).
+- **Uniqueness:** plate per account; `registrationNumber` global; `licenseNumber` global + one license per user; spot number per facility; one `Individual` provider per user; one provider per org; one review per rider per facility (and only on `Verified` facilities).
 - **Write responses are ids** (`Guid`/`Unit`) — display data always comes from the `GET`s.
 
 ### Built vs planned (2026-09-22)
 
-- Built: OTP auth, onboarding, vehicles, dropdown inits (`/profile/init`, `/vehicles/init`), org/provider/facility/spots/images/reviews, BackOffice lists + login.
-- Planned: nearby search, booking, parking/QR, payments (eSewa/Khalti/IME/Fonepay), company employee subscriptions + on-behalf booking rules.
+- Built: OTP auth, onboarding, vehicles (+ brand/model/color/category, dropdown inits for `/vehicles/init` + `/licenses/init`), driving-license submission/view (verification queue pending), org/provider/facility/spots/images/reviews, BackOffice lists + login.
+- Planned: BackOffice license verification queue, booking-time license gate (Verified + covering category + unexpired → else 403), nearby search, booking, parking/QR, payments (eSewa/Khalti/IME/Fonepay), company employee subscriptions + on-behalf booking rules.
 
 ## Tech Stack
 
@@ -314,15 +358,36 @@ Domain methods:
 #### Vehicle (`ParkingApp.Domain/Vehicle.cs`)
 | Property | Type | Constraints |
 |---|---|---|
-| VehicleType | VehicleTypeEnum | TwoWheeler (1), FourWheeler (2) |
+| VehicleType | VehicleTypeEnum | TwoWheeler (1), FourWheeler (2) — spot-size class |
+| VehicleCategory | VehicleCategoryEnum | Scooter (1), Motorcycle (2), CarJeepVan (3) — must agree with VehicleType |
 | Name | string | Required, max 100 |
 | VehicleNumber | string | Private set, max 20, normalized to uppercase |
+| Brand | string | Required, max 100 (e.g. "Bajaj") |
+| Model | string | Required, max 100 (e.g. "NS200") |
+| Color | string | Required, max 50 (e.g. "white") |
 | UserId | Guid | FK to User, cascade delete |
 | User | User? | Navigation property |
 
 Domain methods:
-- `Vehicle.Create(userId, vehicleType, name, vehicleNumber)` -- Factory method; trims and uppercases the plate
+- `Vehicle.Create(userId, vehicleType, vehicleCategory, name, vehicleNumber, brand, model, color)` -- Factory method; trims and uppercases the plate
 - One user can own multiple vehicles (bike + car); plate validation lives in `CreateVehicleCommandValidator` (accepts Latin + Devanagari characters)
+- License coverage lives in `LicenseCoverage` (`ParkingApp.Domain/Common/Enums/LicenseCoverage.cs`): `Covers(held, vehicle)` (Scooter ← K/A/A1, Motorcycle ← A/A1, CarJeepVan ← B) and `MatchesSpotType(type, category)` (category must agree with spot size)
+
+#### DrivingLicense (`ParkingApp.Domain/DrivingLicense.cs`)
+One row per user (mirrors the DoTM smart card — categories accumulate over time). Starts `Pending`; compliance verifies via BackOffice (queue pending — next step).
+
+| Property | Type | Constraints |
+|---|---|---|
+| UserId | Guid | FK to User, cascade delete, **unique** (one license per account) |
+| LicenseNumber | string | Required, max 30, normalized to uppercase, **unique** globally |
+| Categories | List\<LicenseCategoryEnum\> | Required, distinct (K/A/A1/B — Postgres `integer[]`) |
+| FrontImageUrl / BackImageUrl | string | Required, max 500 (MinIO `license-images/` URLs) |
+| ExpiryDate | DateOnly | Required, must be future (`yyyy-MM-dd`) |
+| ApprovalStatus | ApprovalStatusEnum | Pending (1, default), Verified, UnderReview, Rejected |
+
+Domain methods:
+- `DrivingLicense.Create(userId, licenseNumber, categories, frontImageUrl, backImageUrl, expiryDate)` -- Factory method (Pending)
+- `license.Resubmit(...)` -- Replaces card details after a rejection and resets to Pending
 
 #### Organization (`ParkingApp.Domain/Organization.cs`)
 A **business client** (e.g. an office renting parking for its employees). Created by a `User` (the owner), which ties into `UserOrganization` membership so one person can be an authorized person on multiple companies without changing their own identity.
@@ -354,7 +419,6 @@ The **supply side** — whoever runs a parking operation, whether a person (land
 | Property | Type | Constraints |
 |---|---|---|
 | ProviderType | ProviderTypeEnum | Individual (1), Company (2) |
-| ApprovalStatus | ApprovalStatusEnum | Pending (1, default), Verified, UnderReview, Rejected |
 | OwnerUserId | Guid? | FK to User, cascade delete, **unique** |
 | OwnerOrganizationId | Guid? | FK to Organization, cascade delete, **unique** |
 | OwnerUser / OwnerOrganization | nav | Exactly one set (person or company) |
@@ -380,7 +444,9 @@ A single parking location a provider runs. Created by the provider's owner; each
 | Name | string | Required, max 200, unique per provider |
 | Description | string? | Optional, max 1000 |
 | Address | string | Required, max 300 |
-| Latitude / Longitude | double? | Optional GPS |
+| Latitude / Longitude | double? | Optional GPS (derives the PostGIS `Location` geography at create) |
+| Location | Point? | Query-only PostGIS `geography(Point, 4326)`, GiST-indexed (nearby search) |
+| HasMarkedParkingLot | bool | UI toggle at create (default false) — later decides seat-map vs slot-count UI |
 | ApprovalStatus | ApprovalStatusEnum | Pending (1, default), Verified, UnderReview, Rejected |
 | AverageRating | double? | Denormalized aggregate, recomputed on each review |
 | RatingCount | int | Denormalized review count, default 0 |
@@ -432,7 +498,9 @@ One row per rider review (the standard pattern: aggregate on the facility, bodie
 - BackOffice + approval migration generated (`20260919100539_AddBackOfficeApprovalAndSeed`) -- creates `BackOfficeUsers`, renames `ParkingProviders.VerificationStatus` -> `ApprovalStatus`, adds `Organizations.ApprovalStatus`, seeds SuperAdmin
 - Parking facility + spot migration generated (`20260919103951_AddParkingFacilityAndSpot`) -- creates `ParkingFacilities` + `ParkingSpots` tables (provider-owned facilities; spots carry vehicle type + per-hour price)
 - Facility images + reviews + profile picture migration generated (`20260919113358_AddFacilityImagesReviewsAndProfilePicture`) -- creates `ParkingFacilityImages`, `ParkingFacilityReviews` (unique per rider per facility); adds `AverageRating` + `RatingCount` to `ParkingFacilities`, `ProfileImageUrl` to `Users`
-- Creates 12 tables: `Users`, `Otps`, `RefreshTokens`, `Vehicles`, `Organizations`, `UserOrganizations`, `ParkingProviders`, `BackOfficeUsers`, `ParkingFacilities`, `ParkingSpots`, `ParkingFacilityImages`, `ParkingFacilityReviews`
+- Driving license + vehicle details migration generated (`20260928134240_AddDrivingLicenseAndVehicleDetails`) -- creates `DrivingLicenses` (unique `UserId`, unique `LicenseNumber`); adds `VehicleCategory`, `Brand`, `Model`, `Color` to `Vehicles` (existing rows default to `""`/`0` — re-register or wipe dev DBs)
+- Facility marked-flag + location migration generated (`20260928151516_AddFacilityMarkedFlagAndLocation`) -- adds `HasMarkedParkingLot` (default false) + `Location` geography with GiST index (backfilled from lat/long for existing rows)
+- Creates 13 tables: `Users`, `Otps`, `RefreshTokens`, `Vehicles`, `DrivingLicenses`, `Organizations`, `UserOrganizations`, `ParkingProviders`, `BackOfficeUsers`, `ParkingFacilities`, `ParkingSpots`, `ParkingFacilityImages`, `ParkingFacilityReviews`
 - PostGIS extension enabled
 - Unique indexes on `Users.PhoneNumber`, `Users.Email`, `RefreshTokens.Token`
 - FK index on `RefreshTokens.UserId`
@@ -480,7 +548,8 @@ The auth flow is built with **CQRS**: every write operation is a command, dispat
 - `SendOtpCommandHandler` -- Derives purpose server-side (Login if the number exists, Registration otherwise), cancels old pending OTPs, generates + stores a new OTP (purpose/status/channel tracked), sends it via `IOtpSender`, returns `DevCode` for dev testing
 - `VerifyOtpCommandHandler` -- Validates the latest pending OTP (max 5 attempts, expiry); then resolves the account by phone number: unknown number → creates a phone-only account (registration), known number → login; marks phone verified; issues JWT access + refresh tokens; sets `IsNewUser` for onboarding
 - `RefreshTokenCommandHandler` -- Rotates refresh token; if a revoked token is reused, revokes ALL user tokens (theft detection)
-- `CreateVehicleCommandHandler` -- (auth required) Registers a user's vehicle via `ICurrentUserService`; rejects duplicate number plates on the same account
+- `CreateVehicleCommandHandler` -- (auth required) Registers a user's vehicle via `ICurrentUserService`; rejects duplicate number plates on the same account; validates `VehicleCategory` agrees with `VehicleType`; rejects (409) when the user holds a **Verified** license whose categories don't cover the vehicle (no/unverified license → allowed; hard gate moves to bookings)
+- `CreateDrivingLicenseCommandHandler` -- (auth required) Submits the DoTM license (number unique-checked globally, expiry must be future); one active submission per account (409 when Pending/Verified); a `Rejected` license may be resubmitted (row reset to Pending, old photos deleted best-effort via `IFileStorage`)
 - `UpdateProfileCommandHandler` -- (auth required) Completes the onboarding step; finds the OTP-time row by the request `PhoneNumber` (404 if changed/unknown), then requires it to belong to the token owner (403 on mismatch — blocks cross-account overwrites), saves name/email/gender/DOB (all mandatory), unique-checks email, returns `IsProfileComplete`.
 
 ### 6. API Endpoints
@@ -498,12 +567,16 @@ Endpoints are defined as **minimal API endpoint groups** (`ParkingApp/Apis/AuthA
 | GET | `/profile/init` | — | `{ Genders[Code, Text] }` | Bearer token |
 | GET | `/api/vehicles` | — | `GetVehiclesResponse` | Bearer token |
 | POST | `/api/vehicles` | `CreateVehicleRequest` | `Guid` (vehicle id; re-fetch via `GET /vehicles`) | Bearer token |
-| GET | `/vehicles/init` | — | `{ VehicleTypes[Code, Text] }` | Bearer token |
+| GET | `/vehicles/init` | — | `{ VehicleTypes[Code, Text], VehicleCategories[Code, Text] }` | Bearer token |
+| GET | `/licenses` | — | `DrivingLicenseResponse` (404 when nothing submitted) | Bearer token |
+| POST | `/licenses` | multipart `licenseNumber, categories, expiryDate, front, back` | `Guid` (license id; re-fetch via `GET /licenses`) | Bearer token |
+| GET | `/licenses/init` | — | `{ LicenseCategories[Code, Text] }` | Bearer token |
 | GET | `/organizations` | — | `GetOrganizationsResponse` (user) | Bearer token |
 | POST | `/organizations` | `CreateOrganizationRequest` | `Guid` (organization id) | Bearer token |
 | GET | `/parking-providers` | — | `GetParkingProvidersResponse` (user) | Bearer token |
 | POST | `/parking-providers` | `CreateParkingProviderRequest` | `Guid` (provider id) | Bearer token |
 | GET | `/facilities` | — | `GetParkingFacilitiesResponse` (user) | Bearer token |
+| GET | `/facilities/nearby?latitude=&longitude=&radiusKm=&vehicleType=` | — | `GetNearbyFacilitiesResponse` (distance + free counts + from-prices, nearest first) | Bearer token |
 | POST | `/facilities` | `CreateParkingFacilityRequest` | `Guid` (facility id) | Bearer token |
 | GET | `/facilities/{facilityId}` | — | `GetParkingFacilityByIdResponse` | Bearer token |
 | POST | `/facilities/{facilityId}/spots` | `CreateParkingSpotsRequest` | `Unit` (`{}`; re-fetch via `GET /facilities/{id}`) | Bearer token |
@@ -514,9 +587,13 @@ Endpoints are defined as **minimal API endpoint groups** (`ParkingApp/Apis/AuthA
 | POST | `/backoffice/auth/login` | `BackOfficeLoginRequest` | `BackOfficeLoginResponse` | No |
 | GET | `/backoffice/riders` | `(?vehicleType=)` | `GetRidersResponse` | BackOffice bearer |
 | GET | `/backoffice/organizations` | `(?approvalStatus=)` | `GetOrganizationsResponse` (BackOffice) | BackOffice bearer |
-| GET | `/backoffice/parking-providers` | `(?approvalStatus=)` | `GetParkingProvidersResponse` (BackOffice) | BackOffice bearer |
+| GET | `/backoffice/parking-providers` | — | `GetParkingProvidersResponse` (BackOffice oversight list, no approval) | BackOffice bearer |
 | GET | `/backoffice/facilities` | `(?approvalStatus=)` | `GetParkingFacilitiesResponse` (BackOffice) | BackOffice bearer |
 | GET | `/backoffice/facilities/{facilityId}` | — | `GetParkingFacilityDetailResponse` | BackOffice bearer |
+| GET | `/backoffice/licenses` | `(?approvalStatus=)` | `GetLicensesResponse` (license queue with rider contact) | BackOffice bearer |
+| PUT | `/backoffice/organizations/{id}/approval` | `UpdateOrganizationApprovalRequest` | `Unit` (`{}`; re-fetch list) | BackOffice bearer |
+| PUT | `/backoffice/facilities/{id}/approval` | `UpdateParkingFacilityApprovalRequest` | `Unit` (`{}`; re-fetch list) | BackOffice bearer |
+| PUT | `/backoffice/licenses/{id}/approval` | `UpdateDrivingLicenseApprovalRequest` | `Unit` (`{}`; re-fetch list) | BackOffice bearer |
 
 Note: BackOffice list endpoints use the **`BackOfficeOnly`** authorization policy (`Role = BackOffice` claim) — app-user tokens are rejected. BackOffice routes are `/backoffice/*` (no `/api` prefix); organization, parking-provider and facility routes are top-level (`/organizations`, `/parking-providers`, `/facilities`) using app-user Bearer tokens.
 
@@ -527,10 +604,11 @@ VerifyOtpCommand    (PhoneNumber, Code)                                       ->
 RefreshTokenCommand (RefreshToken)                                            -> RefreshTokenResponse (UserId, AccessToken, RefreshToken, AccessTokenExpiresAt, IsProfileComplete)
 LogoutCommand       (RefreshToken)                                            -> LogoutResponse     (Message)
 UpdateProfileCommand(FullName, PhoneNumber, Email, Gender, DateOfBirth)            -> Guid (user id; Gender is GenderEnum, DateOfBirth is DateOnly "yyyy-MM-dd")
-CreateVehicleCommand(VehicleTypeEnum, Name, VehicleNumber)                        -> Guid (vehicle id)
+CreateVehicleCommand(VehicleTypeEnum, VehicleCategoryEnum, Name, VehicleNumber, Brand, Model, Color) -> Guid (vehicle id; VehicleCategory must agree with VehicleType; Verified license with insufficient categories → 409)
+CreateDrivingLicenseCommand(LicenseNumber, CategoriesRaw "2,4", ExpiryDateRaw yyyy-MM-dd, Front/Back file uploads) -> Guid (license id; parsing + MinIO upload + resubmission-after-Rejected all in the handler; API tier only maps the multipart form)
 CreateOrganizationCommand (Name, RegistrationNumber, ContactNumber, Address)   -> Guid (organization id)
 CreateParkingProviderCommand (ProviderType, OrganizationId?)                   -> Guid (provider id)
-CreateParkingFacilityCommand (ProviderId, Name, Description?, Address, Latitude?, Longitude?) -> Guid (facility id)
+CreateParkingFacilityCommand (ProviderId, Name, Description?, Address, Latitude?, Longitude?, HasMarkedParkingLot) -> Guid (facility id)
 CreateParkingSpotsCommand (FacilityId, Spots[SpotNumber, VehicleType, PricePerHourNpr, IsActive?]) -> Unit (re-fetch facility detail for counts)
 UploadImages (multipart files, owner-only, MinIO)                               -> { Images[Id, Url, FileName, ContentType, SizeInBytes, SortOrder] }
 UploadProfilePicture (multipart file, replaces previous)                        -> { ProfileImageUrl }
@@ -540,15 +618,17 @@ CreateParkingFacilityReviewCommand (FacilityId, Rating 1-5, Comment?)           
 **Queries** (`GET`, no body):
 ```
 GetProfileQuery     ()                                                        -> GetProfileResponse (FullName, PhoneNumber, Email, Gender, GenderDescription, DateOfBirth?, MemberSince, IsProfileComplete, HasVehicle, BookingsCount, AmountSavedInNpr, Rating)
-GetVehiclesQuery    ()                                                        -> GetVehiclesResponse (Vehicles[Id, VehicleType, VehicleTypeDescription, Name, VehicleNumber], HasVehicle)
+GetVehiclesQuery    ()                                                        -> GetVehiclesResponse (Vehicles[Id, VehicleType, VehicleTypeDescription, VehicleCategory, VehicleCategoryDescription, Name, VehicleNumber, Brand, Model, Color], HasVehicle)
+GetDrivingLicenseQuery ()                                                     -> DrivingLicenseResponse (Id, LicenseNumber, Categories[], CategoryDescriptions[], FrontImageUrl, BackImageUrl, ExpiryDate, ApprovalStatus, ApprovalStatusDescription; 404 when nothing submitted)
 GetOrganizationsQuery () [user]                                                  -> GetOrganizationsResponse (Organizations[Id, Name, RegistrationNumber, ContactNumber, Address, ApprovalStatus, ApprovalStatusDescription, Role, RoleDescription])
-GetParkingProvidersQuery () [user]                                               -> GetParkingProvidersResponse (ParkingProviders[Id, ProviderType, ProviderTypeDescription, ApprovalStatus, ApprovalStatusDescription, OwnerUserId, OwnerOrganizationId])
+GetParkingProvidersQuery () [user]                                               -> GetParkingProvidersResponse (ParkingProviders[Id, ProviderType, ProviderTypeDescription, OwnerUserId, OwnerOrganizationId])
 GetParkingFacilitiesQuery () [user]                                              -> GetParkingFacilitiesResponse (Facilities[Id, ProviderId, Name, Description, Address, Latitude, Longitude, ApprovalStatus, ApprovalStatusDescription, TwoWheelerCount, FourWheelerCount])
-GetParkingFacilityByIdQuery (FacilityId)                                      -> GetParkingFacilityByIdResponse (Facility[...] + Spots + Images, TwoWheelerCount, FourWheelerCount, AverageRating, RatingCount)
+GetParkingFacilityByIdQuery (FacilityId)                                      -> GetParkingFacilityByIdResponse (Facility[...] + Spots + Images, TwoWheelerCount, FourWheelerCount, AverageRating, RatingCount, HasMarkedParkingLot)
+GetNearbyFacilitiesQuery (Latitude, Longitude, RadiusKm? default 5/max 20, VehicleType?) -> GetNearbyFacilitiesResponse (Facilities[Id, Name, Address, Lat/Lng, DistanceMeters, Approval..., Rating..., ImageCount, FirstImageUrl, HasMarkedParkingLot, TwoWheeler{Free,Total,FromPrice}, FourWheeler{...}] nearest-first, max 50)
 GetParkingFacilityReviewsQuery (FacilityId)                                   -> GetParkingFacilityReviewsResponse (FacilityId, AverageRating, RatingCount, Reviews[Id, Rating, Comment, AuthorId, AuthorFullName, CreatedAtUtc] newest-first)
 GetRidersQuery      (VehicleType?)                                             -> GetRidersResponse (Users[Id, FullName, PhoneNumber, IsProfileComplete, Vehicles])
 GetOrganizationsQuery (ApprovalStatus?) [BackOffice]                              -> GetOrganizationsResponse (Organizations[Id, Name, RegistrationNumber, ContactNumber, Address, ApprovalStatus, ApprovalStatusDescription])
-GetParkingProvidersQuery (ApprovalStatus?) [BackOffice]                           -> GetParkingProvidersResponse (ParkingProviders[Id, ProviderType, ProviderTypeDescription, ApprovalStatus, ApprovalStatusDescription, Owner...])
+GetParkingProvidersQuery () [BackOffice]                                              -> GetParkingProvidersResponse (ParkingProviders[Id, ProviderType, ProviderTypeDescription, Owner...] — oversight list, no approval)
 GetParkingFacilitiesQuery (ApprovalStatus?) [BackOffice]                          -> GetParkingFacilitiesResponse (Facilities[Id, Name, Description, Address, ApprovalStatus, ApprovalStatusDescription, ProviderOwnerName, ProviderOwnerContactNumber, TwoWheelerCount, FourWheelerCount])
 GetParkingFacilityDetailQuery (FacilityId)                                     -> GetParkingFacilityDetailResponse (Facility[...] + every Spot, TwoWheelerCount, FourWheelerCount)
 ```
@@ -556,6 +636,9 @@ GetParkingFacilityDetailQuery (FacilityId)                                     -
 **BackOffice commands** (Password-based auth — no OTP):
 ```
 BackOfficeLoginCommand (UserNameOrEmail, Password)                             -> BackOfficeLoginResponse (AccessToken, AccessTokenExpiresAt, FullName, UserName, Email)
+UpdateOrganizationApprovalCommand (OrganizationId, ApprovalStatus, RejectionReason?) -> Unit (transition-matrix enforced; reason required on Rejected)
+UpdateParkingFacilityApprovalCommand (FacilityId, ApprovalStatus, RejectionReason?) -> Unit
+UpdateDrivingLicenseApprovalCommand (LicenseId, ApprovalStatus, RejectionReason?) -> Unit
 ```
 
 ### 7. OTP Sender
@@ -642,7 +725,7 @@ Use the `ParkingApp.http` file or Postman:
 
 **BackOffice** (admin console):
 1. **Login**: `POST /backoffice/auth/login` with `SuperAdmin` + `P@ssw0rd` -> returns a BackOffice bearer token.
-2. **List pending work**: `GET /backoffice/organizations?approvalStatus=Pending`, `GET /backoffice/parking-providers?approvalStatus=Pending`, `GET /backoffice/facilities?approvalStatus=Pending`, `GET /backoffice/riders` (all require the BackOffice token).
+2. **List pending work**: `GET /backoffice/organizations?approvalStatus=Pending`, `GET /backoffice/facilities?approvalStatus=Pending`, `GET /backoffice/licenses?approvalStatus=Pending`, `GET /backoffice/riders`, `GET /backoffice/parking-providers` (oversight, no approval) (all require the BackOffice token).
 3. **Verify a facility**: `GET /backoffice/facilities/{id}` — every spot number, vehicle type, price, the two/four-wheeler counts, uploaded images and ratings. No images → slower manual review.
 
 **Provider catalog flow** (supply side):

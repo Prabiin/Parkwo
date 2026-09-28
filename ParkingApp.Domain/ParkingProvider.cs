@@ -6,7 +6,6 @@ namespace ParkingApp.Domain;
 public class ParkingProvider : AuditableEntity
 {
     public ProviderTypeEnum ProviderType { get; set; }
-    public ApprovalStatusEnum ApprovalStatus { get; set; }
     public Guid? OwnerUserId { get; set; }
     public Guid? OwnerOrganizationId { get; set; }
 

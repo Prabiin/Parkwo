@@ -10,10 +10,12 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using ParkingApp.Application.Auth.Interfaces;
 using ParkingApp.Application.BackOffice.Commands.Login;
+using ParkingApp.Application.BackOffice.Commands.UpdateApproval;
 using BackOfficeOrganizations = ParkingApp.Application.BackOffice.Queries.GetOrganizations;
 using BackOfficeFacilities = ParkingApp.Application.BackOffice.Queries.GetParkingFacilities;
 using ParkingApp.Application.BackOffice.Queries.GetParkingFacilityDetail;
 using BackOfficeProviders = ParkingApp.Application.BackOffice.Queries.GetParkingProviders;
+using ParkingApp.Application.BackOffice.Queries.GetLicenses;
 using ParkingApp.Application.BackOffice.Queries.GetRiders;
 using ParkingApp.Application.Common;
 using ParkingApp.Application.Common.Cqrs;
@@ -22,6 +24,7 @@ using ParkingApp.Application.Configuration;
 using ParkingApp.Application.Facilities.Commands.Create;
 using ParkingApp.Application.Facilities.Commands.CreateReview;
 using ParkingApp.Application.Facilities.Commands.CreateSpots;
+using ParkingApp.Application.Facilities.Queries.GetNearbyFacilities;
 using ParkingApp.Application.Facilities.Queries.GetParkingFacilities;
 using ParkingApp.Application.Facilities.Queries.GetParkingFacilityById;
 using ParkingApp.Application.Facilities.Queries.GetParkingFacilityReviews;
@@ -37,6 +40,8 @@ using ParkingApp.Application.Profile.Commands.Update;
 using ParkingApp.Application.Profile.Queries.GetProfile;
 using ParkingApp.Application.Vehicles.Commands.Create;
 using ParkingApp.Application.Vehicles.Queries.GetVehicles;
+using ParkingApp.Application.Licenses.Commands.Create;
+using ParkingApp.Application.Licenses.Queries.GetDrivingLicense;
 using ParkingApp.Infrastructure.Auth;
 using ParkingApp.Infrastructure.Cqrs;
 using ParkingApp.Infrastructure.Files;
@@ -72,6 +77,15 @@ public static class DependencyInjection
 
         services.Configure<MinioSettings>(configuration.GetSection(MinioSettings.SectionName));
         services.AddSingleton(minioSettings);
+
+        // Upload limits (image extensions + max MB). Optional section:
+        // code defaults apply when neither appsettings nor env provides it,
+        // so the server runs before Upload__* env vars are set.
+        var uploadSettings = configuration.GetSection(UploadSettings.SectionName).Get<UploadSettings>()
+                             ?? new UploadSettings();
+
+        services.Configure<UploadSettings>(configuration.GetSection(UploadSettings.SectionName));
+        services.AddSingleton(uploadSettings);
 
         services.AddAuthentication(options =>
         {
@@ -130,9 +144,17 @@ public static class DependencyInjection
         services.AddScoped<IRequestResultHandler<GetParkingFacilityByIdQuery, GetParkingFacilityByIdResponse>, GetParkingFacilityByIdQueryHandler>();
         services.AddScoped<IRequestResultHandler<BackOfficeFacilities.GetParkingFacilitiesQuery, BackOfficeFacilities.GetParkingFacilitiesResponse>, BackOfficeFacilities.GetParkingFacilitiesQueryHandler>();
         services.AddScoped<IRequestResultHandler<GetParkingFacilityDetailQuery, GetParkingFacilityDetailResponse>, GetParkingFacilityDetailQueryHandler>();
+        services.AddScoped<IRequestResultHandler<GetNearbyFacilitiesQuery, GetNearbyFacilitiesResponse>, GetNearbyFacilitiesQueryHandler>();
 
         services.AddScoped<IRequestResultHandler<CreateParkingFacilityReviewCommand, Guid>, CreateParkingFacilityReviewCommandHandler>();
         services.AddScoped<IRequestResultHandler<GetParkingFacilityReviewsQuery, GetParkingFacilityReviewsResponse>, GetParkingFacilityReviewsQueryHandler>();
+        services.AddScoped<IRequestResultHandler<UpdateOrganizationApprovalCommand, Unit>, UpdateOrganizationApprovalCommandHandler>();
+        services.AddScoped<IRequestResultHandler<UpdateParkingFacilityApprovalCommand, Unit>, UpdateParkingFacilityApprovalCommandHandler>();
+        services.AddScoped<IRequestResultHandler<UpdateDrivingLicenseApprovalCommand, Unit>, UpdateDrivingLicenseApprovalCommandHandler>();
+        services.AddScoped<IRequestResultHandler<GetLicensesQuery, GetLicensesResponse>, GetLicensesQueryHandler>();
+
+        services.AddScoped<IRequestResultHandler<CreateDrivingLicenseCommand, Guid>, CreateDrivingLicenseCommandHandler>();
+        services.AddScoped<IRequestResultHandler<GetDrivingLicenseQuery, DrivingLicenseResponse?>, GetDrivingLicenseQueryHandler>();
 
         // Command validators
         services.AddScoped<IValidator<SendOtpCommand>, SendOtpCommandValidator>();
@@ -144,7 +166,6 @@ public static class DependencyInjection
         services.AddScoped<IValidator<BackOfficeLoginCommand>, BackOfficeLoginCommandValidator>();
         services.AddScoped<IValidator<GetRidersQuery>, GetRidersQueryValidator>();
         services.AddScoped<IValidator<BackOfficeOrganizations.GetOrganizationsQuery>, BackOfficeOrganizations.GetOrganizationsQueryValidator>();
-        services.AddScoped<IValidator<BackOfficeProviders.GetParkingProvidersQuery>, BackOfficeProviders.GetParkingProvidersQueryValidator>();
         services.AddScoped<IValidator<CreateOrganizationCommand>, CreateOrganizationCommandValidator>();
         services.AddScoped<IValidator<CreateParkingProviderCommand>, CreateParkingProviderCommandValidator>();
         services.AddScoped<IValidator<CreateParkingFacilityCommand>, CreateParkingFacilityCommandValidator>();
@@ -152,8 +173,14 @@ public static class DependencyInjection
         services.AddScoped<IValidator<GetParkingFacilityByIdQuery>, GetParkingFacilityByIdQueryValidator>();
         services.AddScoped<IValidator<BackOfficeFacilities.GetParkingFacilitiesQuery>, BackOfficeFacilities.GetParkingFacilitiesQueryValidator>();
         services.AddScoped<IValidator<GetParkingFacilityDetailQuery>, GetParkingFacilityDetailQueryValidator>();
+        services.AddScoped<IValidator<GetNearbyFacilitiesQuery>, GetNearbyFacilitiesQueryValidator>();
         services.AddScoped<IValidator<CreateParkingFacilityReviewCommand>, CreateParkingFacilityReviewCommandValidator>();
         services.AddScoped<IValidator<GetParkingFacilityReviewsQuery>, GetParkingFacilityReviewsQueryValidator>();
+        services.AddScoped<IValidator<UpdateOrganizationApprovalCommand>, UpdateOrganizationApprovalCommandValidator>();
+        services.AddScoped<IValidator<UpdateParkingFacilityApprovalCommand>, UpdateParkingFacilityApprovalCommandValidator>();
+        services.AddScoped<IValidator<UpdateDrivingLicenseApprovalCommand>, UpdateDrivingLicenseApprovalCommandValidator>();
+        services.AddScoped<IValidator<GetLicensesQuery>, GetLicensesQueryValidator>();
+        services.AddScoped<IValidator<CreateDrivingLicenseCommand>, CreateDrivingLicenseCommandValidator>();
 
         // Services
         services.AddScoped<ITokenService, TokenService>();

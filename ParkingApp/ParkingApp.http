@@ -55,16 +55,62 @@ Authorization: Bearer paste-access-token-here
 GET {{ParkingApp_HostAddress}}/vehicles
 Authorization: Bearer paste-access-token-here
 
-### Add a vehicle (requires Bearer token)
+### Vehicles init (dropdowns: vehicleTypes + vehicleCategories codes)
+GET {{ParkingApp_HostAddress}}/vehicles/init
+Authorization: Bearer paste-access-token-here
+
+### Add a vehicle (requires Bearer token; vehicleCategory: 1=Scooter, 2=Motorcycle, 3=Car/Jeep/Van — must agree with vehicleType)
 POST {{ParkingApp_HostAddress}}/vehicles
 Authorization: Bearer paste-access-token-here
 Content-Type: application/json
 
 {
-  "vehicleType": "TwoWheeler",
-  "name": "My Bike",
-  "vehicleNumber": "01-234-Pa-4567"
+  "vehicleType": 1,
+  "vehicleCategory": 2,
+  "name": "My fav bike",
+  "vehicleNumber": "BA 1 JA 2345",
+  "brand": "Bajaj",
+  "model": "NS200",
+  "color": "white"
 }
+
+### Licenses init (dropdown: license category codes K=1, A=2, A1=3, B=4)
+GET {{ParkingApp_HostAddress}}/licenses/init
+Authorization: Bearer paste-access-token-here
+
+### Submit driving license (requires Bearer token; MinIO license-images/; starts Pending)
+# NOTE: multipart/form-data — fields licenseNumber, categories (comma-separated codes, e.g. "2,4"), expiryDate (yyyy-MM-dd), files front + back
+POST {{ParkingApp_HostAddress}}/licenses
+Authorization: Bearer paste-access-token-here
+Content-Type: multipart/form-data; boundary=----licenseboundary
+
+------licenseboundary
+Content-Disposition: form-data; name="licenseNumber"
+
+01-234567
+------licenseboundary
+Content-Disposition: form-data; name="categories"
+
+2
+------licenseboundary
+Content-Disposition: form-data; name="expiryDate"
+
+2030-05-20
+------licenseboundary
+Content-Disposition: form-data; name="front"; filename="front.jpg"
+Content-Type: image/jpeg
+
+< ./front.jpg
+------licenseboundary
+Content-Disposition: form-data; name="back"; filename="back.jpg"
+Content-Type: image/jpeg
+
+< ./back.jpg
+------licenseboundary--
+
+### Get my driving license (requires Bearer token; 404 when nothing submitted)
+GET {{ParkingApp_HostAddress}}/licenses
+Authorization: Bearer paste-access-token-here
 
 ### BackOffice login (password based, no OTP)
 POST {{ParkingApp_HostAddress}}/backoffice/auth/login
@@ -83,8 +129,8 @@ Authorization: Bearer paste-backoffice-token-here
 GET {{ParkingApp_HostAddress}}/backoffice/organizations?approvalStatus=Pending
 Authorization: Bearer paste-backoffice-token-here
 
-### BackOffice: list parking providers (optional ?approvalStatus=Pending|Verified|UnderReview|Rejected)
-GET {{ParkingApp_HostAddress}}/backoffice/parking-providers?approvalStatus=Verified
+### BackOffice: list parking providers (oversight list, no approval flow)
+GET {{ParkingApp_HostAddress}}/backoffice/parking-providers
 Authorization: Bearer paste-backoffice-token-here
 
 ### Create an organization (caller becomes Owner; ApprovalStatus=Pending until backoffice approves)
@@ -137,8 +183,17 @@ Authorization: Bearer paste-app-token-here
   "description": "Ground floor, 24h, staff on site",
   "address": "Baneshwor, Kathmandu",
   "latitude": 27.6964,
-  "longitude": 85.3247
+  "longitude": 85.3247,
+  "hasMarkedParkingLot": false
 }
+
+### Nearby parkings (pure spatial: Verified lots within radiusKm, nearest first; radiusKm default 5, max 20)
+GET {{ParkingApp_HostAddress}}/facilities/nearby?latitude=27.6964&longitude=85.3247&radiusKm=5
+Authorization: Bearer paste-app-token-here
+
+### Nearby available spaces (spatial + capacity: only lots with a free TwoWheeler spot; 1=TwoWheeler, 2=FourWheeler)
+GET {{ParkingApp_HostAddress}}/facilities/nearby?latitude=27.6964&longitude=85.3247&radiusKm=5&vehicleType=1
+Authorization: Bearer paste-app-token-here
 
 ### List my facilities (with two/four-wheeler spot counts + approval status)
 GET {{ParkingApp_HostAddress}}/facilities
@@ -164,6 +219,50 @@ Authorization: Bearer paste-app-token-here
 ### BackOffice: list facilities for compliance review (optional ?approvalStatus=Pending)
 GET {{ParkingApp_HostAddress}}/backoffice/facilities?approvalStatus=Pending
 Authorization: Bearer paste-backoffice-token-here
+
+### BackOffice: approve a facility (1=Pending, 2=Verified, 3=UnderReview, 4=Rejected; rejectionReason required when 4)
+PUT {{ParkingApp_HostAddress}}/backoffice/facilities/paste-facility-id-here/approval
+Content-Type: application/json
+Authorization: Bearer paste-backoffice-token-here
+
+{
+  "approvalStatus": 2,
+  "rejectionReason": null
+}
+
+### BackOffice: reject a facility (reason is shown to the owner in GET /facilities)
+PUT {{ParkingApp_HostAddress}}/backoffice/facilities/paste-facility-id-here/approval
+Content-Type: application/json
+Authorization: Bearer paste-backoffice-token-here
+
+{
+  "approvalStatus": 4,
+  "rejectionReason": "No visible signage and no marked entry."
+}
+
+### BackOffice: approve/reject an organization
+PUT {{ParkingApp_HostAddress}}/backoffice/organizations/paste-organization-id-here/approval
+Content-Type: application/json
+Authorization: Bearer paste-backoffice-token-here
+
+{
+  "approvalStatus": 2,
+  "rejectionReason": null
+}
+
+### BackOffice: list driving licenses for review (optional ?approvalStatus=Pending)
+GET {{ParkingApp_HostAddress}}/backoffice/licenses?approvalStatus=Pending
+Authorization: Bearer paste-backoffice-token-here
+
+### BackOffice: approve/reject a driving license (rider may resubmit only after rejection)
+PUT {{ParkingApp_HostAddress}}/backoffice/licenses/paste-license-id-here/approval
+Content-Type: application/json
+Authorization: Bearer paste-backoffice-token-here
+
+{
+  "approvalStatus": 2,
+  "rejectionReason": null
+}
 
 ### BackOffice: facility detail incl. every spot (verifies counts + pricing)
 GET {{ParkingApp_HostAddress}}/backoffice/facilities/paste-facility-id-here

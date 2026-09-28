@@ -19,7 +19,11 @@ public class VehicleApi : EndpointGroupBase
     }
 
     private static IResult GetVehiclesInit()
-        => Results.Ok(new { VehicleTypes = ListModel<VehicleTypeEnum>.FromEnum() });
+        => Results.Ok(new
+        {
+            VehicleTypes = ListModel<VehicleTypeEnum>.FromEnum(),
+            VehicleCategories = ListModel<VehicleCategoryEnum>.FromEnum()
+        });
 
     private static async Task<IResult> ListVehicles(ISender sender, IServiceProvider serviceProvider,
         CancellationToken cancellationToken)

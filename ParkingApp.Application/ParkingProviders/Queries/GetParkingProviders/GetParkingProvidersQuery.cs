@@ -32,7 +32,6 @@ public sealed class GetParkingProvidersQueryHandler(IApplicationDbContext contex
             {
                 p.Id,
                 p.ProviderType,
-                p.ApprovalStatus,
                 p.OwnerUserId,
                 p.OwnerOrganizationId
             })
@@ -43,8 +42,6 @@ public sealed class GetParkingProvidersQueryHandler(IApplicationDbContext contex
                 p.Id,
                 p.ProviderType,
                 p.ProviderType.ToDescription(),
-                p.ApprovalStatus,
-                p.ApprovalStatus.ToDescription(),
                 p.OwnerUserId,
                 p.OwnerOrganizationId))
             .ToList();

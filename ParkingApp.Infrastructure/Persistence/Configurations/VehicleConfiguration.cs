@@ -15,6 +15,9 @@ public class VehicleConfiguration : IEntityTypeConfiguration<Vehicle>
         builder.Property(x => x.VehicleType)
             .IsRequired();
 
+        builder.Property(x => x.VehicleCategory)
+            .IsRequired();
+
         builder.Property(x => x.Name)
             .IsRequired()
             .HasMaxLength(100);
@@ -22,6 +25,18 @@ public class VehicleConfiguration : IEntityTypeConfiguration<Vehicle>
         builder.Property(x => x.VehicleNumber)
             .IsRequired()
             .HasMaxLength(20);
+
+        builder.Property(x => x.Brand)
+            .IsRequired()
+            .HasMaxLength(100);
+
+        builder.Property(x => x.Model)
+            .IsRequired()
+            .HasMaxLength(100);
+
+        builder.Property(x => x.Color)
+            .IsRequired()
+            .HasMaxLength(50);
 
         builder.Property(x => x.UserId)
             .IsRequired();

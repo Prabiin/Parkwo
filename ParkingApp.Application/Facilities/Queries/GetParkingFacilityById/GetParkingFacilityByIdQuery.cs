@@ -34,7 +34,9 @@ public sealed class GetParkingFacilityByIdQueryHandler(IApplicationDbContext con
                 f.ApprovalStatus,
                 f.CreatedAtUtc,
                 f.AverageRating,
-                f.RatingCount
+                f.RatingCount,
+                f.HasMarkedParkingLot,
+                f.RejectionReason
             })
             .FirstOrDefaultAsync(cancellationToken);
 
@@ -104,6 +106,8 @@ public sealed class GetParkingFacilityByIdQueryHandler(IApplicationDbContext con
                 items.Count(s => s.VehicleType == VehicleTypeEnum.FourWheeler),
                 imageItems,
                 facility.AverageRating,
-                facility.RatingCount));
+                facility.RatingCount,
+                facility.HasMarkedParkingLot,
+                facility.RejectionReason));
     }
 }

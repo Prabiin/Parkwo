@@ -6,8 +6,6 @@ public record ParkingProviderItemResponse(
     Guid Id,
     ProviderTypeEnum ProviderType,
     string ProviderTypeDescription,
-    ApprovalStatusEnum ApprovalStatus,
-    string ApprovalStatusDescription,
     Guid? OwnerUserId,
     Guid? OwnerOrganizationId);
 

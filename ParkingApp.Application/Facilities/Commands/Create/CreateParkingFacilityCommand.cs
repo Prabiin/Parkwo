@@ -1,3 +1,4 @@
+using NetTopologySuite.Geometries;
 using ParkingApp.Application.Common;
 using ParkingApp.Application.Common.Cqrs;
 using ParkingApp.Application.Common.Helpers;
@@ -12,7 +13,8 @@ public sealed record CreateParkingFacilityCommand(
     string? Description,
     string Address,
     double? Latitude,
-    double? Longitude)
+    double? Longitude,
+    bool HasMarkedParkingLot)
     : IRequestResult<CreateParkingFacilityCommand, Guid>;
 
 public sealed class CreateParkingFacilityCommandHandler(IApplicationDbContext context, ICurrentUserService currentUser)
@@ -36,6 +38,10 @@ public sealed class CreateParkingFacilityCommandHandler(IApplicationDbContext co
             Address = request.Address.Trim(),
             Latitude = request.Latitude,
             Longitude = request.Longitude,
+            Location = request.Latitude.HasValue && request.Longitude.HasValue
+                ? new Point(request.Longitude.Value, request.Latitude.Value) { SRID = 4326 }
+                : null,
+            HasMarkedParkingLot = request.HasMarkedParkingLot,
             CreatedAtUtc = DateTimeOffset.UtcNow
         };
 

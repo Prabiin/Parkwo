@@ -42,6 +42,28 @@ public enum VehicleTypeEnum
     FourWheeler = 2
 }
 
+public enum VehicleCategoryEnum
+{
+    [Description("Scooter")]
+    Scooter = 1,
+    [Description("Motorcycle")]
+    Motorcycle = 2,
+    [Description("Car / Jeep / Van")]
+    CarJeepVan = 3
+}
+
+public enum LicenseCategoryEnum
+{
+    [Description("K (Scooter / Moped)")]
+    K = 1,
+    [Description("A (Motorcycle)")]
+    A = 2,
+    [Description("A1 (Heavy motorcycle)")]
+    A1 = 3,
+    [Description("B (Car / Jeep / Van)")]
+    B = 4
+}
+
 public enum GenderEnum
 {
     [Description("Male")]

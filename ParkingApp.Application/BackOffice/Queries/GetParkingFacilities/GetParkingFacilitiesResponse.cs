@@ -19,7 +19,9 @@ public record BackOfficeParkingFacilityItemResponse(
     int FourWheelerCount,
     int ImageCount,
     double? AverageRating,
-    int RatingCount);
+    int RatingCount,
+    bool HasMarkedParkingLot,
+    string? RejectionReason);
 
 public record GetParkingFacilitiesResponse(
     IReadOnlyList<BackOfficeParkingFacilityItemResponse> ParkingFacilities);

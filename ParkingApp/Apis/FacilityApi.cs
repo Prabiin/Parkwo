@@ -4,27 +4,29 @@ using ParkingApp.Application.Common;
 using ParkingApp.Application.Common.Cqrs;
 using ParkingApp.Application.Common.Helpers;
 using ParkingApp.Application.Common.Interfaces;
+using ParkingApp.Application.Configuration;
 using ParkingApp.Application.Facilities;
 using ParkingApp.Application.Facilities.Commands.Create;
 using ParkingApp.Application.Facilities.Commands.CreateReview;
 using ParkingApp.Application.Facilities.Commands.CreateSpots;
+using ParkingApp.Application.Facilities.Queries.GetNearbyFacilities;
 using ParkingApp.Application.Facilities.Queries.GetParkingFacilities;
 using ParkingApp.Application.Facilities.Queries.GetParkingFacilityById;
 using ParkingApp.Application.Facilities.Queries.GetParkingFacilityReviews;
 using ParkingApp.Domain;
+using ParkingApp.Domain.Common.Enums;
 
 namespace ParkingApp.Api.Apis;
 
 public class FacilityApi : EndpointGroupBase
 {
-    private static readonly string[] AllowedImageTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-    private const long MaxImageBytes = 5 * 1024 * 1024;
 
     public override void Map(IEndpointRouteBuilder app)
     {
         app.MapGroup("facilities")
             .MapPost(CreateFacility, "", "")
             .MapGet(ListFacilities, "", "")
+            .MapGet(ListNearbyFacilities, "nearby", "")
             .MapGet(GetFacilityById, "{facilityId}", "")
             .MapPost(CreateSpots, "{facilityId}/spots", "")
             .MapPost(UploadImages, "{facilityId}/images", "", disableAntiforgery: true)
@@ -53,6 +55,25 @@ public class FacilityApi : EndpointGroupBase
         => await ExecuteCommand<CreateParkingSpotsCommand, Unit>(sender,
             request with { FacilityId = facilityId }, serviceProvider, cancellationToken);
 
+    private static async Task<IResult> ListNearbyFacilities(ISender sender, IServiceProvider serviceProvider,
+        double latitude, double longitude, double? radiusKm, string? vehicleType,
+        CancellationToken cancellationToken)
+    {
+        VehicleTypeEnum? parsedType = null;
+        if (!string.IsNullOrWhiteSpace(vehicleType))
+        {
+            if (!int.TryParse(vehicleType, out var code)
+                || !Enum.IsDefined(typeof(VehicleTypeEnum), code))
+                return Results.BadRequest(new { Errors = new[] { "vehicleType: Invalid vehicle type." } });
+
+            parsedType = (VehicleTypeEnum)code;
+        }
+
+        return await ExecuteQuery<GetNearbyFacilitiesQuery, GetNearbyFacilitiesResponse>(sender,
+            new GetNearbyFacilitiesQuery(latitude, longitude, radiusKm, parsedType),
+            serviceProvider, cancellationToken);
+    }
+
     private static async Task<IResult> CreateReview(ISender sender, IServiceProvider serviceProvider,
         Guid facilityId, CreateParkingFacilityReviewCommand request, CancellationToken cancellationToken)
         => await ExecuteCommand<CreateParkingFacilityReviewCommand, Guid>(sender,
@@ -65,7 +86,7 @@ public class FacilityApi : EndpointGroupBase
 
     private static async Task<IResult> UploadImages(Guid facilityId, IFormFileCollection files,
         IApplicationDbContext context, ICurrentUserService currentUser, IFileStorage storage,
-        CancellationToken cancellationToken)
+        UploadSettings upload, CancellationToken cancellationToken)
     {
         var userId = currentUser.UserId;
         if (userId is null)
@@ -83,21 +104,13 @@ public class FacilityApi : EndpointGroupBase
             return Results.Forbid();
 
         if (files.Count == 0)
-            return Results.BadRequest(new { Errors = new[] { "files: At least one image is required." } });
+            return Results.BadRequest(new { Errors = new[] { "At least one image is required." } });
 
         foreach (var file in files)
         {
-            if (!AllowedImageTypes.Contains(file.ContentType, StringComparer.OrdinalIgnoreCase))
-                return Results.BadRequest(new
-                {
-                    Errors = new[] { $"files: '{file.FileName}' is not a supported image type." }
-                });
-
-            if (file.Length > MaxImageBytes || file.Length == 0)
-                return Results.BadRequest(new
-                {
-                    Errors = new[] { $"files: '{file.FileName}' must be between 1 byte and 5 MB." }
-                });
+            var fileError = UploadValidation.ValidateImage(file.FileName, file.Length, upload);
+            if (fileError is not null)
+                return Results.BadRequest(new { Errors = new[] { fileError } });
         }
 
         var currentMaxOrder = await context.ParkingFacilityImages

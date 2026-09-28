@@ -16,6 +16,7 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<Otp> Otps => Set<Otp>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<Vehicle> Vehicles => Set<Vehicle>();
+    public DbSet<DrivingLicense> DrivingLicenses => Set<DrivingLicense>();
     public DbSet<Organization> Organizations => Set<Organization>();
     public DbSet<UserOrganization> UserOrganizations => Set<UserOrganization>();
     public DbSet<ParkingProvider> ParkingProviders => Set<ParkingProvider>();

@@ -6,7 +6,7 @@ using ParkingApp.Domain.Common.Enums;
 
 namespace ParkingApp.Application.BackOffice.Queries.GetParkingProviders;
 
-public sealed record GetParkingProvidersQuery(ApprovalStatusEnum? ApprovalStatus)
+public sealed record GetParkingProvidersQuery()
     : IRequestResult<GetParkingProvidersQuery, GetParkingProvidersResponse>;
 
 public sealed class GetParkingProvidersQueryHandler(IApplicationDbContext context)
@@ -16,21 +16,13 @@ public sealed class GetParkingProvidersQueryHandler(IApplicationDbContext contex
         GetParkingProvidersQuery request,
         CancellationToken cancellationToken = default)
     {
-        var query = context.ParkingProviders.AsNoTracking();
-
-        if (request.ApprovalStatus.HasValue)
-        {
-            var approvalStatus = request.ApprovalStatus.Value;
-            query = query.Where(p => p.ApprovalStatus == approvalStatus);
-        }
-
-        var providers = await query
+        var providers = await context.ParkingProviders
+            .AsNoTracking()
             .OrderByDescending(p => p.CreatedAtUtc)
             .Select(p => new
             {
                 p.Id,
                 p.ProviderType,
-                p.ApprovalStatus,
                 p.CreatedAtUtc,
                 p.OwnerUserId,
                 p.OwnerOrganizationId,
@@ -49,8 +41,6 @@ public sealed class GetParkingProvidersQueryHandler(IApplicationDbContext contex
                 p.Id,
                 p.ProviderType,
                 p.ProviderType.ToDescription(),
-                p.ApprovalStatus,
-                p.ApprovalStatus.ToDescription(),
                 p.CreatedAtUtc,
                 p.OwnerUserId,
                 p.OwnerOrganizationId,

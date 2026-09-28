@@ -1,8 +1,10 @@
 using Microsoft.EntityFrameworkCore;
 using ParkingApp.Api.Infrastructure;
 using ParkingApp.Application.Common.Cqrs;
+using ParkingApp.Application.Common.Helpers;
 using ParkingApp.Application.Common.Interfaces;
 using ParkingApp.Application.Common.Models;
+using ParkingApp.Application.Configuration;
 using ParkingApp.Application.Profile.Commands.Update;
 using ParkingApp.Application.Profile.Queries.GetProfile;
 using ParkingApp.Domain.Common.Enums;
@@ -11,8 +13,6 @@ namespace ParkingApp.Api.Apis;
 
 public class ProfileApi : EndpointGroupBase
 {
-    private static readonly string[] AllowedImageTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-    private const long MaxImageBytes = 5 * 1024 * 1024;
 
     public override void Map(IEndpointRouteBuilder app)
     {
@@ -39,7 +39,7 @@ public class ProfileApi : EndpointGroupBase
 
     private static async Task<IResult> UploadPicture(IFormFile file,
         IApplicationDbContext context, ICurrentUserService currentUser, IFileStorage storage,
-        CancellationToken cancellationToken)
+        UploadSettings upload, CancellationToken cancellationToken)
     {
         var userId = currentUser.UserId;
         if (userId is null)
@@ -51,17 +51,9 @@ public class ProfileApi : EndpointGroupBase
         if (user is null)
             return Results.NotFound();
 
-        if (!AllowedImageTypes.Contains(file.ContentType, StringComparer.OrdinalIgnoreCase))
-            return Results.BadRequest(new
-            {
-                Errors = new[] { $"file: '{file.FileName}' is not a supported image type." }
-            });
-
-        if (file.Length > MaxImageBytes || file.Length == 0)
-            return Results.BadRequest(new
-            {
-                Errors = new[] { $"file: '{file.FileName}' must be between 1 byte and 5 MB." }
-            });
+        var fileError = UploadValidation.ValidateImage(file.FileName, file.Length, upload);
+        if (fileError is not null)
+            return Results.BadRequest(new { Errors = new[] { fileError } });
 
         await using var stream = file.OpenReadStream();
         var stored = await storage.SaveAsync(stream, file.FileName, file.ContentType, "profile-images", cancellationToken);

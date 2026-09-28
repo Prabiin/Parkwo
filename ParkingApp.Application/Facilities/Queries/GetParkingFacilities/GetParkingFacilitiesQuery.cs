@@ -45,7 +45,9 @@ public sealed class GetParkingFacilitiesQueryHandler(IApplicationDbContext conte
                 FourWheelerCount = f.Spots.Count(s => s.VehicleType == VehicleTypeEnum.FourWheeler),
                 ImageCount = f.Images.Count,
                 f.AverageRating,
-                f.RatingCount
+                f.RatingCount,
+                f.HasMarkedParkingLot,
+                f.RejectionReason
             })
             .OrderByDescending(f => f.CreatedAtUtc)
             .ToListAsync(cancellationToken);
@@ -66,7 +68,9 @@ public sealed class GetParkingFacilitiesQueryHandler(IApplicationDbContext conte
                 f.FourWheelerCount,
                 f.ImageCount,
                 f.AverageRating,
-                f.RatingCount))
+                f.RatingCount,
+                f.HasMarkedParkingLot,
+                f.RejectionReason))
             .ToList();
 
         return Result<GetParkingFacilitiesResponse>.Success(

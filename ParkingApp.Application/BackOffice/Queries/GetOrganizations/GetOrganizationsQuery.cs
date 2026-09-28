@@ -37,7 +37,8 @@ public sealed class GetOrganizationsQueryHandler(IApplicationDbContext context)
                 o.CreatedAtUtc,
                 OwnerUserId = o.OwnerUserId,
                 OwnerName = o.OwnerUser != null ? o.OwnerUser.FullName : null,
-                OwnerPhoneNumber = o.OwnerUser != null ? o.OwnerUser.PhoneNumber : null
+                OwnerPhoneNumber = o.OwnerUser != null ? o.OwnerUser.PhoneNumber : null,
+                o.RejectionReason
             })
             .ToListAsync(cancellationToken);
 
@@ -53,7 +54,8 @@ public sealed class GetOrganizationsQueryHandler(IApplicationDbContext context)
                 o.CreatedAtUtc,
                 o.OwnerUserId,
                 o.OwnerName,
-                o.OwnerPhoneNumber))
+                o.OwnerPhoneNumber,
+                o.RejectionReason))
             .ToList();
 
         return Result<GetOrganizationsResponse>.Success(

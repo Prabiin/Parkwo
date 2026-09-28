@@ -38,7 +38,9 @@ public sealed class GetParkingFacilityDetailQueryHandler(IApplicationDbContext c
                     ? f.Provider.OwnerUser!.PhoneNumber
                     : (f.Provider.OwnerOrganization != null ? f.Provider.OwnerOrganization.ContactNumber : null),
                 f.AverageRating,
-                f.RatingCount
+                f.RatingCount,
+                f.HasMarkedParkingLot,
+                f.RejectionReason
             })
             .FirstOrDefaultAsync(cancellationToken);
 
@@ -106,6 +108,8 @@ public sealed class GetParkingFacilityDetailQueryHandler(IApplicationDbContext c
                 items.Count(s => s.VehicleType == VehicleTypeEnum.FourWheeler),
                 imageItems,
                 facility.AverageRating,
-                facility.RatingCount));
+                facility.RatingCount,
+                facility.HasMarkedParkingLot,
+                facility.RejectionReason));
     }
 }

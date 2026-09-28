@@ -36,6 +36,9 @@ public class OrganizationConfiguration : IEntityTypeConfiguration<Organization>
             .IsRequired()
             .HasDefaultValue(ApprovalStatusEnum.Pending);
 
+        builder.Property(x => x.RejectionReason)
+            .HasMaxLength(500);
+
         builder.Property(x => x.CreatedAtUtc)
             .IsRequired();
 

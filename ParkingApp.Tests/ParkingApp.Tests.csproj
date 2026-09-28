@@ -18,4 +18,9 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\ParkingApp.Domain\ParkingApp.Domain.csproj" />
+    <ProjectReference Include="..\ParkingApp.Application\ParkingApp.Application.csproj" />
+  </ItemGroup>
+
 </Project>

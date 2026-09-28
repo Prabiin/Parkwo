@@ -88,6 +88,10 @@ services:
       - Minio__Bucket=parkingapp
       - Minio__UseSsl=false
       - Minio__PublicBaseUrl=http://localhost:9000
+      - Upload__MaxImageSizeInMB=5
+      - Upload__AllowedImageTypes__0=jpg
+      - Upload__AllowedImageTypes__1=jpeg
+      - Upload__AllowedImageTypes__2=png
       - Elastic__Url=http://elasticsearch:9200
     ports:
       - "8080:8080"

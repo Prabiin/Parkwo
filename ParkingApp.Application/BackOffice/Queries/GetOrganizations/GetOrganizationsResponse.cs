@@ -13,7 +13,8 @@ public record OrganizationItemResponse(
     DateTimeOffset CreatedAtUtc,
     Guid OwnerUserId,
     string? OwnerName,
-    string? OwnerPhoneNumber);
+    string? OwnerPhoneNumber,
+    string? RejectionReason);
 
 public record GetOrganizationsResponse(
     IReadOnlyList<OrganizationItemResponse> Organizations);

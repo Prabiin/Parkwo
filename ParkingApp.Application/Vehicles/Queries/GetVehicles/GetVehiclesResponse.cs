@@ -6,8 +6,13 @@ public record VehicleItemResponse(
     Guid Id,
     VehicleTypeEnum VehicleType,
     string VehicleTypeDescription,
+    VehicleCategoryEnum VehicleCategory,
+    string VehicleCategoryDescription,
     string Name,
-    string VehicleNumber);
+    string VehicleNumber,
+    string Brand,
+    string Model,
+    string Color);
 
 public record GetVehiclesResponse(
     IReadOnlyList<VehicleItemResponse> Vehicles,

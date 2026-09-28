@@ -31,9 +31,19 @@ public class ParkingFacilityConfiguration : IEntityTypeConfiguration<ParkingFaci
 
         builder.Property(x => x.Longitude);
 
+        builder.Property(x => x.Location)
+            .HasColumnType("geography (point)");
+
+        builder.Property(x => x.HasMarkedParkingLot)
+            .IsRequired()
+            .HasDefaultValue(false);
+
         builder.Property(x => x.ApprovalStatus)
             .IsRequired()
             .HasDefaultValue(ApprovalStatusEnum.Pending);
+
+        builder.Property(x => x.RejectionReason)
+            .HasMaxLength(500);
 
         builder.Property(x => x.AverageRating);
 
@@ -54,5 +64,7 @@ public class ParkingFacilityConfiguration : IEntityTypeConfiguration<ParkingFaci
         builder.HasIndex(x => x.ProviderId);
         builder.HasIndex(x => new { x.ProviderId, x.Name })
             .IsUnique();
+        builder.HasIndex(x => x.Location)
+            .HasMethod("GIST");
     }
 }

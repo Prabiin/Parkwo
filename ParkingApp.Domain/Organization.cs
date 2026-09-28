@@ -11,6 +11,7 @@ public class Organization : AuditableEntity
     public string Address { get; set; } = default!;
     public Guid OwnerUserId { get; set; }
     public ApprovalStatusEnum ApprovalStatus { get; set; }
+    public string? RejectionReason { get; set; }
 
     // Navigation properties
     public User? OwnerUser { get; set; }

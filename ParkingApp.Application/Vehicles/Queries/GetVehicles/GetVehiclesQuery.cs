@@ -21,7 +21,7 @@ public sealed class GetVehiclesQueryHandler(IApplicationDbContext context, ICurr
             .AsNoTracking()
             .Where(v => v.UserId == userId)
             .OrderByDescending(v => v.CreatedAtUtc)
-            .Select(v => new { v.Id, v.VehicleType, v.Name, v.VehicleNumber })
+            .Select(v => new { v.Id, v.VehicleType, v.VehicleCategory, v.Name, v.VehicleNumber, v.Brand, v.Model, v.Color })
             .ToListAsync(cancellationToken);
 
         var items = vehicles
@@ -29,8 +29,13 @@ public sealed class GetVehiclesQueryHandler(IApplicationDbContext context, ICurr
                 v.Id,
                 v.VehicleType,
                 v.VehicleType.ToDescription(),
+                v.VehicleCategory,
+                v.VehicleCategory.ToDescription(),
                 v.Name,
-                v.VehicleNumber))
+                v.VehicleNumber,
+                v.Brand,
+                v.Model,
+                v.Color))
             .ToList();
 
         return Result<GetVehiclesResponse>.Success(

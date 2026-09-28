@@ -11,7 +11,8 @@ public record OrganizationItemResponse(
     ApprovalStatusEnum ApprovalStatus,
     string ApprovalStatusDescription,
     OrganizationRoleEnum Role,
-    string RoleDescription);
+    string RoleDescription,
+    string? RejectionReason);
 
 public record GetOrganizationsResponse(
     IReadOnlyList<OrganizationItemResponse> Organizations);

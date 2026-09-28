@@ -18,4 +18,6 @@ public record GetParkingFacilityByIdResponse(
     int FourWheelerCount,
     IReadOnlyList<ParkingFacilityImageResponse> Images,
     double? AverageRating,
-    int RatingCount);
+    int RatingCount,
+    bool HasMarkedParkingLot,
+    string? RejectionReason);

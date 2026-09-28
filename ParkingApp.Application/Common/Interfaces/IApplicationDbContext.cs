@@ -9,6 +9,7 @@ public interface IApplicationDbContext
     DbSet<Otp> Otps { get; }
     DbSet<RefreshToken> RefreshTokens { get; }
     DbSet<Vehicle> Vehicles { get; }
+    DbSet<DrivingLicense> DrivingLicenses { get; }
     DbSet<Organization> Organizations { get; }
     DbSet<UserOrganization> UserOrganizations { get; }
     DbSet<ParkingProvider> ParkingProviders { get; }
