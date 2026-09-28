@@ -4,18 +4,18 @@ using ParkingApp.Application.Common.Cqrs;
 using ParkingApp.Application.Common.Interfaces;
 using ParkingApp.Domain.Common.Enums;
 
-namespace ParkingApp.Application.Organizations.Queries.GetMyOrganizations;
+namespace ParkingApp.Application.Organizations.Queries.GetOrganizations;
 
-public sealed record GetMyOrganizationsQuery() : IRequestResult<GetMyOrganizationsQuery, GetMyOrganizationsResponse>;
+public sealed record GetOrganizationsQuery() : IRequestResult<GetOrganizationsQuery, GetOrganizationsResponse>;
 
-public sealed class GetMyOrganizationsQueryHandler(IApplicationDbContext context, ICurrentUserService currentUser)
-    : IRequestResultHandler<GetMyOrganizationsQuery, GetMyOrganizationsResponse>
+public sealed class GetOrganizationsQueryHandler(IApplicationDbContext context, ICurrentUserService currentUser)
+    : IRequestResultHandler<GetOrganizationsQuery, GetOrganizationsResponse>
 {
-    public async Task<Result<GetMyOrganizationsResponse>> Handle(GetMyOrganizationsQuery request, CancellationToken cancellationToken = default)
+    public async Task<Result<GetOrganizationsResponse>> Handle(GetOrganizationsQuery request, CancellationToken cancellationToken = default)
     {
         var userId = currentUser.UserId;
         if (userId is null)
-            return Result<GetMyOrganizationsResponse>.Failure("Authentication required.", 401);
+            return Result<GetOrganizationsResponse>.Failure("Authentication required.", 401);
 
         var memberships = await context.UserOrganizations
             .AsNoTracking()
@@ -29,7 +29,7 @@ public sealed class GetMyOrganizationsQueryHandler(IApplicationDbContext context
             .ToListAsync(cancellationToken);
 
         var items = memberships
-            .Select(m => new MyOrganizationItemResponse(
+            .Select(m => new OrganizationItemResponse(
                 m.Organization.Id,
                 m.Organization.Name,
                 m.Organization.RegistrationNumber,
@@ -41,7 +41,7 @@ public sealed class GetMyOrganizationsQueryHandler(IApplicationDbContext context
                 m.Role.ToDescription()))
             .ToList();
 
-        return Result<GetMyOrganizationsResponse>.Success(
-            new GetMyOrganizationsResponse(items));
+        return Result<GetOrganizationsResponse>.Success(
+            new GetOrganizationsResponse(items));
     }
 }

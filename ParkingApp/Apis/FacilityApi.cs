@@ -8,7 +8,7 @@ using ParkingApp.Application.Facilities;
 using ParkingApp.Application.Facilities.Commands.Create;
 using ParkingApp.Application.Facilities.Commands.CreateReview;
 using ParkingApp.Application.Facilities.Commands.CreateSpots;
-using ParkingApp.Application.Facilities.Queries.GetMyParkingFacilities;
+using ParkingApp.Application.Facilities.Queries.GetParkingFacilities;
 using ParkingApp.Application.Facilities.Queries.GetParkingFacilityById;
 using ParkingApp.Application.Facilities.Queries.GetParkingFacilityReviews;
 using ParkingApp.Domain;
@@ -24,7 +24,7 @@ public class FacilityApi : EndpointGroupBase
     {
         app.MapGroup("facilities")
             .MapPost(CreateFacility, "", "")
-            .MapGet(ListMyFacilities, "", "")
+            .MapGet(ListFacilities, "", "")
             .MapGet(GetFacilityById, "{facilityId}", "")
             .MapPost(CreateSpots, "{facilityId}/spots", "")
             .MapPost(UploadImages, "{facilityId}/images", "", disableAntiforgery: true)
@@ -38,10 +38,10 @@ public class FacilityApi : EndpointGroupBase
         => await ExecuteCommand<CreateParkingFacilityCommand, Guid>(sender,
             request, serviceProvider, cancellationToken);
 
-    private static async Task<IResult> ListMyFacilities(ISender sender, IServiceProvider serviceProvider,
+    private static async Task<IResult> ListFacilities(ISender sender, IServiceProvider serviceProvider,
         CancellationToken cancellationToken)
-        => await ExecuteQuery<GetMyParkingFacilitiesQuery, GetMyParkingFacilitiesResponse>(sender,
-            new GetMyParkingFacilitiesQuery(), serviceProvider, cancellationToken);
+        => await ExecuteQuery<GetParkingFacilitiesQuery, GetParkingFacilitiesResponse>(sender,
+            new GetParkingFacilitiesQuery(), serviceProvider, cancellationToken);
 
     private static async Task<IResult> GetFacilityById(ISender sender, IServiceProvider serviceProvider,
         Guid facilityId, CancellationToken cancellationToken)

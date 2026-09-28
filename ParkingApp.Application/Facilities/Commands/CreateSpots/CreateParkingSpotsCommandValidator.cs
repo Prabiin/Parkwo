@@ -21,8 +21,7 @@ public sealed class CreateParkingSpotsCommandValidator : AbstractValidator<Creat
                     .MaximumLength(20);
 
                 spot.RuleFor(s => s.VehicleType)
-                    .NotEmpty()
-                    .IsEnumName(typeof(VehicleTypeEnum));
+                    .IsInEnum();
 
                 spot.RuleFor(s => s.PricePerHourNpr)
                     .GreaterThan(0)

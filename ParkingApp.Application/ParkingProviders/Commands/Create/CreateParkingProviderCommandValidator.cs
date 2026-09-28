@@ -8,17 +8,16 @@ public sealed class CreateParkingProviderCommandValidator : AbstractValidator<Cr
     public CreateParkingProviderCommandValidator()
     {
         RuleFor(x => x.ProviderType)
-            .NotEmpty()
-            .IsEnumName(typeof(ProviderTypeEnum));
+            .IsInEnum();
 
         RuleFor(x => x.OrganizationId)
             .NotNull()
-            .When(x => x.ProviderType.Equals("Company", StringComparison.OrdinalIgnoreCase))
+            .When(x => x.ProviderType == ProviderTypeEnum.Company)
             .WithMessage("OrganizationId is required for a company parking provider.");
 
         RuleFor(x => x.OrganizationId)
             .Null()
-            .When(x => x.ProviderType.Equals("Individual", StringComparison.OrdinalIgnoreCase))
+            .When(x => x.ProviderType == ProviderTypeEnum.Individual)
             .WithMessage("OrganizationId is not allowed for an individual parking provider.");
     }
 }

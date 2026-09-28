@@ -4,20 +4,20 @@ using ParkingApp.Application.Common.Cqrs;
 using ParkingApp.Application.Common.Interfaces;
 using ParkingApp.Domain.Common.Enums;
 
-namespace ParkingApp.Application.ParkingProviders.Queries.GetMyParkingProviders;
+namespace ParkingApp.Application.ParkingProviders.Queries.GetParkingProviders;
 
-public sealed record GetMyParkingProvidersQuery() : IRequestResult<GetMyParkingProvidersQuery, GetMyParkingProvidersResponse>;
+public sealed record GetParkingProvidersQuery() : IRequestResult<GetParkingProvidersQuery, GetParkingProvidersResponse>;
 
-public sealed class GetMyParkingProvidersQueryHandler(IApplicationDbContext context, ICurrentUserService currentUser)
-    : IRequestResultHandler<GetMyParkingProvidersQuery, GetMyParkingProvidersResponse>
+public sealed class GetParkingProvidersQueryHandler(IApplicationDbContext context, ICurrentUserService currentUser)
+    : IRequestResultHandler<GetParkingProvidersQuery, GetParkingProvidersResponse>
 {
-    public async Task<Result<GetMyParkingProvidersResponse>> Handle(GetMyParkingProvidersQuery request, CancellationToken cancellationToken = default)
+    public async Task<Result<GetParkingProvidersResponse>> Handle(GetParkingProvidersQuery request, CancellationToken cancellationToken = default)
     {
         var userId = currentUser.UserId;
         if (userId is null)
-            return Result<GetMyParkingProvidersResponse>.Failure("Authentication required.", 401);
+            return Result<GetParkingProvidersResponse>.Failure("Authentication required.", 401);
 
-        var myOrganizationIds = await context.UserOrganizations
+        var organizationIds = await context.UserOrganizations
             .AsNoTracking()
             .Where(m => m.UserId == userId)
             .Select(m => m.OrganizationId)
@@ -26,7 +26,7 @@ public sealed class GetMyParkingProvidersQueryHandler(IApplicationDbContext cont
         var providers = await context.ParkingProviders
             .AsNoTracking()
             .Where(p => p.OwnerUserId == userId
-                        || (p.OwnerOrganizationId != null && myOrganizationIds.Contains(p.OwnerOrganizationId.Value)))
+                        || (p.OwnerOrganizationId != null && organizationIds.Contains(p.OwnerOrganizationId.Value)))
             .OrderByDescending(p => p.CreatedAtUtc)
             .Select(p => new
             {
@@ -39,7 +39,7 @@ public sealed class GetMyParkingProvidersQueryHandler(IApplicationDbContext cont
             .ToListAsync(cancellationToken);
 
         var items = providers
-            .Select(p => new MyParkingProviderItemResponse(
+            .Select(p => new ParkingProviderItemResponse(
                 p.Id,
                 p.ProviderType,
                 p.ProviderType.ToDescription(),
@@ -49,7 +49,7 @@ public sealed class GetMyParkingProvidersQueryHandler(IApplicationDbContext cont
                 p.OwnerOrganizationId))
             .ToList();
 
-        return Result<GetMyParkingProvidersResponse>.Success(
-            new GetMyParkingProvidersResponse(items));
+        return Result<GetParkingProvidersResponse>.Success(
+            new GetParkingProvidersResponse(items));
     }
 }

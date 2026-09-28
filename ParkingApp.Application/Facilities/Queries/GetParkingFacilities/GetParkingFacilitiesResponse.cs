@@ -1,8 +1,8 @@
 using ParkingApp.Domain.Common.Enums;
 
-namespace ParkingApp.Application.Facilities.Queries.GetMyParkingFacilities;
+namespace ParkingApp.Application.Facilities.Queries.GetParkingFacilities;
 
-public record MyParkingFacilityItemResponse(
+public record ParkingFacilityItemResponse(
     Guid Id,
     Guid ProviderId,
     string Name,
@@ -19,5 +19,5 @@ public record MyParkingFacilityItemResponse(
     double? AverageRating,
     int RatingCount);
 
-public record GetMyParkingFacilitiesResponse(
-    IReadOnlyList<MyParkingFacilityItemResponse> Facilities);
+public record GetParkingFacilitiesResponse(
+    IReadOnlyList<ParkingFacilityItemResponse> Facilities);

@@ -1,7 +1,7 @@
 using ParkingApp.Api.Infrastructure;
 using ParkingApp.Application.Common.Cqrs;
 using ParkingApp.Application.Organizations.Commands.Create;
-using ParkingApp.Application.Organizations.Queries.GetMyOrganizations;
+using ParkingApp.Application.Organizations.Queries.GetOrganizations;
 
 namespace ParkingApp.Api.Apis;
 
@@ -11,7 +11,7 @@ public class OrganizationApi : EndpointGroupBase
     {
         app.MapGroup("organizations")
             .MapPost(CreateOrganization, "", "")
-            .MapGet(ListMyOrganizations, "", "")
+            .MapGet(ListOrganizations, "", "")
             .RequireAuthorization();
     }
 
@@ -20,8 +20,8 @@ public class OrganizationApi : EndpointGroupBase
         => await ExecuteCommand<CreateOrganizationCommand, Guid>(sender,
             request, serviceProvider, cancellationToken);
 
-    private static async Task<IResult> ListMyOrganizations(ISender sender, IServiceProvider serviceProvider,
+    private static async Task<IResult> ListOrganizations(ISender sender, IServiceProvider serviceProvider,
         CancellationToken cancellationToken)
-        => await ExecuteQuery<GetMyOrganizationsQuery, GetMyOrganizationsResponse>(sender,
-            new GetMyOrganizationsQuery(), serviceProvider, cancellationToken);
+        => await ExecuteQuery<GetOrganizationsQuery, GetOrganizationsResponse>(sender,
+            new GetOrganizationsQuery(), serviceProvider, cancellationToken);
 }

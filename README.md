@@ -35,7 +35,7 @@ Providers can now list their parking inventory immediately after their `ParkingP
 
 - **New entities**: `ParkingFacility` (belongs to a `ParkingProvider`, `ApprovalStatus` Pending by default) and `ParkingSpot` (per spot: `SpotNumber`, `VehicleType` two/four-wheeler, `PricePerHourNpr`, `IsActive`). New tables `ParkingFacilities`, `ParkingSpots` (migration `20260919103951_AddParkingFacilityAndSpot`).
 - `POST /facilities` (auth) — `CreateParkingFacilityCommand`; caller must **own the provider** (individual profile or an `Owner` member of the owning company). Facility starts `Pending`.
-- `GET /facilities` (auth) — `GetMyParkingFacilitiesQuery`; facilities under my providers, each with `TwoWheelerCount` / `FourWheelerCount` + approval status.
+- `GET /facilities` (auth) — `GetParkingFacilitiesQuery`; facilities under my providers, each with `TwoWheelerCount` / `FourWheelerCount` + approval status.
 - `GET /facilities/{id}` (auth) — `GetParkingFacilityByIdQuery`; full facility with its spots.
 - `POST /facilities/{id}/spots` (auth) — `CreateParkingSpotsCommand`; **batch-add** spots with spot number, vehicle type and per-hour price. Spot numbers are unique per facility (request + DB conflict → 409).
 - `GET /backoffice/facilities?approvalStatus=` and `GET /backoffice/facilities/{id}` — compliance review: lists with owner contact + spot counts; detail shows every spot and its pricing.
@@ -47,13 +47,13 @@ Providers can now list their parking inventory immediately after their `ParkingP
 Now a rider can create a **business (organization)** and register as a **parking provider** from the app — before this, only the BackOffice could *read* them.
 
 - `POST /organizations` (auth) — `CreateOrganizationCommand`; caller becomes the **Owner** member (`UserOrganization` row with `Owner` role) and The organization is created with `ApprovalStatus = Pending` (BackOffice must verify before it can trade). Registration number is unique-checked (409 on conflict).
-- `GET /organizations` (auth) — `GetMyOrganizationsQuery`; organizations the caller belongs to, each with the caller's `MyRole` + `MyRoleDescription`.
+- `GET /organizations` (auth) — `GetOrganizationsQuery`; organizations the caller belongs to, each with the caller's `Role` + `RoleDescription`.
 - `POST /parking-providers` (auth) — `CreateParkingProviderCommand`; two flavors driven by `ProviderType`:
   - **Individual** → profile attached to the caller (`OwnerUserId`), one per account (409 if the user already has one).
   - **Company** → `OrganizationId` required, and the caller must **own** that organization (`Owner` role, else 403); one provider per organization (409 if registered).
   - Provider starts `ApprovalStatus = Pending`.
-- `GET /parking-providers` (auth) — `GetMyParkingProvidersQuery`; the caller's individual profile plus the profiles of organizations they belong to.
-- Every response carries the enum value **and** its `[Description]` (`ApprovalStatusDescription`, `ProviderTypeDescription`, `MyRoleDescription`), consistent with the profile/vehicles convention.
+- `GET /parking-providers` (auth) — `GetParkingProvidersQuery`; the caller's individual profile plus the profiles of organizations they belong to.
+- Every response carries the enum value **and** its `[Description]` (`ApprovalStatusDescription`, `ProviderTypeDescription`, `RoleDescription`), consistent with the profile/vehicles convention.
 - No schema change — no new migration. Build + tests pass.
 
 ### 2026-09-19 — BackOffice: approval workflow + admin console API
@@ -499,11 +499,11 @@ Endpoints are defined as **minimal API endpoint groups** (`ParkingApp/Apis/AuthA
 | GET | `/api/vehicles` | — | `GetVehiclesResponse` | Bearer token |
 | POST | `/api/vehicles` | `CreateVehicleRequest` | `Guid` (vehicle id; re-fetch via `GET /vehicles`) | Bearer token |
 | GET | `/vehicles/init` | — | `{ VehicleTypes[Code, Text] }` | Bearer token |
-| GET | `/organizations` | — | `GetMyOrganizationsResponse` | Bearer token |
+| GET | `/organizations` | — | `GetOrganizationsResponse` (user) | Bearer token |
 | POST | `/organizations` | `CreateOrganizationRequest` | `Guid` (organization id) | Bearer token |
-| GET | `/parking-providers` | — | `GetMyParkingProvidersResponse` | Bearer token |
+| GET | `/parking-providers` | — | `GetParkingProvidersResponse` (user) | Bearer token |
 | POST | `/parking-providers` | `CreateParkingProviderRequest` | `Guid` (provider id) | Bearer token |
-| GET | `/facilities` | — | `GetMyParkingFacilitiesResponse` | Bearer token |
+| GET | `/facilities` | — | `GetParkingFacilitiesResponse` (user) | Bearer token |
 | POST | `/facilities` | `CreateParkingFacilityRequest` | `Guid` (facility id) | Bearer token |
 | GET | `/facilities/{facilityId}` | — | `GetParkingFacilityByIdResponse` | Bearer token |
 | POST | `/facilities/{facilityId}/spots` | `CreateParkingSpotsRequest` | `Unit` (`{}`; re-fetch via `GET /facilities/{id}`) | Bearer token |
@@ -513,9 +513,9 @@ Endpoints are defined as **minimal API endpoint groups** (`ParkingApp/Apis/AuthA
 | POST | `/profile/picture` | multipart `file` | `{ ProfileImageUrl }` | Bearer token |
 | POST | `/backoffice/auth/login` | `BackOfficeLoginRequest` | `BackOfficeLoginResponse` | No |
 | GET | `/backoffice/riders` | `(?vehicleType=)` | `GetRidersResponse` | BackOffice bearer |
-| GET | `/backoffice/organizations` | `(?approvalStatus=)` | `GetOrganizationsResponse` | BackOffice bearer |
-| GET | `/backoffice/parking-providers` | `(?approvalStatus=)` | `GetParkingProvidersResponse` | BackOffice bearer |
-| GET | `/backoffice/facilities` | `(?approvalStatus=)` | `GetParkingFacilitiesResponse` | BackOffice bearer |
+| GET | `/backoffice/organizations` | `(?approvalStatus=)` | `GetOrganizationsResponse` (BackOffice) | BackOffice bearer |
+| GET | `/backoffice/parking-providers` | `(?approvalStatus=)` | `GetParkingProvidersResponse` (BackOffice) | BackOffice bearer |
+| GET | `/backoffice/facilities` | `(?approvalStatus=)` | `GetParkingFacilitiesResponse` (BackOffice) | BackOffice bearer |
 | GET | `/backoffice/facilities/{facilityId}` | — | `GetParkingFacilityDetailResponse` | BackOffice bearer |
 
 Note: BackOffice list endpoints use the **`BackOfficeOnly`** authorization policy (`Role = BackOffice` claim) — app-user tokens are rejected. BackOffice routes are `/backoffice/*` (no `/api` prefix); organization, parking-provider and facility routes are top-level (`/organizations`, `/parking-providers`, `/facilities`) using app-user Bearer tokens.
@@ -541,15 +541,15 @@ CreateParkingFacilityReviewCommand (FacilityId, Rating 1-5, Comment?)           
 ```
 GetProfileQuery     ()                                                        -> GetProfileResponse (FullName, PhoneNumber, Email, Gender, GenderDescription, DateOfBirth?, MemberSince, IsProfileComplete, HasVehicle, BookingsCount, AmountSavedInNpr, Rating)
 GetVehiclesQuery    ()                                                        -> GetVehiclesResponse (Vehicles[Id, VehicleType, VehicleTypeDescription, Name, VehicleNumber], HasVehicle)
-GetMyOrganizationsQuery ()                                                    -> GetMyOrganizationsResponse (Organizations[Id, Name, RegistrationNumber, ContactNumber, Address, ApprovalStatus, ApprovalStatusDescription, MyRole, MyRoleDescription])
-GetMyParkingProvidersQuery ()                                                 -> GetMyParkingProvidersResponse (ParkingProviders[Id, ProviderType, ProviderTypeDescription, ApprovalStatus, ApprovalStatusDescription, OwnerUserId, OwnerOrganizationId])
-GetMyParkingFacilitiesQuery ()                                                -> GetMyParkingFacilitiesResponse (Facilities[Id, ProviderId, Name, Description, Address, Latitude, Longitude, ApprovalStatus, ApprovalStatusDescription, TwoWheelerCount, FourWheelerCount])
+GetOrganizationsQuery () [user]                                                  -> GetOrganizationsResponse (Organizations[Id, Name, RegistrationNumber, ContactNumber, Address, ApprovalStatus, ApprovalStatusDescription, Role, RoleDescription])
+GetParkingProvidersQuery () [user]                                               -> GetParkingProvidersResponse (ParkingProviders[Id, ProviderType, ProviderTypeDescription, ApprovalStatus, ApprovalStatusDescription, OwnerUserId, OwnerOrganizationId])
+GetParkingFacilitiesQuery () [user]                                              -> GetParkingFacilitiesResponse (Facilities[Id, ProviderId, Name, Description, Address, Latitude, Longitude, ApprovalStatus, ApprovalStatusDescription, TwoWheelerCount, FourWheelerCount])
 GetParkingFacilityByIdQuery (FacilityId)                                      -> GetParkingFacilityByIdResponse (Facility[...] + Spots + Images, TwoWheelerCount, FourWheelerCount, AverageRating, RatingCount)
 GetParkingFacilityReviewsQuery (FacilityId)                                   -> GetParkingFacilityReviewsResponse (FacilityId, AverageRating, RatingCount, Reviews[Id, Rating, Comment, AuthorId, AuthorFullName, CreatedAtUtc] newest-first)
 GetRidersQuery      (VehicleType?)                                             -> GetRidersResponse (Users[Id, FullName, PhoneNumber, IsProfileComplete, Vehicles])
-GetOrganizationsQuery (ApprovalStatus?)                                        -> GetOrganizationsResponse (Organizations[Id, Name, RegistrationNumber, ContactNumber, Address, ApprovalStatus, ApprovalStatusDescription])
-GetParkingProvidersQuery (ApprovalStatus?)                                     -> GetParkingProvidersResponse (ParkingProviders[Id, ProviderType, ProviderTypeDescription, ApprovalStatus, ApprovalStatusDescription, Owner...])
-GetParkingFacilitiesQuery (ApprovalStatus?)                                    -> GetParkingFacilitiesResponse (Facilities[Id, Name, Description, Address, ApprovalStatus, ApprovalStatusDescription, ProviderOwnerName, ProviderOwnerContactNumber, TwoWheelerCount, FourWheelerCount])
+GetOrganizationsQuery (ApprovalStatus?) [BackOffice]                              -> GetOrganizationsResponse (Organizations[Id, Name, RegistrationNumber, ContactNumber, Address, ApprovalStatus, ApprovalStatusDescription])
+GetParkingProvidersQuery (ApprovalStatus?) [BackOffice]                           -> GetParkingProvidersResponse (ParkingProviders[Id, ProviderType, ProviderTypeDescription, ApprovalStatus, ApprovalStatusDescription, Owner...])
+GetParkingFacilitiesQuery (ApprovalStatus?) [BackOffice]                          -> GetParkingFacilitiesResponse (Facilities[Id, Name, Description, Address, ApprovalStatus, ApprovalStatusDescription, ProviderOwnerName, ProviderOwnerContactNumber, TwoWheelerCount, FourWheelerCount])
 GetParkingFacilityDetailQuery (FacilityId)                                     -> GetParkingFacilityDetailResponse (Facility[...] + every Spot, TwoWheelerCount, FourWheelerCount)
 ```
 

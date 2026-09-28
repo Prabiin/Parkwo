@@ -8,7 +8,7 @@ using ParkingApp.Domain.Common.Enums;
 namespace ParkingApp.Application.ParkingProviders.Commands.Create;
 
 public sealed record CreateParkingProviderCommand(
-    string ProviderType,
+    ProviderTypeEnum ProviderType,
     Guid? OrganizationId)
     : IRequestResult<CreateParkingProviderCommand, Guid>;
 
@@ -21,8 +21,7 @@ public sealed class CreateParkingProviderCommandHandler(IApplicationDbContext co
         if (userId is null)
             return Result<Guid>.Failure("Authentication required.", 401);
 
-        if (!Enum.TryParse<ProviderTypeEnum>(request.ProviderType, ignoreCase: true, out var providerType))
-            return Result<Guid>.Failure("Invalid provider type.");
+        var providerType = request.ProviderType;
 
         var provider = new ParkingProvider
         {

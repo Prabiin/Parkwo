@@ -6,6 +6,7 @@ using ParkingApp.Application.BackOffice.Queries.GetParkingFacilityDetail;
 using ParkingApp.Application.BackOffice.Queries.GetParkingProviders;
 using ParkingApp.Application.BackOffice.Queries.GetRiders;
 using ParkingApp.Application.Common.Cqrs;
+using ParkingApp.Application.Common.Models;
 using ParkingApp.Domain.Common.Enums;
 
 namespace ParkingApp.Api.Apis.BackOffice;
@@ -19,12 +20,20 @@ public class BackOfficeApi : EndpointGroupBase
         var group = app.MapGroup("backoffice");
 
         group.MapPost("auth/login", Login);
+        group.MapGet("init", Init).RequireAuthorization(BackOfficePolicy);
         group.MapGet("riders", Riders).RequireAuthorization(BackOfficePolicy);
         group.MapGet("organizations", Organizations).RequireAuthorization(BackOfficePolicy);
         group.MapGet("parking-providers", ParkingProviders).RequireAuthorization(BackOfficePolicy);
         group.MapGet("facilities", Facilities).RequireAuthorization(BackOfficePolicy);
         group.MapGet("facilities/{facilityId}", FacilityDetail).RequireAuthorization(BackOfficePolicy);
     }
+
+    private static IResult Init()
+        => Results.Ok(new
+        {
+            VehicleTypes = ListModel<VehicleTypeEnum>.FromEnum(),
+            ApprovalStatuses = ListModel<ApprovalStatusEnum>.FromEnum()
+        });
 
     private static async Task<IResult> Login(ISender sender, IServiceProvider serviceProvider,
         BackOfficeLoginCommand request, CancellationToken cancellationToken)
@@ -89,9 +98,9 @@ public class BackOfficeApi : EndpointGroupBase
             return true;
         }
 
-        if (Enum.TryParse<VehicleTypeEnum>(value, ignoreCase: true, out var parsed))
+        if (int.TryParse(value, out var number) && Enum.IsDefined(typeof(VehicleTypeEnum), number))
         {
-            vehicleType = parsed;
+            vehicleType = (VehicleTypeEnum)number;
             return true;
         }
 
@@ -107,9 +116,9 @@ public class BackOfficeApi : EndpointGroupBase
             return true;
         }
 
-        if (Enum.TryParse<ApprovalStatusEnum>(value, ignoreCase: true, out var parsed))
+        if (int.TryParse(value, out var number) && Enum.IsDefined(typeof(ApprovalStatusEnum), number))
         {
-            approvalStatus = parsed;
+            approvalStatus = (ApprovalStatusEnum)number;
             return true;
         }
 

@@ -10,7 +10,7 @@ namespace ParkingApp.Application.Facilities.Commands.CreateSpots;
 
 public sealed record CreateParkingSpotRequest(
     string SpotNumber,
-    string VehicleType,
+    VehicleTypeEnum VehicleType,
     decimal PricePerHourNpr,
     bool? IsActive = true);
 
@@ -50,9 +50,7 @@ public sealed class CreateParkingSpotsCommandHandler(IApplicationDbContext conte
 
         foreach (var spot in request.Spots)
         {
-            if (!Enum.TryParse<VehicleTypeEnum>(spot.VehicleType, ignoreCase: true, out var vehicleType))
-                return Result<Unit>.Failure("Invalid vehicle type.");
-
+            var vehicleType = spot.VehicleType;
             var spotNumber = spot.SpotNumber.Trim().ToUpperInvariant();
 
             if (normalizedNumbers.Contains(spotNumber, StringComparer.Ordinal))

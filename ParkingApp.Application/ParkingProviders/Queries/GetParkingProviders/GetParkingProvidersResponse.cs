@@ -1,8 +1,8 @@
 using ParkingApp.Domain.Common.Enums;
 
-namespace ParkingApp.Application.ParkingProviders.Queries.GetMyParkingProviders;
+namespace ParkingApp.Application.ParkingProviders.Queries.GetParkingProviders;
 
-public record MyParkingProviderItemResponse(
+public record ParkingProviderItemResponse(
     Guid Id,
     ProviderTypeEnum ProviderType,
     string ProviderTypeDescription,
@@ -11,5 +11,5 @@ public record MyParkingProviderItemResponse(
     Guid? OwnerUserId,
     Guid? OwnerOrganizationId);
 
-public record GetMyParkingProvidersResponse(
-    IReadOnlyList<MyParkingProviderItemResponse> ParkingProviders);
+public record GetParkingProvidersResponse(
+    IReadOnlyList<ParkingProviderItemResponse> ParkingProviders);
