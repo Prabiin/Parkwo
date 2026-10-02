@@ -10,6 +10,15 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using ParkingApp.Application.Auth.Interfaces;
 using ParkingApp.Application.BackOffice.Commands.Login;
+using ParkingApp.Application.Bookings.Commands.Cancel;
+using ParkingApp.Application.Bookings.Commands.Create;
+using ParkingApp.Application.Bookings.Commands.RotatePass;
+using ParkingApp.Application.Bookings.Commands.ScanEntry;
+using ParkingApp.Application.Bookings.Commands.ScanExit;
+using ParkingApp.Application.Bookings.Queries.GetBookingById;
+using ParkingApp.Application.Bookings.Queries.GetBookingPass;
+using ParkingApp.Application.Payments.Commands.Create;
+using ParkingApp.Application.Payments.Commands.ProcessCallback;
 using ParkingApp.Application.BackOffice.Commands.UpdateApproval;
 using BackOfficeOrganizations = ParkingApp.Application.BackOffice.Queries.GetOrganizations;
 using BackOfficeFacilities = ParkingApp.Application.BackOffice.Queries.GetParkingFacilities;
@@ -19,6 +28,7 @@ using ParkingApp.Application.BackOffice.Queries.GetLicenses;
 using ParkingApp.Application.BackOffice.Queries.GetRiders;
 using ParkingApp.Application.Common;
 using ParkingApp.Application.Common.Cqrs;
+using ParkingApp.Application.Common.Helpers;
 using ParkingApp.Application.Common.Interfaces;
 using ParkingApp.Application.Configuration;
 using ParkingApp.Application.Facilities.Commands.Create;
@@ -45,6 +55,7 @@ using ParkingApp.Application.Licenses.Queries.GetDrivingLicense;
 using ParkingApp.Infrastructure.Auth;
 using ParkingApp.Infrastructure.Cqrs;
 using ParkingApp.Infrastructure.Files;
+using ParkingApp.Infrastructure.Payments;
 using ParkingApp.Infrastructure.Persistence;
 
 namespace ParkingApp.Infrastructure;
@@ -94,6 +105,42 @@ public static class DependencyInjection
 
         services.Configure<ParkingStandards>(configuration.GetSection(ParkingStandards.SectionName));
         services.AddSingleton(parkingStandards);
+
+        // Gate passes. Optional section, same posture as the gateway below: an
+        // unset signing key leaves passes switched off instead of blocking the
+        // whole boot. The service fails closed (nothing verifies, nothing signs)
+        // and the pass handlers answer with a "not configured" message naming the
+        // missing variable, so an environment missing a secret comes up with
+        // every other feature working and one actionable diagnostic.
+        var passSettings = configuration.GetSection(PassSettings.SectionName).Get<PassSettings>()
+                           ?? new PassSettings();
+
+        services.Configure<PassSettings>(configuration.GetSection(PassSettings.SectionName));
+        services.AddSingleton(passSettings);
+        services.AddSingleton<ParkingPassService>();
+
+        // Khalti ePayment v2 (parking checkout). Optional section: payments stay
+        // unavailable until Khalti__SecretKey is set, so the server boots and
+        // every non-payment feature works without gateway credentials.
+        var khaltiSection = configuration.GetSection(KhaltiSettings.SectionName);
+        var khaltiSettings = khaltiSection.Get<KhaltiSettings>();
+
+        if (khaltiSettings is { SecretKey: { } secretKey } &&
+            !string.IsNullOrWhiteSpace(secretKey))
+        {
+            services.Configure<KhaltiSettings>(khaltiSection);
+            services.AddSingleton(khaltiSettings);
+
+            // Typed client: BaseAddress carries the API root (…/api/v2/) so the
+            // adapter only names relative endpoints. Registered only when a
+            // secret exists, so an unconfigured deployment has no gateway and
+            // PaymentGateways.Resolve fails loudly instead of silently no-oping.
+            services.AddHttpClient<IPaymentGateway, KhaltiPaymentGateway>(client =>
+            {
+                client.BaseAddress = new Uri(khaltiSettings.BaseUrl.TrimEnd('/') + "/");
+                client.Timeout = TimeSpan.FromSeconds(15);
+            });
+        }
 
         services.AddAuthentication(options =>
         {
@@ -165,6 +212,16 @@ public static class DependencyInjection
         services.AddScoped<IRequestResultHandler<CreateDrivingLicenseCommand, Guid>, CreateDrivingLicenseCommandHandler>();
         services.AddScoped<IRequestResultHandler<GetDrivingLicenseQuery, DrivingLicenseResponse?>, GetDrivingLicenseQueryHandler>();
 
+        services.AddScoped<IRequestResultHandler<CreateBookingCommand, CreateBookingResponse>, CreateBookingCommandHandler>();
+        services.AddScoped<IRequestResultHandler<GetBookingByIdQuery, GetBookingByIdResponse>, GetBookingByIdQueryHandler>();
+        services.AddScoped<IRequestResultHandler<CancelBookingCommand, Unit>, CancelBookingCommandHandler>();
+        services.AddScoped<IRequestResultHandler<CreatePaymentCommand, CreatePaymentResponse>, CreatePaymentCommandHandler>();
+        services.AddScoped<IRequestResultHandler<ProcessPaymentCallbackCommand, ProcessPaymentCallbackResponse>, ProcessPaymentCallbackCommandHandler>();
+        services.AddScoped<IRequestResultHandler<GetBookingPassQuery, GetBookingPassResponse>, GetBookingPassQueryHandler>();
+        services.AddScoped<IRequestResultHandler<RotatePassCommand, RotatePassResponse>, RotatePassCommandHandler>();
+        services.AddScoped<IRequestResultHandler<ScanEntryCommand, ScanEntryResponse>, ScanEntryCommandHandler>();
+        services.AddScoped<IRequestResultHandler<ScanExitCommand, ScanExitResponse>, ScanExitCommandHandler>();
+
         // Command validators
         services.AddScoped<IValidator<SendOtpCommand>, SendOtpCommandValidator>();
         services.AddScoped<IValidator<VerifyOtpCommand>, VerifyOtpCommandValidator>();
@@ -191,6 +248,7 @@ public static class DependencyInjection
         services.AddScoped<IValidator<UpdateDrivingLicenseApprovalCommand>, UpdateDrivingLicenseApprovalCommandValidator>();
         services.AddScoped<IValidator<GetLicensesQuery>, GetLicensesQueryValidator>();
         services.AddScoped<IValidator<CreateDrivingLicenseCommand>, CreateDrivingLicenseCommandValidator>();
+        services.AddScoped<IValidator<CreateBookingCommand>, CreateBookingCommandValidator>();
 
         // Services
         services.AddScoped<ITokenService, TokenService>();

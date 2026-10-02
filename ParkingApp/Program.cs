@@ -71,10 +71,20 @@ app.MapEndpoints();
 
 // Test-server convenience: apply pending EF migrations at startup
 // (compose brings up postgres first via healthcheck, so this is safe here).
-using (var scope = app.Services.CreateScope())
+//
+// Wrapped so a database hiccup degrades one feature instead of taking the whole
+// API down. The endpoints that need these tables will 500 on their own, but auth,
+// facilities and the rest stay reachable — a dead process helps nobody diagnose
+// why it is dead.
+try
 {
+    using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
     await db.Database.MigrateAsync();
+}
+catch (Exception ex)
+{
+    app.Logger.LogError(ex, "Startup database migration failed; the API is running with an outdated schema.");
 }
 
 app.Run();

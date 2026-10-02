@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using ParkingApp.Application.Common.Interfaces;
 using ParkingApp.Domain;
 
@@ -24,6 +25,13 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<ParkingFacilityImage> ParkingFacilityImages => Set<ParkingFacilityImage>();
     public DbSet<ParkingFacilityReview> ParkingFacilityReviews => Set<ParkingFacilityReview>();
     public DbSet<BackOfficeUser> BackOfficeUsers => Set<BackOfficeUser>();
+    public DbSet<Booking> Bookings => Set<Booking>();
+    public DbSet<Payment> Payments => Set<Payment>();
+
+    public async Task<IDbContextTransaction> BeginSerializableTransactionAsync(
+        CancellationToken cancellationToken = default)
+        => await Database.BeginTransactionAsync(
+            System.Data.IsolationLevel.Serializable, cancellationToken);
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

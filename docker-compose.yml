@@ -94,6 +94,20 @@ services:
       - Upload__AllowedImageTypes__2=png
       - ParkingStandards__TwoWheelerAreaSqM=2
       - ParkingStandards__FourWheelerAreaSqM=12.5
+      # Gate pass signing key. Optional: with no key the API boots and passes are
+      # switched off, returning "not configured" until one is set. Same posture as
+      # KHALTI_SECRET_KEY above.
+      - Pass__SigningKey=${PASS_SIGNING_KEY:-}
+      - Pass__EarlyEntryGraceMinutes=${PASS_EARLY_ENTRY_GRACE_MINUTES:-15}
+      - Pass__LateEntryGraceMinutes=${PASS_LATE_ENTRY_GRACE_MINUTES:-30}
+      - Pass__OverstayGraceMinutes=${PASS_OVERSTAY_GRACE_MINUTES:-10}
+      # Khalti ePayment v2. Secret left empty by default so the test server runs
+      # with payments disabled; set KHALTI_SECRET_KEY in .env to enable checkout.
+      - Khalti__SecretKey=${KHALTI_SECRET_KEY:-}
+      - Khalti__PublicKey=${KHALTI_PUBLIC_KEY:-}
+      - Khalti__BaseUrl=${KHALTI_BASE_URL:-https://dev.khalti.com/api/v2/}
+      - Khalti__ReturnUrl=${KHALTI_RETURN_URL:-http://localhost:8080/payments/khalti/return}
+      - Khalti__WebsiteUrl=${KHALTI_WEBSITE_URL:-http://localhost:8080}
       - Elastic__Url=http://elasticsearch:9200
     ports:
       - "8080:8080"

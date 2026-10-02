@@ -103,3 +103,77 @@ public enum OrganizationRoleEnum
     [Description("Monitor")]
     Monitor = 3
 }
+
+public enum BookingStatusEnum
+{
+    [Description("Pending payment")]
+    PendingPayment = 1,
+    [Description("Confirmed")]
+    Confirmed = 2,
+    [Description("Active")]
+    Active = 3,
+    [Description("Completed")]
+    Completed = 4,
+    [Description("Cancelled")]
+    Cancelled = 5,
+    [Description("Expired")]
+    Expired = 6,
+    [Description("Refunded")]
+    Refunded = 7
+}
+
+public enum PaymentGatewayEnum
+{
+    [Description("Khalti")]
+    Khalti = 1
+}
+
+public enum ScanTypeEnum
+{
+    [Description("Entry")]
+    Entry = 1,
+    [Description("Exit")]
+    Exit = 2
+}
+
+public enum ScanOutcomeEnum
+{
+    [Description("Accepted")]
+    Accepted = 1,
+    [Description("Already parked")]
+    AlreadyParked = 2,
+    [Description("Not checked in")]
+    NotCheckedIn = 3,
+    [Description("Already closed")]
+    AlreadyClosed = 4,
+    [Description("Pass is not valid yet")]
+    TooEarly = 5,
+    [Description("Pass has expired")]
+    TooLate = 6,
+    [Description("Unknown pass")]
+    UnknownPass = 7,
+    [Description("Pass does not belong to this facility")]
+    WrongFacility = 8,
+    [Description("Pass is not valid for this booking state")]
+    InvalidState = 9,
+    [Description("Payment is not settled")]
+    NotPaid = 10,
+    [Description("Overstay")]
+    Overstay = 11
+}
+
+public enum PaymentStatusEnum
+{
+    [Description("Initiated")]
+    Initiated = 1,
+    [Description("Completed")]
+    Completed = 2,
+    [Description("Failed")]
+    Failed = 3,
+    [Description("Cancelled")]
+    Cancelled = 4,
+    [Description("Expired")]
+    Expired = 5,
+    [Description("Refunded")]
+    Refunded = 6
+}

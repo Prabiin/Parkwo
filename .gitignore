@@ -44,8 +44,9 @@ artifacts/
 # MSBuild
 *.binlog
 
-# .NET tool manifests (keep the manifest, ignore local installs)
-.config/
+# .NET local tool installs (keep the manifest itself tracked)
+.config/**
+!.config/dotnet-tools.json
 .dotnet/
 
 # Entity Framework bundles
