@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.OpenApi;
 using ParkingApp.Api.Infrastructure;
 using ParkingApp.Infrastructure;
 using ParkingApp.Infrastructure.Persistence;
@@ -38,6 +39,34 @@ builder.Services.AddInfrastructure(builder.Configuration);
 // FluentValidation IsInEnum() in each command validator.
 builder.Services.AddOpenApi();
 
+// Swagger UI, for the mobile team (it is the UI they already know). Swashbuckle
+// builds its OWN document, served at /swagger/v1/swagger.json — it does not read
+// the AddOpenApi document above, so Scalar (/scalar) and Swagger UI (/swagger)
+// stay independent and neither can break the other.
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(options =>
+{
+    // AddOpenApi infers the bearer scheme from the ASP.NET Core auth stack;
+    // Swashbuckle does not, so declare it by hand. Without this, Swagger UI
+    // renders no "Authorize" button and try-it cannot send the accessToken
+    // that POST /auth/login returns.
+    const string bearerScheme = "Bearer";
+    options.AddSecurityDefinition(bearerScheme, new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        In = ParameterLocation.Header,
+        Description = "Paste the accessToken from the login response (no 'Bearer ' prefix)."
+    });
+
+    options.AddSecurityRequirement(document => new OpenApiSecurityRequirement
+    {
+        [new OpenApiSecuritySchemeReference(bearerScheme, document)] = []
+    });
+});
+
 var app = builder.Build();
 
 // Behind Render (or any TLS-terminating proxy) the app receives plain HTTP
@@ -58,6 +87,16 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
     app.MapScalarApiReference();
+    app.UseSwagger();
+    app.UseSwaggerUI(options =>
+    {
+        options.SwaggerEndpoint("/swagger/v1/swagger.json", "ParkingApp.Api v1");
+        options.RoutePrefix = "swagger";
+        options.DocumentTitle = "ParkingApp API";
+        options.EnableTryItOutByDefault();
+        options.DisplayRequestDuration();
+        options.EnablePersistAuthorization();
+    });
 }
 
 app.UseHttpsRedirection();

@@ -695,7 +695,8 @@ docker compose logs -f api
 ```
 
 - API: `http://localhost:8080` (OpenAPI JSON at `/openapi/v1.json` in Development)
-- Interactive API docs (Scalar, try-it included): `http://localhost:8080/scalar` — the mobile team can fill in requests and execute them there (paste the Bearer token from login into Authorize)
+- Interactive API docs (Swagger UI, try-it included): `http://localhost:8080/swagger` — the mobile team pastes the `accessToken` from login into **Authorize** once and every request then carries it
+- Alternative docs UI (Scalar): `http://localhost:8080/scalar`
 - MinIO console: `http://localhost:9001` (admin / admin12345); S3 endpoint `:9000`
 - Logs: Serilog ships API logs to Elasticsearch (index `parkingapp-logs-YYYY.MM`); view/search in Kibana at `http://localhost:5601`. Console logging stays as fallback when ES is unreachable.
 - The `api` service waits for postgres (healthcheck) and applies pending EF migrations on boot, so no manual `database update` is needed. The MinIO `parkingapp` bucket is auto-created on first image upload.
@@ -716,7 +717,7 @@ cp .env.example .env && nano .env   # fill domains + secrets
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 ```
 
-- API: `https://api.<domain>` — Scalar docs at `https://api.<domain>/scalar`
+- API: `https://api.<domain>` — Swagger UI docs at `https://api.<domain>/swagger` (Scalar at `/scalar`)
 - Images served from `https://files.<domain>` (stored in DB URLs, openable on phones)
 - MinIO console: `https://minio.<domain>`
 - Caddy terminates TLS automatically (Let's Encrypt) — required, since mobile OSes reject plain-HTTP APIs.
