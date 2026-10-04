@@ -9,8 +9,5 @@ public sealed class SendOtpCommandValidator : AbstractValidator<SendOtpCommand>
         RuleFor(x => x.PhoneNumber)
             .NotEmpty()
             .MaximumLength(20);
-
-        RuleFor(x => x.Channel)
-            .IsInEnum();
     }
 }

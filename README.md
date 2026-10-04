@@ -343,7 +343,7 @@ Enum convention: **all enums start at 1**. Every member carries a `[Description]
 | Code | string | Private set, max 6 |
 | Purpose | OtpTypeEnum | Registration, Login, ChangePhoneNumber, DeleteAccount |
 | Status | OtpStatusEnum | Pending, Verified, Expired, Cancelled |
-| Channel | OtpChannelEnum | Sms, Email |
+| Channel | OtpChannelEnum | Always `Sms` — decided by `SendOtpCommandHandler`, not client-supplied |
 | ExpiresAtUtc | DateTimeOffset | Required |
 | VerifiedAtUtc | DateTimeOffset? | Optional |
 | AttemptCount | int | Default 0 |
@@ -608,7 +608,7 @@ Note: BackOffice list endpoints use the **`BackOfficeOnly`** authorization polic
 
 **Commands** (built from the request body via `FromRequest`):
 ```
-SendOtpCommand      (PhoneNumber, Channel?)                                    -> SendOtpResponse     (Message, ExpiresAt, DevCode)
+SendOtpCommand      (PhoneNumber)                                              -> SendOtpResponse     (Message, ExpiresAt, DevCode)
 VerifyOtpCommand    (PhoneNumber, Code)                                       -> VerifyOtpResponse  (UserId, AccessToken, RefreshToken, AccessTokenExpiresAt, IsNewUser, IsProfileComplete)
 RefreshTokenCommand (RefreshToken)                                            -> RefreshTokenResponse (UserId, AccessToken, RefreshToken, AccessTokenExpiresAt, IsProfileComplete)
 LogoutCommand       (RefreshToken)                                            -> LogoutResponse     (Message)

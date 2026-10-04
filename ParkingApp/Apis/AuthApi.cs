@@ -1,11 +1,9 @@
 using ParkingApp.Api.Infrastructure;
 using ParkingApp.Application.Common.Cqrs;
-using ParkingApp.Application.Common.Models;
 using ParkingApp.Application.Features.Logout.Command;
 using ParkingApp.Application.Features.RefreshToken.Command;
 using ParkingApp.Application.Features.SendOtp.Command;
 using ParkingApp.Application.Features.VerifyOtp.Command;
-using ParkingApp.Domain.Common.Enums;
 
 namespace ParkingApp.Api.Apis;
 
@@ -15,15 +13,11 @@ public class AuthApi : EndpointGroupBase
     {
         app.MapGroup("auth")
             //.RequireAuthorization()
-            .MapGet(GetAuthInit, "/init", "")
             .MapPost(SendOtp, "/send-otp", "")
             .MapPost(VerifyOtp, "/verify-otp", "")
             .MapPost(RefreshToken, "/refresh-token", "")
             .MapPost(Logout, "/logout", "");
     }
-
-    private static IResult GetAuthInit()
-        => Results.Ok(new { OtpChannels = ListModel<OtpChannelEnum>.FromEnum() });
 
     private static async Task<IResult> SendOtp(ISender sender, IServiceProvider serviceProvider,
         SendOtpCommand request, CancellationToken cancellationToken)

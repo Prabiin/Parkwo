@@ -49,7 +49,7 @@ builder.Services.AddSwaggerGen(options =>
     // AddOpenApi infers the bearer scheme from the ASP.NET Core auth stack;
     // Swashbuckle does not, so declare it by hand. Without this, Swagger UI
     // renders no "Authorize" button and try-it cannot send the accessToken
-    // that POST /auth/login returns.
+    // that POST /auth/verify-otp returns.
     const string bearerScheme = "Bearer";
     options.AddSecurityDefinition(bearerScheme, new OpenApiSecurityScheme
     {
@@ -58,7 +58,7 @@ builder.Services.AddSwaggerGen(options =>
         Scheme = "bearer",
         BearerFormat = "JWT",
         In = ParameterLocation.Header,
-        Description = "Paste the accessToken from the login response (no 'Bearer ' prefix)."
+        Description = "Paste the accessToken from the verify-otp response (no 'Bearer ' prefix)."
     });
 
     options.AddSecurityRequirement(document => new OpenApiSecurityRequirement

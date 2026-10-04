@@ -9,9 +9,7 @@ using ParkingApp.Domain.Common.Enums;
 
 namespace ParkingApp.Application.Features.SendOtp.Command;
 
-public sealed record SendOtpCommand(
-    string PhoneNumber,
-    OtpChannelEnum Channel = OtpChannelEnum.Sms)
+public sealed record SendOtpCommand(string PhoneNumber)
     : IRequestResult<SendOtpCommand, SendOtpResponse>;
 
 public sealed class SendOtpCommandHandler(IApplicationDbContext context, IOtpSender otpSender)
@@ -28,7 +26,7 @@ public sealed class SendOtpCommandHandler(IApplicationDbContext context, IOtpSen
             context, request.PhoneNumber, purpose, cancellationToken);
 
         var code = AuthDbHelper.GenerateOtpCode();
-        var otp = Otp.Create(request.PhoneNumber, code, purpose, request.Channel);
+        var otp = Otp.Create(request.PhoneNumber, code, purpose, OtpChannelEnum.Sms);
         context.Otps.Add(otp);
 
         await context.SaveChangesAsync(cancellationToken);
