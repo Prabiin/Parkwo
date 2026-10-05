@@ -4,6 +4,7 @@ using ParkingApp.Application.Common.Models;
 using ParkingApp.Application.ParkingProviders.Commands.Create;
 using ParkingApp.Application.ParkingProviders.Queries.GetParkingProviders;
 using ParkingApp.Domain.Common.Enums;
+using ParkingApp.Infrastructure.Auth;
 
 namespace ParkingApp.Api.Apis;
 
@@ -15,7 +16,7 @@ public class ParkingProviderApi : EndpointGroupBase
             .MapPost(CreateParkingProvider, "", "")
             .MapGet(ListParkingProviders, "", "")
             .MapGet(GetParkingProvidersInit, "init", "")
-            .RequireAuthorization();
+            .RequireAuthorization(ProfileCompleteRequirement.PolicyName);
     }
 
     private static IResult GetParkingProvidersInit()

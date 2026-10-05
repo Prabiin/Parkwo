@@ -7,6 +7,7 @@ using ParkingApp.Application.Bookings.Queries.GetBookingPass;
 using ParkingApp.Application.Common;
 using ParkingApp.Application.Common.Cqrs;
 using ParkingApp.Domain.Common.Enums;
+using ParkingApp.Infrastructure.Auth;
 
 namespace ParkingApp.Api.Apis;
 
@@ -22,7 +23,7 @@ public class BookingApi : EndpointGroupBase
             // call for when that QR leaks.
             .MapGet(GetBookingPass, "{bookingId}/pass", "")
             .MapPost(RotateBookingPass, "{bookingId}/pass/rotate", "")
-            .RequireAuthorization();
+            .RequireAuthorization(ProfileCompleteRequirement.PolicyName);
     }
 
     private static async Task<IResult> CreateBooking(ISender sender, IServiceProvider serviceProvider,

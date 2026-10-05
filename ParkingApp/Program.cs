@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi;
 using ParkingApp.Api.Infrastructure;
+using ParkingApp.Api.Infrastructure.RateLimiting;
 using ParkingApp.Infrastructure;
 using ParkingApp.Infrastructure.Persistence;
 using Scalar.AspNetCore;
@@ -32,7 +33,11 @@ Log.Logger = loggerConfig.CreateLogger();
 builder.Host.UseSerilog();
 
 // Add services to the container.
-builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddInfrastructure(builder.Configuration, builder.Environment);
+
+// Rate limiting reads the RateLimitingSettings singleton that AddInfrastructure
+// already bound and adjusted for the current environment.
+builder.Services.AddOtpRateLimiting();
 
 // Enums bind as numbers only (e.g. "gender": 1). String names ("Male") are
 // rejected at deserialization (400); undefined ints (99) are caught by
@@ -105,6 +110,10 @@ app.UseSerilogRequestLogging();
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Must sit after routing so endpoint-specific policies (RequireRateLimiting)
+// can resolve their named policy.
+app.UseRateLimiter();
 
 app.MapEndpoints();
 

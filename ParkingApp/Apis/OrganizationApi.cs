@@ -2,6 +2,7 @@ using ParkingApp.Api.Infrastructure;
 using ParkingApp.Application.Common.Cqrs;
 using ParkingApp.Application.Organizations.Commands.Create;
 using ParkingApp.Application.Organizations.Queries.GetOrganizations;
+using ParkingApp.Infrastructure.Auth;
 
 namespace ParkingApp.Api.Apis;
 
@@ -12,7 +13,7 @@ public class OrganizationApi : EndpointGroupBase
         app.MapGroup("organizations")
             .MapPost(CreateOrganization, "", "")
             .MapGet(ListOrganizations, "", "")
-            .RequireAuthorization();
+            .RequireAuthorization(ProfileCompleteRequirement.PolicyName);
     }
 
     private static async Task<IResult> CreateOrganization(ISender sender, IServiceProvider serviceProvider,

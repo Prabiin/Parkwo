@@ -39,7 +39,7 @@ public abstract class EndpointGroupBase
 
         return result.IsSuccess
             ? Results.Ok(result.Value)
-            : BuildErrorResult(typeof(TCommand).Name, result.Error, serviceProvider);
+            : BuildErrorResult(typeof(TCommand).Name, result.Error, result.StatusCode, serviceProvider);
     }
 
     protected static async Task<IResult> ExecuteQuery<TQuery, TResult>(
@@ -70,20 +70,27 @@ public abstract class EndpointGroupBase
 
         return result.IsSuccess
             ? Results.Ok(result.Value)
-            : BuildErrorResult(typeof(TQuery).Name, result.Error, serviceProvider);
+            : BuildErrorResult(typeof(TQuery).Name, result.Error, result.StatusCode, serviceProvider);
     }
 
-    private static IResult BuildErrorResult(string requestType, string? message, IServiceProvider serviceProvider)
+    private static IResult BuildErrorResult(string requestType, string? message, int statusCode, IServiceProvider serviceProvider)
     {
         var logger = serviceProvider.GetRequiredService<ILogger<EndpointGroupBase>>();
         logger.LogWarning(
-            "[ResultFailure] {RequestType} failed: {Message}",
+            "[ResultFailure] {RequestType} failed with {StatusCode}: {Message}",
             requestType,
+            statusCode,
             message);
 
         var errors = (message ?? string.Empty)
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
-        return Results.BadRequest(new { Errors = errors });
+        // Preserve the status the handler chose (401/403/404/409/502/503) so
+        // clients, monitoring and WAF rules can react to the real outcome.
+        var effectiveStatusCode = statusCode is >= 400 and <= 599
+            ? statusCode
+            : StatusCodes.Status400BadRequest;
+
+        return Results.Json(new { Errors = errors }, statusCode: effectiveStatusCode);
     }
 }

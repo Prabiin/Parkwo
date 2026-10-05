@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Tokens;
 using ParkingApp.Application.Auth.Interfaces;
 using ParkingApp.Application.BackOffice.Commands.Login;
@@ -62,7 +63,7 @@ namespace ParkingApp.Infrastructure;
 
 public static class DependencyInjection
 {
-    public static void AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
+    public static void AddInfrastructure(this IServiceCollection services, IConfiguration configuration, IHostEnvironment environment)
     {
         // Database
         services.AddDbContext<ApplicationDbContext>(options =>
@@ -81,6 +82,38 @@ public static class DependencyInjection
 
         services.Configure<JwtSettings>(configuration.GetSection(JwtSettings.SectionName));
         services.AddSingleton(jwtSettings);
+
+        // OTP delivery. Optional section: ExposeDevCode lets local testing skip
+        // the SMS gateway, but the code is withheld outside Development even if
+        // the setting is turned on, so a stray Otp__ExposeDevCode=true env var
+        // cannot leak real login codes from production. Only the singleton is
+        // registered: an IOptions binding would hand out the raw configured
+        // value and silently bypass the environment fail-safe above.
+        var otpSettings = configuration.GetSection(OtpSettings.SectionName).Get<OtpSettings>()
+                          ?? new OtpSettings();
+
+        if (!environment.IsDevelopment())
+        {
+            otpSettings.ExposeDevCode = false;
+        }
+
+        services.AddSingleton(otpSettings);
+
+        // RateLimitingSettings is bound here so command handlers can inject it,
+        // but the limiter itself is registered by AddOtpRateLimiting in the web
+        // project: AddRateLimiter needs the ASP.NET Core shared framework,
+        // which this class library deliberately does not reference.
+        var rateLimitingSettings = configuration.GetSection(RateLimitingSettings.SectionName).Get<RateLimitingSettings>()
+                                   ?? new RateLimitingSettings();
+
+        if (environment.IsDevelopment())
+        {
+            rateLimitingSettings.OtpSendPermitLimit = rateLimitingSettings.OtpSendDevPermitLimit;
+            rateLimitingSettings.OtpVerifyPermitLimit = rateLimitingSettings.OtpVerifyDevPermitLimit;
+            rateLimitingSettings.OtpSendPerPhoneLimit = rateLimitingSettings.OtpSendPerPhoneDevLimit;
+        }
+
+        services.AddSingleton(rateLimitingSettings);
 
         // MinIO object storage (facility images)
         var minioSettings = configuration.GetSection(MinioSettings.SectionName).Get<MinioSettings>()
@@ -167,7 +200,18 @@ public static class DependencyInjection
             options.AddPolicy("BackOfficeOnly", policy =>
                 policy.RequireAuthenticatedUser()
                     .RequireClaim(ClaimTypes.Role, "BackOffice"));
+
+            // Stops a phone-verified account that has not finished onboarding
+            // from reaching any rider endpoint. Profile and auth stay reachable
+            // so the account can actually complete registration.
+            options.AddPolicy(ProfileCompleteRequirement.PolicyName, policy =>
+            {
+                policy.RequireAuthenticatedUser();
+                policy.AddRequirements(new ProfileCompleteRequirement());
+            });
         });
+
+        services.AddScoped<IAuthorizationHandler, ProfileCompleteAuthorizationHandler>();
 
         services.AddHttpContextAccessor();
 

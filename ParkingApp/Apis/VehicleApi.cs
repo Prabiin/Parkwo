@@ -4,6 +4,7 @@ using ParkingApp.Application.Common.Models;
 using ParkingApp.Application.Vehicles.Commands.Create;
 using ParkingApp.Application.Vehicles.Queries.GetVehicles;
 using ParkingApp.Domain.Common.Enums;
+using ParkingApp.Infrastructure.Auth;
 
 namespace ParkingApp.Api.Apis;
 
@@ -15,7 +16,7 @@ public class VehicleApi : EndpointGroupBase
             .MapGet(ListVehicles, "", "")
             .MapGet(GetVehiclesInit, "init", "")
             .MapPost(CreateVehicle, "", "")
-            .RequireAuthorization();
+            .RequireAuthorization(ProfileCompleteRequirement.PolicyName);
     }
 
     private static IResult GetVehiclesInit()

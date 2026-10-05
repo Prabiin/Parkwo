@@ -15,6 +15,7 @@ using ParkingApp.Application.Facilities.Queries.GetParkingFacilityById;
 using ParkingApp.Application.Facilities.Queries.GetParkingFacilityReviews;
 using ParkingApp.Domain;
 using ParkingApp.Domain.Common.Enums;
+using ParkingApp.Infrastructure.Auth;
 
 namespace ParkingApp.Api.Apis;
 
@@ -32,7 +33,7 @@ public class FacilityApi : EndpointGroupBase
             .MapPost(UploadImages, "{facilityId}/images", "", disableAntiforgery: true)
             .MapPost(CreateReview, "{facilityId}/reviews", "")
             .MapGet(ListReviews, "{facilityId}/reviews", "")
-            .RequireAuthorization();
+            .RequireAuthorization(ProfileCompleteRequirement.PolicyName);
     }
 
     private static async Task<IResult> CreateFacility(ISender sender, IServiceProvider serviceProvider,

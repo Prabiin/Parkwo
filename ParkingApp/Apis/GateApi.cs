@@ -3,6 +3,7 @@ using ParkingApp.Application.Bookings.Commands.ScanEntry;
 using ParkingApp.Application.Bookings.Commands.ScanExit;
 using ParkingApp.Application.Common;
 using ParkingApp.Application.Common.Cqrs;
+using ParkingApp.Infrastructure.Auth;
 
 namespace ParkingApp.Api.Apis;
 
@@ -17,7 +18,7 @@ public class GateApi : EndpointGroupBase
     public override void Map(IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("gate")
-            .RequireAuthorization();
+            .RequireAuthorization(ProfileCompleteRequirement.PolicyName);
 
         group.MapPost(ScanEntry, "entry", "");
         group.MapPost(ScanExit, "exit", "");

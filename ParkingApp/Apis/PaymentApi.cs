@@ -3,6 +3,7 @@ using ParkingApp.Application.Common.Cqrs;
 using ParkingApp.Application.Payments.Commands.Create;
 using ParkingApp.Application.Payments.Commands.ProcessCallback;
 using ParkingApp.Domain.Common.Enums;
+using ParkingApp.Infrastructure.Auth;
 
 namespace ParkingApp.Api.Apis;
 
@@ -12,7 +13,7 @@ public class PaymentApi : EndpointGroupBase
     {
         app.MapGroup("payments")
             .MapPost(CreatePayment, "", "")
-            .RequireAuthorization();
+            .RequireAuthorization(ProfileCompleteRequirement.PolicyName);
 
         // Khalti redirects the payer's browser here with query params. It cannot
         // carry our Bearer token, so it is anonymous and unauthenticated BY

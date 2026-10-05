@@ -6,7 +6,7 @@ using ParkingApp.Domain.Common.Enums;
 
 namespace ParkingApp.Application.Features.Shared;
 
-internal static class AuthDbHelper
+public static class AuthDbHelper
 {
     public static string GenerateOtpCode()
         => RandomNumberGenerator.GetInt32(100000, 999999).ToString();

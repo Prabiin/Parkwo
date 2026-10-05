@@ -4,6 +4,7 @@ using ParkingApp.Application.Features.Logout.Command;
 using ParkingApp.Application.Features.RefreshToken.Command;
 using ParkingApp.Application.Features.SendOtp.Command;
 using ParkingApp.Application.Features.VerifyOtp.Command;
+using ParkingApp.Api.Infrastructure.RateLimiting;
 
 namespace ParkingApp.Api.Apis;
 
@@ -14,7 +15,9 @@ public class AuthApi : EndpointGroupBase
         app.MapGroup("auth")
             //.RequireAuthorization()
             .MapPost(SendOtp, "/send-otp", "")
+            .RequireRateLimiting(AuthRateLimitPolicies.OtpSend)
             .MapPost(VerifyOtp, "/verify-otp", "")
+            .RequireRateLimiting(AuthRateLimitPolicies.OtpVerify)
             .MapPost(RefreshToken, "/refresh-token", "")
             .MapPost(Logout, "/logout", "");
     }
