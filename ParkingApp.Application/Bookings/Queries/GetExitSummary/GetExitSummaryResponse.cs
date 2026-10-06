@@ -3,16 +3,18 @@ using ParkingApp.Domain.Common.Enums;
 namespace ParkingApp.Application.Bookings.Queries.GetExitSummary;
 
 /// <summary>
-/// What the rider's exit page shows. Times come back already in local
-/// (Kathmandu) format and money in rupees, so the app can render them
-/// directly.
+/// The exit page the rider reaches from the button next to the QR. Drives the
+/// whole overstay flow without any state of its own: <see cref="ExitRecorded"/>
+/// toggles the button, <see cref="OverstayDetected"/> routes to the overstay
+/// page, and <see cref="OverstayPaymentStatus"/> decides whether that page
+/// offers to pay or shows a receipt.
 /// </summary>
 public record GetExitSummaryResponse(
     Guid BookingId,
     BookingStatusEnum Status,
     bool ExitRecorded,
-    string? StartsAtLocal,
-    string? EndsAtLocal,
+    string? BookingStartedAtLocal,
+    string? BookingEndsAtLocal,
     string? EnteredAtLocal,
     string? ExitedAtLocal,
     int? ActualStayMinutes,
