@@ -38,6 +38,21 @@ public sealed record GatewayPaymentStatus(
     long? AmountPaisa = null);
 
 /// <summary>
+/// Which charge a checkout is for. The two settle through different commands
+/// and land in different tables, so each one has to send the payer back to its
+/// own return route — a gateway decides which of its configured URLs to use
+/// from this, not from anything the caller has to know about configuration.
+/// </summary>
+public enum PaymentFlowEnum
+{
+    /// <summary>The booking's prepaid charge, taken before the stay starts.</summary>
+    Prepaid = 1,
+
+    /// <summary>The booking's overstay charge, taken after the exit scan.</summary>
+    Overstay = 2
+}
+
+/// <summary>
 /// Transport to a payment gateway. Initiation and verification are always
 /// server-to-server with the secret key — a client redirect alone is never
 /// treated as proof of payment.
@@ -54,6 +69,7 @@ public interface IPaymentGateway
         string reference,
         long amountPaisa,
         string description,
+        PaymentFlowEnum flow,
         string? customerName,
         string? customerEmail,
         string? customerPhone,

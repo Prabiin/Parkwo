@@ -20,6 +20,7 @@ public interface IApplicationDbContext
     DbSet<BackOfficeUser> BackOfficeUsers { get; }
     DbSet<Booking> Bookings { get; }
     DbSet<Payment> Payments { get; }
+    DbSet<OverstayPayment> OverstayPayments { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 

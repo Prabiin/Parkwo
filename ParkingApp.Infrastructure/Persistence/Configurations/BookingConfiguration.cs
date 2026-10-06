@@ -53,6 +53,9 @@ public class BookingConfiguration : IEntityTypeConfiguration<Booking>
         builder.Property(x => x.OverstayMinutes)
             .IsRequired();
 
+        builder.Property(x => x.OverstayBillableHours);
+        builder.Property(x => x.OverstayAmountPaisa);
+
         builder.HasOne(x => x.EnteredByUser)
             .WithMany()
             .HasForeignKey(x => x.EnteredByUserId)
@@ -96,5 +99,12 @@ public class BookingConfiguration : IEntityTypeConfiguration<Booking>
         // Supports "vehicles still on site past their window" for overstay review.
         builder.HasIndex(x => new { x.Status, x.EndsAtUtc })
             .HasDatabaseName("IX_Bookings_Open_Overstay");
+
+        // "Does this rider owe an unsettled overstay?" — asked on every booking
+        // creation, so keep it off the heap. Partial because an on-time exit
+        // never participates and would otherwise fill the index.
+        builder.HasIndex(x => x.UserId)
+            .HasDatabaseName("IX_Bookings_Unsettled_Overstay")
+            .HasFilter("\"OverstayAmountPaisa\" IS NOT NULL");
     }
 }

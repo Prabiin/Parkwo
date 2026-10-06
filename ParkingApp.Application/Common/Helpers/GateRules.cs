@@ -50,6 +50,18 @@ public static class GateRules
             _ => ScanOutcomeEnum.NotCheckedIn
         };
 
+    /// <summary>
+    /// What a single-gate scan means for a booking in this state. A single gate
+    /// has one scanner and one staff phone, so the staff do not choose entry or
+    /// exit — the booking does: a parked (Active) booking is on its way out, a
+    /// completed one is already out (scan again simply reports that), everything
+    /// else is still on its way in.
+    /// </summary>
+    public static ScanTypeEnum DirectionFor(BookingStatusEnum status)
+        => status is BookingStatusEnum.Active or BookingStatusEnum.Completed
+            ? ScanTypeEnum.Exit
+            : ScanTypeEnum.Entry;
+
     /// <summary>Whether an outcome is a rejection staff must act on rather than a note.</summary>
     public static bool IsRejection(ScanOutcomeEnum outcome)
         => outcome is not ScanOutcomeEnum.Accepted

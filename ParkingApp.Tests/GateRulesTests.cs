@@ -149,4 +149,18 @@ public class GateRulesTests
     {
         Assert.Equal(expected, GateRules.IsRejection(outcome));
     }
+
+    [Theory]
+    [InlineData(BookingStatusEnum.Confirmed, ScanTypeEnum.Entry)]
+    [InlineData(BookingStatusEnum.PendingPayment, ScanTypeEnum.Entry)]
+    [InlineData(BookingStatusEnum.Cancelled, ScanTypeEnum.Entry)]
+    [InlineData(BookingStatusEnum.Expired, ScanTypeEnum.Entry)]
+    [InlineData(BookingStatusEnum.Refunded, ScanTypeEnum.Entry)]
+    [InlineData(BookingStatusEnum.Active, ScanTypeEnum.Exit)]
+    [InlineData(BookingStatusEnum.Completed, ScanTypeEnum.Exit)]
+    public void A_Single_Gate_Gets_Direction_From_The_Booking_State(
+        BookingStatusEnum status, ScanTypeEnum expected)
+    {
+        Assert.Equal(expected, GateRules.DirectionFor(status));
+    }
 }

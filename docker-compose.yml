@@ -107,6 +107,9 @@ services:
       - Khalti__PublicKey=${KHALTI_PUBLIC_KEY:-}
       - Khalti__BaseUrl=${KHALTI_BASE_URL:-https://dev.khalti.com/api/v2/}
       - Khalti__ReturnUrl=${KHALTI_RETURN_URL:-http://localhost:8080/payments/khalti/return}
+      # Settling an overstay lands here instead, so it can never reach the
+      # prepaid return handler that moves a finished booking.
+      - Khalti__OverstayReturnUrl=${KHALTI_OVERSTAY_RETURN_URL:-http://localhost:8080/payments/khalti/overstay/return}
       - Khalti__WebsiteUrl=${KHALTI_WEBSITE_URL:-http://localhost:8080}
       - Elastic__Url=http://elasticsearch:9200
     ports:

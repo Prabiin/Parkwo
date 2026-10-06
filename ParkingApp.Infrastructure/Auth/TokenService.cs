@@ -21,6 +21,8 @@ public class TokenService : ITokenService
 
     public string GenerateAccessToken(User user)
     {
+        // Jwt:Secret must match the key the middleware validates tokens with, so
+        // it signs what the token validation will re-sign for the signature check.
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtSettings.Secret));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
@@ -37,6 +39,7 @@ public class TokenService : ITokenService
         if (!string.IsNullOrWhiteSpace(user.FullName))
             claims.Add(new Claim("full_name", user.FullName));
 
+        // Issuer, audience and lifetime all come from Jwt settings in configuration.
         var token = new JwtSecurityToken(
             issuer: _jwtSettings.Issuer,
             audience: _jwtSettings.Audience,

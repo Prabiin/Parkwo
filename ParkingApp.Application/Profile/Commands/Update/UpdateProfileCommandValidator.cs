@@ -7,6 +7,8 @@ public sealed class UpdateProfileCommandValidator : AbstractValidator<UpdateProf
 {
     public UpdateProfileCommandValidator()
     {
+        var today = DateOnly.FromDateTime(DateTime.UtcNow.Date);
+
         RuleFor(x => x.FullName)
             .NotEmpty()
             .MaximumLength(200);
@@ -25,9 +27,9 @@ public sealed class UpdateProfileCommandValidator : AbstractValidator<UpdateProf
 
         RuleFor(x => x.DateOfBirth)
             .NotEmpty()
-            .LessThanOrEqualTo(DateOnly.FromDateTime(DateTime.Today))
+            .LessThanOrEqualTo(today)
             .WithMessage("Date of birth cannot be in the future.")
-            .GreaterThan(DateOnly.FromDateTime(DateTime.Today.AddYears(-120)))
+            .GreaterThan(today.AddYears(-120))
             .WithMessage("Date of birth does not look valid.");
     }
 }

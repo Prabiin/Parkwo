@@ -19,6 +19,15 @@ public class KhaltiSettings
     /// <summary>Absolute URL Khalti redirects the payer back to. Must be publicly reachable.</summary>
     public string ReturnUrl { get; set; } = default!;
 
+    /// <summary>
+    /// Where an overstay checkout returns to — a different route from
+    /// <see cref="ReturnUrl"/>, because settling an overstay must never enter
+    /// the prepaid callback that moves the booking. Separate key rather than a
+    /// derived path so the URL in the Khalti dashboard and the one in our logs
+    /// are both written down, not guessed.
+    /// </summary>
+    public string OverstayReturnUrl { get; set; } = default!;
+
     /// <summary>Khalti requires a website URL on every initiate call.</summary>
     public string WebsiteUrl { get; set; } = default!;
 }

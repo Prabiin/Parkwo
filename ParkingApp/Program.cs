@@ -5,7 +5,6 @@ using ParkingApp.Api.Infrastructure;
 using ParkingApp.Api.Infrastructure.RateLimiting;
 using ParkingApp.Infrastructure;
 using ParkingApp.Infrastructure.Persistence;
-using Scalar.AspNetCore;
 using Serilog;
 using Serilog.Sinks.Elasticsearch;
 
@@ -46,8 +45,8 @@ builder.Services.AddOpenApi();
 
 // Swagger UI, for the mobile team (it is the UI they already know). Swashbuckle
 // builds its OWN document, served at /swagger/v1/swagger.json — it does not read
-// the AddOpenApi document above, so Scalar (/scalar) and Swagger UI (/swagger)
-// stay independent and neither can break the other.
+// the AddOpenApi document above, so it stays independent of the OpenAPI document
+// served at /openapi/v1.json.
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
@@ -76,7 +75,7 @@ var app = builder.Build();
 
 // Behind Render (or any TLS-terminating proxy) the app receives plain HTTP
 // plus X-Forwarded-Proto/For headers. Honor them so generated URLs (OpenAPI
-// server, Scalar Try-it) use the public https scheme. Must run first.
+// server, Swagger UI try-it) use the public https scheme. Must run first.
 // KnownNetworks/Proxies are cleared because cloud proxy IPs are dynamic;
 // Render only routes to this app through its own proxy.
 var forwardedOptions = new ForwardedHeadersOptions
@@ -91,7 +90,6 @@ app.UseForwardedHeaders(forwardedOptions);
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
-    app.MapScalarApiReference();
     app.UseSwagger();
     app.UseSwaggerUI(options =>
     {

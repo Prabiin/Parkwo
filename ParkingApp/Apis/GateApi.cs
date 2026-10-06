@@ -1,6 +1,5 @@
 using ParkingApp.Api.Infrastructure;
-using ParkingApp.Application.Bookings.Commands.ScanEntry;
-using ParkingApp.Application.Bookings.Commands.ScanExit;
+using ParkingApp.Application.Bookings.Commands.ScanGate;
 using ParkingApp.Application.Common;
 using ParkingApp.Application.Common.Cqrs;
 using ParkingApp.Infrastructure.Auth;
@@ -8,7 +7,7 @@ using ParkingApp.Infrastructure.Auth;
 namespace ParkingApp.Api.Apis;
 
 /// <summary>
-/// Gate endpoints used by staff phones at the entrance and exit. Every route is
+/// Single-gate scan endpoints used by staff phones. Every route is
 /// facility-scoped: the facility id in the body is not decoration, it is what
 /// the handler authorises the caller against, so a pass cannot be presented at
 /// the wrong lot.
@@ -20,17 +19,11 @@ public class GateApi : EndpointGroupBase
         var group = app.MapGroup("gate")
             .RequireAuthorization(ProfileCompleteRequirement.PolicyName);
 
-        group.MapPost(ScanEntry, "entry", "");
-        group.MapPost(ScanExit, "exit", "");
+        group.MapPost(ScanGate, "entry-exit", "");
     }
 
-    private static async Task<IResult> ScanEntry(ISender sender, IServiceProvider serviceProvider,
-        ScanEntryCommand request, CancellationToken cancellationToken)
-        => await ExecuteCommand<ScanEntryCommand, ScanEntryResponse>(sender,
-            request, serviceProvider, cancellationToken);
-
-    private static async Task<IResult> ScanExit(ISender sender, IServiceProvider serviceProvider,
-        ScanExitCommand request, CancellationToken cancellationToken)
-        => await ExecuteCommand<ScanExitCommand, ScanExitResponse>(sender,
+    private static async Task<IResult> ScanGate(ISender sender, IServiceProvider serviceProvider,
+        ScanGateCommand request, CancellationToken cancellationToken)
+        => await ExecuteCommand<ScanGateCommand, ScanGateResponse>(sender,
             request, serviceProvider, cancellationToken);
 }

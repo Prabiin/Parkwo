@@ -27,6 +27,7 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<BackOfficeUser> BackOfficeUsers => Set<BackOfficeUser>();
     public DbSet<Booking> Bookings => Set<Booking>();
     public DbSet<Payment> Payments => Set<Payment>();
+    public DbSet<OverstayPayment> OverstayPayments => Set<OverstayPayment>();
 
     public async Task<IDbContextTransaction> BeginSerializableTransactionAsync(
         CancellationToken cancellationToken = default)

@@ -60,7 +60,7 @@ public sealed class ProcessPaymentCallbackCommandHandler(
         IPaymentGateway gateway;
         try
         {
-            gateway = PaymentGateways.Resolve(gateways, request.Gateway);
+            gateway = PaymentGateways.Find(gateways, request.Gateway);
         }
         catch (PaymentGatewayException ex)
         {

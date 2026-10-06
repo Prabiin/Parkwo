@@ -29,6 +29,7 @@ public sealed class KhaltiPaymentGateway(
         string reference,
         long amountPaisa,
         string description,
+        PaymentFlowEnum flow,
         string? customerName,
         string? customerEmail,
         string? customerPhone,
@@ -39,9 +40,23 @@ public sealed class KhaltiPaymentGateway(
         if (amountPaisa < 1000)
             throw new PaymentGatewayException("Amount is below the Khalti minimum of NPR 10.");
 
+        // The two flows return to different routes on purpose: settling an
+        // overstay must not land in the prepaid return handler, which settles by
+        // moving a booking that has already finished moving.
+        var returnUrl = flow == PaymentFlowEnum.Overstay
+            ? settings.OverstayReturnUrl
+            : settings.ReturnUrl;
+
+        if (string.IsNullOrWhiteSpace(returnUrl))
+            throw new PaymentGatewayException(
+                flow == PaymentFlowEnum.Overstay
+                    ? "Khalti:OverstayReturnUrl is not configured."
+                    : "Khalti:ReturnUrl is not configured.");
+
         var payload = new Dictionary<string, object?>
         {
-            ["return_url"] = settings.ReturnUrl,
+            ["return_url"] = returnUrl,
+            // Khalti__WebsiteUrl — the merchant's site Khalti shows on the payment page.
             ["website_url"] = settings.WebsiteUrl,
             // Paisa, as an integer string — Khalti rejects decimals here.
             ["amount"] = amountPaisa.ToString(CultureInfo.InvariantCulture),
@@ -64,6 +79,7 @@ public sealed class KhaltiPaymentGateway(
         {
             Content = JsonContent.Create(payload, options: Json)
         };
+        // Khalti__SecretKey authenticates initiate/lookup; never the public key.
         request.Headers.TryAddWithoutValidation("Authorization", $"Key {settings.SecretKey}");
 
         using var response = await httpClient.SendAsync(request, cancellationToken);
@@ -102,6 +118,7 @@ public sealed class KhaltiPaymentGateway(
         {
             Content = JsonContent.Create(new { pidx = gatewayPaymentId }, options: Json)
         };
+        // Khalti__SecretKey authenticates initiate/lookup; never the public key.
         request.Headers.TryAddWithoutValidation("Authorization", $"Key {settings.SecretKey}");
 
         using var response = await httpClient.SendAsync(request, cancellationToken);

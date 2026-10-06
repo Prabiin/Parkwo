@@ -20,6 +20,8 @@ public class BackOfficeTokenService : IBackOfficeTokenService
 
     public string GenerateAccessToken(BackOfficeUser user)
     {
+        // Jwt:Secret must match the key middleware validates with — it signs
+        // what the validation re-signs for the signature check.
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtSettings.Secret));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
@@ -32,6 +34,7 @@ public class BackOfficeTokenService : IBackOfficeTokenService
             new(ClaimTypes.Role, "BackOffice"),
         };
 
+        // Issuer, audience and lifetime all come from Jwt settings in configuration.
         var token = new JwtSecurityToken(
             issuer: _jwtSettings.Issuer,
             audience: _jwtSettings.Audience,

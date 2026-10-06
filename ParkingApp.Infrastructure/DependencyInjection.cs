@@ -14,12 +14,18 @@ using ParkingApp.Application.BackOffice.Commands.Login;
 using ParkingApp.Application.Bookings.Commands.Cancel;
 using ParkingApp.Application.Bookings.Commands.Create;
 using ParkingApp.Application.Bookings.Commands.RotatePass;
-using ParkingApp.Application.Bookings.Commands.ScanEntry;
-using ParkingApp.Application.Bookings.Commands.ScanExit;
+using ParkingApp.Application.Bookings.Commands.ScanGate;
 using ParkingApp.Application.Bookings.Queries.GetBookingById;
 using ParkingApp.Application.Bookings.Queries.GetBookingPass;
+using ParkingApp.Application.Bookings.Queries.GetBookingSummary;
+using ParkingApp.Application.Bookings.Queries.GetExitSummary;
+using ParkingApp.Application.Bookings.Queries.GetOverstaySummary;
 using ParkingApp.Application.Payments.Commands.Create;
+using ParkingApp.Application.Payments.Commands.CreateOverstay;
 using ParkingApp.Application.Payments.Commands.ProcessCallback;
+using ParkingApp.Application.Payments.Commands.ProcessOverstayCallback;
+using ParkingApp.Application.Payments.Queries.GetPaymentGateways;
+using ParkingApp.Application.Payments.Queries.GetBookingTransactions;
 using ParkingApp.Application.BackOffice.Commands.UpdateApproval;
 using BackOfficeOrganizations = ParkingApp.Application.BackOffice.Queries.GetOrganizations;
 using BackOfficeFacilities = ParkingApp.Application.BackOffice.Queries.GetParkingFacilities;
@@ -167,7 +173,7 @@ public static class DependencyInjection
             // Typed client: BaseAddress carries the API root (…/api/v2/) so the
             // adapter only names relative endpoints. Registered only when a
             // secret exists, so an unconfigured deployment has no gateway and
-            // PaymentGateways.Resolve fails loudly instead of silently no-oping.
+            // PaymentGateways.Find fails loudly instead of silently no-oping.
             services.AddHttpClient<IPaymentGateway, KhaltiPaymentGateway>(client =>
             {
                 client.BaseAddress = new Uri(khaltiSettings.BaseUrl.TrimEnd('/') + "/");
@@ -258,13 +264,19 @@ public static class DependencyInjection
 
         services.AddScoped<IRequestResultHandler<CreateBookingCommand, CreateBookingResponse>, CreateBookingCommandHandler>();
         services.AddScoped<IRequestResultHandler<GetBookingByIdQuery, GetBookingByIdResponse>, GetBookingByIdQueryHandler>();
+        services.AddScoped<IRequestResultHandler<GetBookingSummaryQuery, GetBookingSummaryResponse>, GetBookingSummaryQueryHandler>();
         services.AddScoped<IRequestResultHandler<CancelBookingCommand, Unit>, CancelBookingCommandHandler>();
         services.AddScoped<IRequestResultHandler<CreatePaymentCommand, CreatePaymentResponse>, CreatePaymentCommandHandler>();
+        services.AddScoped<IRequestResultHandler<CreateOverstayPaymentCommand, CreateOverstayPaymentResponse>, CreateOverstayPaymentCommandHandler>();
         services.AddScoped<IRequestResultHandler<ProcessPaymentCallbackCommand, ProcessPaymentCallbackResponse>, ProcessPaymentCallbackCommandHandler>();
+        services.AddScoped<IRequestResultHandler<ProcessOverstayPaymentCallbackCommand, ProcessOverstayPaymentCallbackResponse>, ProcessOverstayPaymentCallbackCommandHandler>();
+        services.AddScoped<IRequestResultHandler<GetPaymentGatewaysQuery, GetPaymentGatewaysResponse>, GetPaymentGatewaysQueryHandler>();
+        services.AddScoped<IRequestResultHandler<GetBookingTransactionsQuery, GetBookingTransactionsResponse>, GetBookingTransactionsQueryHandler>();
         services.AddScoped<IRequestResultHandler<GetBookingPassQuery, GetBookingPassResponse>, GetBookingPassQueryHandler>();
         services.AddScoped<IRequestResultHandler<RotatePassCommand, RotatePassResponse>, RotatePassCommandHandler>();
-        services.AddScoped<IRequestResultHandler<ScanEntryCommand, ScanEntryResponse>, ScanEntryCommandHandler>();
-        services.AddScoped<IRequestResultHandler<ScanExitCommand, ScanExitResponse>, ScanExitCommandHandler>();
+        services.AddScoped<IRequestResultHandler<ScanGateCommand, ScanGateResponse>, ScanGateCommandHandler>();
+        services.AddScoped<IRequestResultHandler<GetExitSummaryQuery, GetExitSummaryResponse>, GetExitSummaryQueryHandler>();
+        services.AddScoped<IRequestResultHandler<GetOverstaySummaryQuery, GetOverstaySummaryResponse>, GetOverstaySummaryQueryHandler>();
 
         // Command validators
         services.AddScoped<IValidator<SendOtpCommand>, SendOtpCommandValidator>();

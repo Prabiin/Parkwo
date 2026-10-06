@@ -76,9 +76,23 @@ public class Booking : AuditableEntity
     /// <summary>
     /// Minutes past <see cref="EndsAtUtc"/> at the moment of exit. Zero for an
     /// early or on-time departure; positive means the space was held longer than
-    /// it was paid for. Recorded for billing, never charged automatically.
+    /// it was paid for. Measured here, priced into
+    /// <see cref="OverstayAmountPaisa"/> at the same moment.
     /// </summary>
     public int OverstayMinutes { get; private set; }
+
+    /// <summary>
+    /// Whole hours charged for the overstay, and what it costs, snapshotted at
+    /// the exit scan. Null when the exit was on time, inside the grace window,
+    /// or the facility prices the stay at zero — i.e. null means nothing is
+    /// owed, which is exactly the condition the rider's pay button keys on.
+    ///
+    /// Written once and never revised, so the figure staff saw at the barrier,
+    /// the figure the rider saw and the figure actually charged cannot drift —
+    /// including when the grace window or the facility rate changes later.
+    /// </summary>
+    public int? OverstayBillableHours { get; private set; }
+    public long? OverstayAmountPaisa { get; private set; }
 
     /// <summary>
     /// When the space actually became free. Normally the exit scan, but the
@@ -180,6 +194,20 @@ public class Booking : AuditableEntity
             OverstayMinutes = (int)Math.Max(
                 0, Math.Floor((exitedAtUtc - EndsAtUtc).TotalMinutes));
         }
+    }
+
+    /// <summary>
+    /// Snapshots what the overstay costs. Called once, immediately after
+    /// <see cref="Complete"/> and inside the same transaction, so two exit taps
+    /// cannot record two different charges. Billable hours and amount are
+    /// always positive — callers pass the result of the pricing helper, which
+    /// returns null rather than a zero charge when nothing is owed.
+    /// </summary>
+    public void RecordOverstayCharge(int billableHours, long amountPaisa)
+    {
+        OverstayBillableHours = billableHours;
+        OverstayAmountPaisa = amountPaisa;
+        UpdatedAtUtc = DateTimeOffset.UtcNow;
     }
 
     /// <summary>

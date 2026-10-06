@@ -57,6 +57,8 @@ public sealed class ParkingPassService(IOptions<PassSettings> options)
     /// than the one the rider was already told about.
     /// </summary>
     public Validity ValidityFor(DateTimeOffset startsAtUtc, DateTimeOffset endsAtUtc)
+        // Both graces come from configuration (Pass:EarlyEntryGraceMinutes,
+        // Pass:LateEntryGraceMinutes).
         => new(
             startsAtUtc.AddMinutes(-Math.Max(0, _settings.EarlyEntryGraceMinutes)),
             endsAtUtc.AddMinutes(Math.Max(0, _settings.LateEntryGraceMinutes)));
@@ -169,6 +171,8 @@ public sealed class ParkingPassService(IOptions<PassSettings> options)
     }
 
     private string Sign(string value)
+        // SigningKey from Pass:SigningKey. Signing never runs with an empty key —
+        // IsConfigured is checked by every public entry point first.
         => Base64UrlEncode(HMACSHA256.HashData(
             Encoding.UTF8.GetBytes(_settings.SigningKey),
             Encoding.UTF8.GetBytes(value)));

@@ -51,6 +51,30 @@ public sealed class CreateBookingCommandHandler(
         if (billableHours == 0)
             return Result<CreateBookingResponse>.Failure("Booking window must be at least one hour.", 400);
 
+        // Enforcement for an unsettled overstay: a rider who still owes for the
+        // last stay does not get to start another one. Checked here, before any
+        // availability work, because it fails regardless of facility or window.
+        //
+        // "Unsettled" means the charge was snapshotted onto the booking and no
+        // completed (or refunded) overstay payment exists against it — the same
+        // test CreateOverstayPaymentCommand uses to decide the debt is cleared,
+        // so the two can never disagree about whether a rider is blocked.
+        var unsettledOverstay = await context.Bookings
+            .AsNoTracking()
+            .Where(b => b.UserId == userId
+                        && b.OverstayAmountPaisa != null
+                        && !context.OverstayPayments.Any(p => p.BookingId == b.Id
+                            && (p.Status == PaymentStatusEnum.Completed
+                                || p.Status == PaymentStatusEnum.Refunded)))
+            .OrderBy(b => b.StartsAtUtc)
+            .Select(b => new { b.Id, b.OverstayAmountPaisa })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (unsettledOverstay is not null)
+            return Result<CreateBookingResponse>.Failure(
+                $"An overstay charge of NPR {BookingPricing.ToNpr(unsettledOverstay.OverstayAmountPaisa ?? 0):0.##} is still due on booking {unsettledOverstay.Id:N}. Settle it before booking again.",
+                409);
+
         var vehicle = await context.Vehicles
             .AsNoTracking()
             .FirstOrDefaultAsync(v => v.Id == request.VehicleId, cancellationToken);

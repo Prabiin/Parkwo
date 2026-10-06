@@ -10,7 +10,8 @@ namespace ParkingApp.Application.Common.Helpers;
 /// </summary>
 public static class PaymentGateways
 {
-    public static IPaymentGateway Resolve(
+    /// <summary>Returns the implementation for a gateway, or throws if it is not configured.</summary>
+    public static IPaymentGateway Find(
         IEnumerable<IPaymentGateway> gateways,
         PaymentGatewayEnum gateway)
     {

@@ -4,6 +4,14 @@ A peer-to-peer parking marketplace API where users find parking spaces and land 
 
 ## Change Log
 
+### 2026-10-06 — Single-gate scans, overstay settlement, config comments, rebuilt Figma flow
+
+- **Single-gate scan endpoint.** `POST /gate/entry-exit` replaces `POST /gate/entry` + `POST /gate/exit`: the same QR is presented at one gate helmed by one phone — the booking's own state picks the direction via `GateRules.DirectionFor(Status)` (Confirmed/Active → Entry, Completed → Exit), so there is no entry/exit button a tired attendant can press wrong. New `ScanGateCommand`/`ScanGateResponse` under `Bookings/Commands/ScanGate`; the `ScanEntry/` + `ScanExit/` command folders are deleted and DI re-registered. The handler stays **SERIALIZABLE** — two taps must not both admit on the way in, nor both close and record an overstay on the way out.
+- **Overstay settlement (kept out of the booking state machine).** New `OverstayPayment` entity + table (migration `20261006090604_AddOverstaySettlement`). Overstay pricing/grace (`OverstayPricing`, `LocalTime` helpers, config-driven) never touches the booking — the booking is already `Completed` and the space freed at the exit scan; the overstay is a separate debt. `POST /payments/overstay` (`CreateOverstayPaymentCommand`) starts the charge and its own callback `GET /payments/khalti/overstay/return` (AllowAnonymous, `ProcessOverstayPaymentCallbackCommand`) reconciles via `OverstayPaymentStatus.LoadAsync`/`UpdateRow`. New rider interrogations: `GET /bookings/{id}/exit-summary`, `GET /bookings/{id}/overstay/summary`, `GET /bookings/{id}/transactions` (merges prepaid + overstay payments). Amounts are snapshotted at the scan and flow as paise + pre-formatted local times.
+- **Config use-site comments.** Values sourced from configuration are annotated at every usage site (Khalti/gateway config, JWT + back-office token services, pass settings, pricing, the summary endpoints) so callers always read the same source and never re-derive a constant.
+- **Figma flow rebuilt as a single journey.** `design/figma` now hosts one booking→payment→gate plugin (book → pay → QR → staff entry scan → park → exit scan with the two-button "QR scanned"/"Continue" confirm → case closed or overstay branch), sized to the 3-page Figma Starter quota. The old 6-journey version is preserved in `design/_backup/old-full-flow/`. Import `design/figma/manifest.json` into Figma (Plugins → Development) and run "Parkwo Flow Designer".
+- Build + tests pass (221/221).
+
 ### 2026-09-28 — Config env parity + license pipeline cleanup
 
 - `ParkingStandards__*` env keys added to `docker-compose.yml` (test server now carries both `Upload__*` and `ParkingStandards__*`; on Render/AWS set the same keys as plain env — only secrets belong in a vault).
@@ -165,13 +173,18 @@ No business-logic changes today. The goal was to lock in the folder pattern the 
 
 **Parkwo in one line:** one app, one account, three hats — the same `User` is a **rider**, a **parking provider**, and a **company admin** at the same time, with no role or app switching (Pathao rider + pillion model). The hat is decided per action, not per login.
 
-### Hat 1 — Rider (demand): register → find → book → park → pay
+### Hat 1 — Rider (demand): register → find → book → pay → park → exit
 
 1. OTP login/registration (phone-first), then onboarding (`PUT /profile`).
 2. Register vehicle from the Vehicles tab (`GET /vehicles/init` → `POST /vehicles`: category Scooter/Motorcycle/CarJeepVan + brand/model/color for identification).
-3. Submit driving license (`GET /licenses/init` → `POST /licenses` multipart with front/back photos; starts `Pending`).
-4. Find nearby parking → book → park → pay.
-5. Step 4 is **planned, not built** — no search/booking/payment code exists yet (Roadmap Phases 3–4). Booking will hard-gate on a Verified, unexpired, covering license.
+3. Submit driving license (`GET /licenses/init` → `POST /licenses` multipart with front/back photos; starts `Pending`). **Booking hard-gates on it**: a `Verified`, unexpired license whose categories cover the vehicle, else 403.
+4. Find parking: `GET /facilities/nearby` (nearest-first, per type `available/occupancy/price`). Only `Verified` lots with capacity appear.
+5. Book: `POST /bookings` with a UTC window (≥ 1 billable hour, hours round up, clamped 1–168). Availability is counted inside a **SERIALIZABLE** transaction against overlapping capacity-consuming bookings of the same vehicle type — two riders tapping "pay" at once cannot both win the last space. Creates an unpaid `PendingPayment` **hold** with a 10-minute `HoldExpiresAtUtc`, so an abandoned checkout releases the space automatically. An early exit frees the space immediately (`SpaceReleasedAtUtc`) and availability counts against the effective end, not the raw window end.
+6. Pay: `GET /bookings/{id}/summary` (pre-payment confirmation; local times + NPR come from the server) → `POST /payments` (today Khalti: `mode` Redirect / DeepLink / FormPost). The gateway redirect alone is not enough — the app must also call `GET /payments/khalti/return` to force reconciliation, then poll until the booking leaves `PendingPayment`. The amount is always the server-side snapshot, never client-supplied.
+7. Show the pass: `GET /bookings/{id}/pass` → `passToken` QR, valid across the booking window (400 while `PendingPayment`). `POST .../pass/rotate` prints a new token and invalidates every older QR (`PassNonce`).
+8. Gate in/out: **one endpoint, `POST /gate/entry-exit`** (staff phone at the gate). The booking's own state picks the direction — `Confirmed`/`Active` → Entry (activates the stay, records `EnteredAtUtc`), `Completed` → Exit — so there is no mode button a tired attendant can press wrong. Both scans run SERIALIZABLE against double-tap races. Entry refusals say whether the window hasn't opened, has lapsed, or isn't paid; exit distinguishes already-closed / not-paid / never-checked-in.
+9. Exit: the booking is `Completed`, the space is released at the scan (`SpaceReleasedAtUtc`), and the stay is measured from the actual entry scan (`EnteredAtUtc`), not the window (`actualStayMinutes`). If the stay exceeds the window beyond the grace, an overstay charge (`OverstayBillableHours`, `OverstayAmountPaisa`) is **snapshotted onto the booking in the same transaction as the exit** — one frozen number for staff, rider and gateway. No overstay → case closed, nothing owed.
+10. Overstay is a **separate debt that never mutates the booking** (it is already `Completed`): the rider pays via `POST /payments/overstay` plus its own callback `GET /payments/khalti/overstay/return` (reconciled through `OverstayPaymentStatus`). **An unsettled overstay blocks new bookings (409)** — the same "unsettled" test `CreateOverstayPaymentCommand` uses, so the two can't disagree. `GET /bookings/{id}/transactions` merges prepaid + overstay payments into one history.
 
 ### Hat 2 — Provider (supply): land → provider → facility → verified
 
@@ -192,14 +205,20 @@ No business-logic changes today. The goal was to lock in the folder pattern the 
 - **One user, many profiles.** Hats are rows (`ParkingProvider`, `UserOrganization`), never a role switch on the user.
 - **Phone is identity.** OTP-time row is found by request phone (`PUT /profile`: 404 on unknown number, 403 when the number isn't the token owner's); email is unique-checked.
 - **Ownership gating.** Facility writes require `ProviderOwnership`: direct `OwnerUserId`, or `Owner` role on the owning org.
-- **Approval gates supply, never demand.** Riders need no KYC; orgs/facilities trade only after `Verified`. Licenses are verified for record (soft — no hard booking gate).
-- **Uniqueness:** plate per account; `registrationNumber` global; `licenseNumber` global + one license per user; spot number per facility; one `Individual` provider per user; one provider per org; one review per rider per facility (and only on `Verified` facilities).
-- **Write responses are ids** (`Guid`/`Unit`) — display data always comes from the `GET`s.
+- **Approval gates supply, never demand.** Riders need no KYC; orgs/facilities trade only after `Verified`. Licenses are verified for record and gate bookings (`Verified` + covering categories + unexpired, else 403).
+- **Uniqueness:** plate per account; `registrationNumber` global; `licenseNumber` global + one license per user; one `Individual` provider per user; one provider per org; one review per rider per facility (and only on `Verified` facilities).
+- **Single gate, direction from state.** `POST /gate/entry-exit` derives Entry vs Exit from `BookingStatusEnum` (`GateRules.DirectionFor`) — the client never picks a mode. The same `passToken` scans in first, then out; `facilityId` in the body is an authorization check, not a decoration.
+- **Overstay never touches the booking.** The booking is `Completed` and the space freed at exit; the overstay is a row in `OverstayPayments`. A paid/refunded overstay payment clears the debt; the "unsettled" test is identical in the create-booking gate and in `CreateOverstayPaymentCommand`.
+- **SERIALIZABLE where races cost money.** Availability counting on create, and both gate scans — two taps must not both admit on entry, both close on exit, or both record an overstay.
+- **Amounts are server-frozen snapshots.** Booking total at create, overstay charge at the exit scan — the client and gateway agree on one number; the gateway is never told a client-supplied amount.
+- **The server clock is the billing clock.** UTC goes in, pre-formatted local time comes out. Skewed gate scanners cannot shorten a stay — `ScannedAtUtc`/`EnteredAtUtc` are server times.
+- **Passes are re-issued, not edited.** `passToken` = signature + nonce; rotating kills every older QR; too-early, lapsed, unpaid and wrong-lot scans are refused with distinct messages.
+- **Write responses are ids** (`Guid`/`Unit` — display data always comes from the `GET`s).
 
-### Built vs planned (2026-09-22)
+### Built vs planned (2026-10-06)
 
-- Built: OTP auth, onboarding, vehicles (+ brand/model/color/category, dropdown inits for `/vehicles/init` + `/licenses/init`), driving-license submission/view + license queue, org/provider/facility (occupancy + prices)/images/reviews, BackOffice lists + approvals + capacity-approval.
-- Planned: BackOffice license verification queue, booking-time license gate (Verified + covering category + unexpired → else 403), nearby search, booking, parking/QR, payments (eSewa/Khalti/IME/Fonepay), company employee subscriptions + on-behalf booking rules.
+- Built: OTP auth, onboarding, vehicles (+ brand/model/color/category, dropdown inits), driving-license submission + license queue + **booking-time license gate**, org/provider/facility (occupancy + prices)/images/reviews + capacity-approval, **nearby search**, **booking + 10-min hold + availability**, **QR pass + rotation**, **single-gate entry/exit scan**, **Khalti payment + return-reconcile + payment history**, **overstay settlement** (summary, payment, separate callback, new-booking block while unsettled).
+- Planned: more payment gateways (eSewa/IME/Fonepay), company employee subscriptions + on-behalf booking rules, Redis-backed availability/locks, real SMS OTP.
 
 ## Tech Stack
 
@@ -603,6 +622,12 @@ Endpoints are defined as **minimal API endpoint groups** (`ParkingApp/Apis/AuthA
 | PUT | `/backoffice/facilities/{id}/approval` | `UpdateParkingFacilityApprovalRequest` | `Unit` (`{}`; re-fetch list) | BackOffice bearer |
 | PUT | `/backoffice/facilities/{id}/capacity-approval` | `UpdateFacilityCapacityApprovalRequest` | `Unit` (`{}`; re-fetch detail) | BackOffice bearer |
 | PUT | `/backoffice/licenses/{id}/approval` | `UpdateDrivingLicenseApprovalRequest` | `Unit` (`{}`; re-fetch list) | BackOffice bearer |
+| POST | `/gate/entry-exit` | `ScanGateCommand` (passToken, facilityId) | `ScanGateResponse` (direction, outcome, gate timestamps, overstay snapshot) | Bearer token |
+| GET | `/bookings/{bookingId}/exit-summary` | — | exit + overstay summary (local times, NPR amounts) | Bearer token |
+| GET | `/bookings/{bookingId}/overstay/summary` | — | overstay summary (minutes, grace, billable hours, rate, amount) | Bearer token |
+| GET | `/bookings/{bookingId}/transactions` | — | prepaid + overstay payments merged | Bearer token |
+| POST | `/payments/overstay` | `CreateOverstayPaymentRequest` | gateway mode/payload (overstay charge) | Bearer token |
+| GET | `/payments/khalti/overstay/return` | `?pidx&status&amount` | overstay reconciliation result | No (AllowAnonymous) |
 
 Note: BackOffice list endpoints use the **`BackOfficeOnly`** authorization policy (`Role = BackOffice` claim) — app-user tokens are rejected. BackOffice routes are `/backoffice/*` (no `/api` prefix); organization, parking-provider and facility routes are top-level (`/organizations`, `/parking-providers`, `/facilities`) using app-user Bearer tokens.
 
@@ -696,7 +721,6 @@ docker compose logs -f api
 
 - API: `http://localhost:8080` (OpenAPI JSON at `/openapi/v1.json` in Development)
 - Interactive API docs (Swagger UI, try-it included): `http://localhost:8080/swagger` — the mobile team pastes the `accessToken` from login into **Authorize** once and every request then carries it
-- Alternative docs UI (Scalar): `http://localhost:8080/scalar`
 - MinIO console: `http://localhost:9001` (admin / admin12345); S3 endpoint `:9000`
 - Logs: Serilog ships API logs to Elasticsearch (index `parkingapp-logs-YYYY.MM`); view/search in Kibana at `http://localhost:5601`. Console logging stays as fallback when ES is unreachable.
 - The `api` service waits for postgres (healthcheck) and applies pending EF migrations on boot, so no manual `database update` is needed. The MinIO `parkingapp` bucket is auto-created on first image upload.
@@ -717,11 +741,11 @@ cp .env.example .env && nano .env   # fill domains + secrets
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 ```
 
-- API: `https://api.<domain>` — Swagger UI docs at `https://api.<domain>/swagger` (Scalar at `/scalar`)
+- API: `https://api.<domain>` — Swagger UI docs at `https://api.<domain>/swagger`
 - Images served from `https://files.<domain>` (stored in DB URLs, openable on phones)
 - MinIO console: `https://minio.<domain>`
 - Caddy terminates TLS automatically (Let's Encrypt) — required, since mobile OSes reject plain-HTTP APIs.
-- This sandbox intentionally runs `ASPNETCORE_ENVIRONMENT=Development` (Scalar + DevCode OTP visible) so the team can integrate without real SMS. It is **not** a production posture: rotate all secrets and add real SMS + locked-down config before any public launch.
+- This sandbox intentionally runs `ASPNETCORE_ENVIRONMENT=Development` (Swagger UI + DevCode OTP visible) so the team can integrate without real SMS. It is **not** a production posture: rotate all secrets and add real SMS + locked-down config before any public launch.
 
 ## Testing Auth
 

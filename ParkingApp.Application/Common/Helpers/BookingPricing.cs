@@ -29,6 +29,10 @@ public static class BookingPricing
     public static long ToPaisa(decimal amountNpr)
         => (long)Math.Round(amountNpr * 100m, MidpointRounding.AwayFromZero);
 
+    /// <summary>Paisa back to NPR rupees, for anything a human reads.</summary>
+    public static decimal ToNpr(long amountPaisa)
+        => amountPaisa / 100m;
+
     /// <summary>
     /// The price for a vehicle type at a facility, or null when that type is
     /// not offered. Owners set both numbers together on the facility.

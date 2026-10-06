@@ -82,7 +82,7 @@ public sealed class CreatePaymentCommandHandler(
         IPaymentGateway gateway;
         try
         {
-            gateway = PaymentGateways.Resolve(gateways, request.Gateway);
+            gateway = PaymentGateways.Find(gateways, request.Gateway);
         }
         catch (PaymentGatewayException ex)
         {
@@ -105,6 +105,7 @@ public sealed class CreatePaymentCommandHandler(
                 payment.Id.ToString(),
                 payment.AmountPaisa,
                 $"Parking booking {payment.BookingId:N}",
+                PaymentFlowEnum.Prepaid,
                 rider?.FullName,
                 rider?.Email,
                 rider?.PhoneNumber,

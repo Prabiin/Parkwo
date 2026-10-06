@@ -128,6 +128,19 @@ public enum PaymentGatewayEnum
     Khalti = 1
 }
 
+/// <summary>
+/// Why a payment exists. The two live in different tables, so a rider looking
+/// at a booking's history only gets this field as the label that tells them
+/// which charge a row was for.
+/// </summary>
+public enum PaymentPurposeEnum
+{
+    [Description("Booking payment")]
+    Prepaid = 1,
+    [Description("Overstay payment")]
+    Overstay = 2
+}
+
 public enum ScanTypeEnum
 {
     [Description("Entry")]
