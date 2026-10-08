@@ -47,14 +47,6 @@ public class ParkingFacilityConfiguration : IEntityTypeConfiguration<ParkingFaci
         builder.Property(x => x.LandAreaSqM)
             .HasColumnType("numeric(12,2)");
 
-        builder.Property(x => x.TwoWheelerPricePerHourNpr)
-            .IsRequired()
-            .HasColumnType("numeric(10,2)");
-
-        builder.Property(x => x.FourWheelerPricePerHourNpr)
-            .IsRequired()
-            .HasColumnType("numeric(10,2)");
-
         builder.Property(x => x.PendingTwoWheelerOccupancy);
 
         builder.Property(x => x.PendingFourWheelerOccupancy);

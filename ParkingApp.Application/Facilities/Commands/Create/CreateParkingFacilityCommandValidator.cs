@@ -42,11 +42,5 @@ public sealed class CreateParkingFacilityCommandValidator : AbstractValidator<Cr
         RuleFor(x => x.LandAreaSqM)
             .GreaterThan(0)
             .When(x => x.LandAreaSqM.HasValue);
-
-        RuleFor(x => x.TwoWheelerPricePerHourNpr)
-            .GreaterThan(0);
-
-        RuleFor(x => x.FourWheelerPricePerHourNpr)
-            .GreaterThan(0);
     }
 }

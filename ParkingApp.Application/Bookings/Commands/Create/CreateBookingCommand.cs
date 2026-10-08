@@ -1,8 +1,10 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using ParkingApp.Application.Common;
 using ParkingApp.Application.Common.Cqrs;
 using ParkingApp.Application.Common.Helpers;
 using ParkingApp.Application.Common.Interfaces;
+using ParkingApp.Application.Configuration;
 using ParkingApp.Domain;
 using ParkingApp.Domain.Common.Enums;
 
@@ -24,7 +26,8 @@ public sealed record CreateBookingCommand(
 
 public sealed class CreateBookingCommandHandler(
     IApplicationDbContext context,
-    ICurrentUserService currentUser)
+    ICurrentUserService currentUser,
+    IOptions<ParkwoPricingSettings> pricingSettings)
     : IRequestResultHandler<CreateBookingCommand, CreateBookingResponse>
 {
     private const int HoldMinutes = 10;
@@ -99,9 +102,12 @@ public sealed class CreateBookingCommandHandler(
             ? facility.TwoWheelerOccupancy
             : facility.FourWheelerOccupancy;
 
+        // Parkwo sets the rate — the facility has no price of its own. The
+        // configured number is snapshotted onto the booking below, so changing
+        // the rate later reprices new bookings only, never this one.
         var pricePerHour = vehicle.VehicleType == VehicleTypeEnum.TwoWheeler
-            ? facility.TwoWheelerPricePerHourNpr
-            : facility.FourWheelerPricePerHourNpr;
+            ? pricingSettings.Value.TwoWheelerPricePerHourNpr
+            : pricingSettings.Value.FourWheelerPricePerHourNpr;
 
         if (capacity < 1)
             return Result<CreateBookingResponse>.Failure($"This facility has no {vehicle.VehicleType.ToDescription().ToLowerInvariant()} spaces.", 409);

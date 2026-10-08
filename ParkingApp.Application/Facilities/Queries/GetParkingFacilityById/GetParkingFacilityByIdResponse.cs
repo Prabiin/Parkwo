@@ -16,8 +16,6 @@ public record GetParkingFacilityByIdResponse(
     int TwoWheelerOccupancy,
     int FourWheelerOccupancy,
     decimal? LandAreaSqM,
-    decimal TwoWheelerPricePerHourNpr,
-    decimal FourWheelerPricePerHourNpr,
     int? PendingTwoWheelerOccupancy,
     int? PendingFourWheelerOccupancy,
     decimal? PendingLandAreaSqM,

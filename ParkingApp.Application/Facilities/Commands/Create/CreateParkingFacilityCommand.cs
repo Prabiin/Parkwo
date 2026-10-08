@@ -17,9 +17,7 @@ public sealed record CreateParkingFacilityCommand(
     bool HasMarkedParkingLot,
     int TwoWheelerOccupancy,
     int FourWheelerOccupancy,
-    decimal? LandAreaSqM,
-    decimal TwoWheelerPricePerHourNpr,
-    decimal FourWheelerPricePerHourNpr)
+    decimal? LandAreaSqM)
     : IRequestResult<CreateParkingFacilityCommand, Guid>;
 
 public sealed class CreateParkingFacilityCommandHandler(IApplicationDbContext context, ICurrentUserService currentUser)
@@ -50,8 +48,6 @@ public sealed class CreateParkingFacilityCommandHandler(IApplicationDbContext co
             TwoWheelerOccupancy = request.TwoWheelerOccupancy,
             FourWheelerOccupancy = request.FourWheelerOccupancy,
             LandAreaSqM = request.LandAreaSqM,
-            TwoWheelerPricePerHourNpr = request.TwoWheelerPricePerHourNpr,
-            FourWheelerPricePerHourNpr = request.FourWheelerPricePerHourNpr,
             CreatedAtUtc = DateTimeOffset.UtcNow
         };
 

@@ -40,8 +40,6 @@ public sealed class GetParkingFacilityByIdQueryHandler(IApplicationDbContext con
                 f.TwoWheelerOccupancy,
                 f.FourWheelerOccupancy,
                 f.LandAreaSqM,
-                f.TwoWheelerPricePerHourNpr,
-                f.FourWheelerPricePerHourNpr,
                 f.PendingTwoWheelerOccupancy,
                 f.PendingFourWheelerOccupancy,
                 f.PendingLandAreaSqM
@@ -95,8 +93,6 @@ public sealed class GetParkingFacilityByIdQueryHandler(IApplicationDbContext con
                 facility.TwoWheelerOccupancy,
                 facility.FourWheelerOccupancy,
                 facility.LandAreaSqM,
-                facility.TwoWheelerPricePerHourNpr,
-                facility.FourWheelerPricePerHourNpr,
                 facility.PendingTwoWheelerOccupancy,
                 facility.PendingFourWheelerOccupancy,
                 facility.PendingLandAreaSqM,

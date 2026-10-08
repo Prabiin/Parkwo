@@ -158,6 +158,15 @@ public static class DependencyInjection
         services.AddSingleton(passSettings);
         services.AddSingleton<ParkingPassService>();
 
+        // Parkwo-owned rates. Providers never price their own spaces, so a
+        // single global rate per vehicle type is read from config and snapshotted
+        // onto each booking at create. Defaults apply when the section is absent.
+        var parkwoPricing = configuration.GetSection(ParkwoPricingSettings.SectionName).Get<ParkwoPricingSettings>()
+                           ?? new ParkwoPricingSettings();
+
+        services.Configure<ParkwoPricingSettings>(configuration.GetSection(ParkwoPricingSettings.SectionName));
+        services.AddSingleton(parkwoPricing);
+
         // Khalti ePayment v2 (parking checkout). Optional section: payments stay
         // unavailable until Khalti__SecretKey is set, so the server boots and
         // every non-payment feature works without gateway credentials.

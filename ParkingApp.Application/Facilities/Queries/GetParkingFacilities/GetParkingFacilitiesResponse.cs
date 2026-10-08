@@ -21,8 +21,6 @@ public record ParkingFacilityItemResponse(
     int TwoWheelerOccupancy,
     int FourWheelerOccupancy,
     decimal? LandAreaSqM,
-    decimal TwoWheelerPricePerHourNpr,
-    decimal FourWheelerPricePerHourNpr,
     bool HasPendingCapacityChange);
 
 public record GetParkingFacilitiesResponse(

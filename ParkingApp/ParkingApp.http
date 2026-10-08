@@ -187,9 +187,7 @@ Authorization: Bearer paste-app-token-here
   "hasMarkedParkingLot": false,
   "twoWheelerOccupancy": 20,
   "fourWheelerOccupancy": 10,
-  "landAreaSqM": 165.5,
-  "twoWheelerPricePerHourNpr": 40,
-  "fourWheelerPricePerHourNpr": 100
+  "landAreaSqM": 165.5
 }
 
 ### Nearby parkings (pure spatial: Verified lots within radiusKm, nearest first; radiusKm default 5, max 20)

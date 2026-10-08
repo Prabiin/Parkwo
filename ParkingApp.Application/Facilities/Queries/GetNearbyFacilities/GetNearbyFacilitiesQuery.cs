@@ -1,8 +1,10 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using NetTopologySuite.Geometries;
 using ParkingApp.Application.Common;
 using ParkingApp.Application.Common.Cqrs;
 using ParkingApp.Application.Common.Interfaces;
+using ParkingApp.Application.Configuration;
 using ParkingApp.Domain.Common.Enums;
 
 namespace ParkingApp.Application.Facilities.Queries.GetNearbyFacilities;
@@ -24,7 +26,8 @@ public sealed record GetNearbyFacilitiesQuery(
 
 public sealed class GetNearbyFacilitiesQueryHandler(
     IApplicationDbContext context,
-    ICurrentUserService currentUser)
+    ICurrentUserService currentUser,
+    IOptions<ParkwoPricingSettings> pricingSettings)
     : IRequestResultHandler<GetNearbyFacilitiesQuery, GetNearbyFacilitiesResponse>
 {
     private const int MaxResults = 50;
@@ -39,6 +42,11 @@ public sealed class GetNearbyFacilitiesQueryHandler(
 
         var radiusMeters = (request.RadiusKm ?? GetNearbyFacilitiesQueryValidator.DefaultRadiusKm) * 1000;
         var origin = new Point(request.Longitude, request.Latitude) { SRID = 4326 };
+
+        // The price shown is Parkwo's own rate (providers never price their
+        // spaces), projected as constants so it is not translated to SQL.
+        var twoWheelerRate = pricingSettings.Value.TwoWheelerPricePerHourNpr;
+        var fourWheelerRate = pricingSettings.Value.FourWheelerPricePerHourNpr;
 
         var query = context.ParkingFacilities
             .AsNoTracking()
@@ -77,9 +85,7 @@ public sealed class GetNearbyFacilitiesQueryHandler(
                     .FirstOrDefault(),
                 f.HasMarkedParkingLot,
                 f.TwoWheelerOccupancy,
-                f.TwoWheelerPricePerHourNpr,
-                f.FourWheelerOccupancy,
-                f.FourWheelerPricePerHourNpr
+                f.FourWheelerOccupancy
             })
             .ToListAsync(cancellationToken);
 
@@ -100,10 +106,10 @@ public sealed class GetNearbyFacilitiesQueryHandler(
                 f.HasMarkedParkingLot,
                 f.TwoWheelerOccupancy,
                 f.TwoWheelerOccupancy,
-                f.TwoWheelerPricePerHourNpr,
+                twoWheelerRate,
                 f.FourWheelerOccupancy,
                 f.FourWheelerOccupancy,
-                f.FourWheelerPricePerHourNpr))
+                fourWheelerRate))
             .ToList();
 
         return Result<GetNearbyFacilitiesResponse>.Success(

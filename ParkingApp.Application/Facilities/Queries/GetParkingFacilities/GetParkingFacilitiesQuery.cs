@@ -49,8 +49,6 @@ public sealed class GetParkingFacilitiesQueryHandler(IApplicationDbContext conte
                 f.TwoWheelerOccupancy,
                 f.FourWheelerOccupancy,
                 f.LandAreaSqM,
-                f.TwoWheelerPricePerHourNpr,
-                f.FourWheelerPricePerHourNpr,
                 HasPendingCapacityChange = f.PendingTwoWheelerOccupancy != null
                     || f.PendingFourWheelerOccupancy != null
                     || f.PendingLandAreaSqM != null
@@ -78,8 +76,6 @@ public sealed class GetParkingFacilitiesQueryHandler(IApplicationDbContext conte
                 f.TwoWheelerOccupancy,
                 f.FourWheelerOccupancy,
                 f.LandAreaSqM,
-                f.TwoWheelerPricePerHourNpr,
-                f.FourWheelerPricePerHourNpr,
                 f.HasPendingCapacityChange))
             .ToList();
 

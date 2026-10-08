@@ -17,8 +17,6 @@ public class ParkingFacility : AuditableEntity
     public int TwoWheelerOccupancy { get; set; }
     public int FourWheelerOccupancy { get; set; }
     public decimal? LandAreaSqM { get; set; }
-    public decimal TwoWheelerPricePerHourNpr { get; set; }
-    public decimal FourWheelerPricePerHourNpr { get; set; }
     public int? PendingTwoWheelerOccupancy { get; set; }
     public int? PendingFourWheelerOccupancy { get; set; }
     public decimal? PendingLandAreaSqM { get; set; }

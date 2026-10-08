@@ -94,6 +94,10 @@ services:
       - Upload__AllowedImageTypes__2=png
       - ParkingStandards__TwoWheelerAreaSqM=2
       - ParkingStandards__FourWheelerAreaSqM=12.5
+      # Parkwo owns the rates (providers cannot price their own spaces); override
+      # for promos or pricing experiments.
+      - ParkwoPricing__TwoWheelerPricePerHourNpr=${PARKWO_TWO_WHEELER_PRICE_PER_HOUR_NPR:-40}
+      - ParkwoPricing__FourWheelerPricePerHourNpr=${PARKWO_FOUR_WHEELER_PRICE_PER_HOUR_NPR:-100}
       # Gate pass signing key. Optional: with no key the API boots and passes are
       # switched off, returning "not configured" until one is set. Same posture as
       # KHALTI_SECRET_KEY above.

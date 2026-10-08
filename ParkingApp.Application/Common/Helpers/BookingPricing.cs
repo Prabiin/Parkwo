@@ -34,8 +34,9 @@ public static class BookingPricing
         => amountPaisa / 100m;
 
     /// <summary>
-    /// The price for a vehicle type at a facility, or null when that type is
-    /// not offered. Owners set both numbers together on the facility.
+    /// The price for a vehicle type, or null when that type is not offered.
+    /// The rate is Parkwo's own (see <c>ParkwoPricingSettings</c>) — facilities
+    /// never propose a price of their own.
     /// </summary>
     public static decimal? PricePerHourFor(VehicleTypeEnum vehicleType, int occupancy, decimal pricePerHourNpr)
         => occupancy > 0 ? pricePerHourNpr : null;

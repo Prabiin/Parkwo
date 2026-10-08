@@ -4,6 +4,12 @@ A peer-to-peer parking marketplace API where users find parking spaces and land 
 
 ## Change Log
 
+### 2026-10-08 — Provider rates removed; Parkwo sets the price
+
+- Facilities no longer carry per-type prices — `TwoWheelerPricePerHourNpr` / `FourWheelerPricePerHourNpr` columns, request fields and responses are gone (migration `20261008044802_RemoveProviderFacilityRates` drops both columns; existing bookings keep their snapshotted rate). Providers declare occupancy and area only at `POST /facilities`.
+- The marketplace rate is central, config-driven, and set by Parkwo: new `ParkwoPricing` section (`TwoWheelerPricePerHourNpr` default 40, `FourWheelerPricePerHourNpr` default 100) with `ParkwoPricing__*` env passthrough in compose + `.env.example` for promos/pricing experiments.
+- `POST /bookings` snapshots the configured rate onto the booking at create (same rule as before: the booking's own `PricePerHourNpr` drives the total and any overstay) — past bookings are never re-priced. `GET /facilities/nearby` still shows a per-type price, now the Parkwo rate rather than a facility-supplied one.
+
 ### 2026-10-06 — Single-gate scans, overstay settlement, config comments, rebuilt Figma flow
 
 - **Single-gate scan endpoint.** `POST /gate/entry-exit` replaces `POST /gate/entry` + `POST /gate/exit`: the same QR is presented at one gate helmed by one phone — the booking's own state picks the direction via `GateRules.DirectionFor(Status)` (Confirmed/Active → Entry, Completed → Exit), so there is no entry/exit button a tired attendant can press wrong. New `ScanGateCommand`/`ScanGateResponse` under `Bookings/Commands/ScanGate`; the `ScanEntry/` + `ScanExit/` command folders are deleted and DI re-registered. The handler stays **SERIALIZABLE** — two taps must not both admit on the way in, nor both close and record an overstay on the way out.
@@ -190,7 +196,7 @@ No business-logic changes today. The goal was to lock in the folder pattern the 
 
 1. Rider with land calls `POST /parking-providers` (`Individual` — one per account, no org needed).
 2. App immediately asks for the facility: `POST /facilities` (name, address, lat/long, description).
-3. Occupancy/prices/images follow at create (`twoWheelerOccupancy`, `fourWheelerOccupancy`, `landAreaSqM`, per-type prices, `POST .../images` multipart); later increases stage via `PUT .../capacity` pending compliance.
+3. Occupancy/images follow at create (`twoWheelerOccupancy`, `fourWheelerOccupancy`, `landAreaSqM`, `POST .../images` multipart); later increases stage via `PUT .../capacity` pending compliance. The price is always Parkwo's (`ParkwoPricing`) — providers never propose one.
 4. Compliance verifies in BackOffice (`Pending` → `Verified`); only then can riders book/review it.
 5. Nothing about the `User` row changes — the rider just gains a provider profile.
 
@@ -217,7 +223,7 @@ No business-logic changes today. The goal was to lock in the folder pattern the 
 
 ### Built vs planned (2026-10-06)
 
-- Built: OTP auth, onboarding, vehicles (+ brand/model/color/category, dropdown inits), driving-license submission + license queue + **booking-time license gate**, org/provider/facility (occupancy + prices)/images/reviews + capacity-approval, **nearby search**, **booking + 10-min hold + availability**, **QR pass + rotation**, **single-gate entry/exit scan**, **Khalti payment + return-reconcile + payment history**, **overstay settlement** (summary, payment, separate callback, new-booking block while unsettled).
+- Built: OTP auth, onboarding, vehicles (+ brand/model/color/category, dropdown inits), driving-license submission + license queue + **booking-time license gate**, org/provider/facility (occupancy)/images/reviews + capacity-approval, **nearby search**, **booking + 10-min hold + availability**, **QR pass + rotation**, **single-gate entry/exit scan**, **Khalti payment + return-reconcile + payment history**, **overstay settlement** (summary, payment, separate callback, new-booking block while unsettled).
 - Planned: more payment gateways (eSewa/IME/Fonepay), company employee subscriptions + on-behalf booking rules, Redis-backed availability/locks, real SMS OTP.
 
 ## Tech Stack
@@ -482,7 +488,6 @@ A single parking location a provider runs. Created by the provider's owner; each
 | HasMarkedParkingLot | bool | UI toggle at create (default false) — later decides seat-map vs slot-count UI |
 | TwoWheelerOccupancy / FourWheelerOccupancy | int | Required, each ≥ 0, sum ≥ 1 (total claimable spaces per type) |
 | LandAreaSqM | decimal? | Optional, > 0 when present (compliance plausibility base) |
-| TwoWheelerPricePerHourNpr / FourWheelerPricePerHourNpr | decimal | Required, > 0, numeric(10,2) (per-type billing rate) |
 | PendingTwoWheelerOccupancy / PendingFourWheelerOccupancy / PendingLandAreaSqM | — | Nullable staging columns for Verified-lot increases (live only after capacity approval) |
 | ApprovalStatus | ApprovalStatusEnum | Pending (1, default), Verified, UnderReview, Rejected |
 | AverageRating | double? | Denormalized aggregate, recomputed on each review |
@@ -642,7 +647,7 @@ CreateVehicleCommand(VehicleTypeEnum, VehicleCategoryEnum, Name, VehicleNumber, 
 CreateDrivingLicenseCommand(LicenseNumber, CategoriesRaw "2,4", ExpiryDateRaw yyyy-MM-dd, Front/Back file uploads) -> Guid (license id; parsing + MinIO upload + resubmission-after-Rejected all in the handler; API tier only maps the multipart form)
 CreateOrganizationCommand (Name, RegistrationNumber, ContactNumber, Address)   -> Guid (organization id)
 CreateParkingProviderCommand (ProviderType, OrganizationId?)                   -> Guid (provider id)
-CreateParkingFacilityCommand (ProviderId, Name, Description?, Address, Latitude?, Longitude?, HasMarkedParkingLot, TwoWheelerOccupancy, FourWheelerOccupancy, LandAreaSqM?, TwoWheelerPricePerHourNpr, FourWheelerPricePerHourNpr) -> Guid (facility id)
+CreateParkingFacilityCommand (ProviderId, Name, Description?, Address, Latitude?, Longitude?, HasMarkedParkingLot, TwoWheelerOccupancy, FourWheelerOccupancy, LandAreaSqM?) -> Guid (facility id)
 UpdateFacilityCapacityCommand (FacilityId, TwoWheelerOccupancy?, FourWheelerOccupancy?, LandAreaSqM?) -> Unit (Verified → pending columns; else live)
 UploadImages (multipart files, owner-only, MinIO)                               -> { Images[Id, Url, FileName, ContentType, SizeInBytes, SortOrder] }
 UploadProfilePicture (multipart file, replaces previous)                        -> { ProfileImageUrl }
@@ -761,11 +766,11 @@ Use the `ParkingApp.http` file or Postman:
 **BackOffice** (admin console):
 1. **Login**: `POST /backoffice/auth/login` with `SuperAdmin` + `P@ssw0rd` -> returns a BackOffice bearer token.
 2. **List pending work**: `GET /backoffice/organizations?approvalStatus=Pending`, `GET /backoffice/facilities?approvalStatus=Pending`, `GET /backoffice/licenses?approvalStatus=Pending`, `GET /backoffice/riders`, `GET /backoffice/parking-providers` (oversight, no approval) (all require the BackOffice token).
-3. **Verify a facility**: `GET /backoffice/facilities/{id}` — every spot number, vehicle type, price, the two/four-wheeler counts, uploaded images and ratings. No images → slower manual review.
+3. **Verify a facility**: `GET /backoffice/facilities/{id}` — the two/four-wheeler occupancy claims, area, uploaded images and ratings. No images → slower manual review.
 
 **Provider catalog flow** (supply side):
 1. Become a provider: `POST /parking-providers` (`Individual`, or `Company` + owned `organizationId`).
-2. `POST /facilities` under your provider with occupancy + per-type prices, then optionally `POST /facilities/{id}/images` (multipart) — more evidence, faster compliance review. Later capacity increases via `PUT /facilities/{id}/capacity` (Verified lots stage to pending).
+2. `POST /facilities` under your provider with occupancy, then optionally `POST /facilities/{id}/images` (multipart) — more evidence, faster compliance review. You never set a price: Parkwo's rate (`ParkwoPricing`) applies marketplace-wide. Later capacity increases via `PUT /facilities/{id}/capacity` (Verified lots stage to pending).
 3. Optionally `POST /facilities/{id}/images` (multipart) — more evidence, faster compliance review.
 4. `GET /facilities` shows your inventory with spot counts, image counts, ratings and `ApprovalStatus`; compliance sees the same via BackOffice.
 5. Riders review once the facility is `Verified`: `POST /facilities/{id}/reviews` (one per rider; a completed-booking gate follows with bookings).

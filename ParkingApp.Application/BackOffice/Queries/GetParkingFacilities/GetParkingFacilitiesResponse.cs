@@ -18,8 +18,6 @@ public record BackOfficeParkingFacilityItemResponse(
     int TwoWheelerOccupancy,
     int FourWheelerOccupancy,
     decimal? LandAreaSqM,
-    decimal TwoWheelerPricePerHourNpr,
-    decimal FourWheelerPricePerHourNpr,
     bool HasPendingCapacityChange,
     int ImageCount,
     double? AverageRating,
