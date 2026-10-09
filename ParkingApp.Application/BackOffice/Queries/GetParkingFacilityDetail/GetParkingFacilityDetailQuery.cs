@@ -14,7 +14,8 @@ public sealed record GetParkingFacilityDetailQuery(Guid FacilityId)
 
 public sealed class GetParkingFacilityDetailQueryHandler(
     IApplicationDbContext context,
-    ParkingStandards standards)
+    ParkingStandards standards,
+    IImageUrlResolver imageUrls)
     : IRequestResultHandler<GetParkingFacilityDetailQuery, GetParkingFacilityDetailResponse>
 {
     public async Task<Result<GetParkingFacilityDetailResponse>> Handle(
@@ -75,7 +76,7 @@ public sealed class GetParkingFacilityDetailQueryHandler(
         var imageItems = images
             .Select(i => new ParkingFacilityImageResponse(
                 i.Id,
-                i.Url,
+                imageUrls.Resolve(i.Url)!,
                 i.FileName,
                 i.ContentType,
                 i.SizeInBytes,

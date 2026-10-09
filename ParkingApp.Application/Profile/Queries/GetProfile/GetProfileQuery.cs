@@ -9,7 +9,7 @@ namespace ParkingApp.Application.Profile.Queries.GetProfile;
 
 public sealed record GetProfileQuery() : IRequestResult<GetProfileQuery, GetProfileResponse>;
 
-public sealed class GetProfileQueryHandler(IApplicationDbContext context, ICurrentUserService currentUser)
+public sealed class GetProfileQueryHandler(IApplicationDbContext context, ICurrentUserService currentUser, IImageUrlResolver imageUrls)
     : IRequestResultHandler<GetProfileQuery, GetProfileResponse>
 {
     public async Task<Result<GetProfileResponse>> Handle(GetProfileQuery request, CancellationToken cancellationToken = default)
@@ -42,6 +42,6 @@ public sealed class GetProfileQueryHandler(IApplicationDbContext context, ICurre
                 BookingsCount: 0,
                 AmountSavedInNpr: 0m,
                 Rating: 0m,
-                ProfileImageUrl: user.ProfileImageUrl));
+                ProfileImageUrl: imageUrls.Resolve(user.ProfileImageUrl)));
     }
 }

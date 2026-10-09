@@ -27,6 +27,7 @@ public sealed record GetNearbyFacilitiesQuery(
 public sealed class GetNearbyFacilitiesQueryHandler(
     IApplicationDbContext context,
     ICurrentUserService currentUser,
+    IImageUrlResolver imageUrls,
     IOptions<ParkwoPricingSettings> pricingSettings)
     : IRequestResultHandler<GetNearbyFacilitiesQuery, GetNearbyFacilitiesResponse>
 {
@@ -102,7 +103,7 @@ public sealed class GetNearbyFacilitiesQueryHandler(
                 f.AverageRating,
                 f.RatingCount,
                 f.ImageCount,
-                f.FirstImageUrl,
+                imageUrls.Resolve(f.FirstImageUrl),
                 f.HasMarkedParkingLot,
                 f.TwoWheelerOccupancy,
                 f.TwoWheelerOccupancy,

@@ -10,7 +10,7 @@ namespace ParkingApp.Application.Facilities.Queries.GetParkingFacilityById;
 public sealed record GetParkingFacilityByIdQuery(Guid FacilityId)
     : IRequestResult<GetParkingFacilityByIdQuery, GetParkingFacilityByIdResponse>;
 
-public sealed class GetParkingFacilityByIdQueryHandler(IApplicationDbContext context, ICurrentUserService currentUser)
+public sealed class GetParkingFacilityByIdQueryHandler(IApplicationDbContext context, ICurrentUserService currentUser, IImageUrlResolver imageUrls)
     : IRequestResultHandler<GetParkingFacilityByIdQuery, GetParkingFacilityByIdResponse>
 {
     public async Task<Result<GetParkingFacilityByIdResponse>> Handle(GetParkingFacilityByIdQuery request, CancellationToken cancellationToken = default)
@@ -71,7 +71,7 @@ public sealed class GetParkingFacilityByIdQueryHandler(IApplicationDbContext con
         var imageItems = images
             .Select(i => new ParkingFacilityImageResponse(
                 i.Id,
-                i.Url,
+                imageUrls.Resolve(i.Url)!,
                 i.FileName,
                 i.ContentType,
                 i.SizeInBytes,

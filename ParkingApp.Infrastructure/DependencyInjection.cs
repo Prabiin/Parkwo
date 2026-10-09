@@ -322,5 +322,6 @@ public static class DependencyInjection
         services.AddScoped<IOtpSender, ConsoleOtpSender>();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
         services.AddScoped<IFileStorage, MinioFileStorage>();
+        services.AddScoped<IImageUrlResolver, MinioImageUrlResolver>();
     }
 }

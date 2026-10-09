@@ -76,6 +76,42 @@ public class MinioFileStorage : IFileStorage
         return new StoredFile(url, Path.GetFileName(fileName), contentType, size);
     }
 
+    public async Task<StoredFileContent?> OpenReadAsync(string key, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(key))
+            return null;
+
+        key = key.TrimStart('/');
+
+        try
+        {
+            var stat = await _client.StatObjectAsync(
+                new StatObjectArgs()
+                    .WithBucket(_settings.Bucket)
+                    .WithObject(key),
+                cancellationToken);
+
+            var buffer = new MemoryStream();
+            await _client.GetObjectAsync(
+                new GetObjectArgs()
+                    .WithBucket(_settings.Bucket)
+                    .WithObject(key)
+                    .WithCallbackStream(stream => stream.CopyTo(buffer)),
+                cancellationToken);
+
+            buffer.Position = 0;
+
+            return new StoredFileContent(
+                buffer,
+                string.IsNullOrWhiteSpace(stat.ContentType) ? "application/octet-stream" : stat.ContentType,
+                stat.Size);
+        }
+        catch (Minio.Exceptions.MinioException)
+        {
+            return null;
+        }
+    }
+
     public async Task DeleteAsync(string url, CancellationToken cancellationToken = default)
     {
         var marker = $"/{_settings.Bucket}/";

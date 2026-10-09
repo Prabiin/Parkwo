@@ -8,7 +8,7 @@ namespace ParkingApp.Application.Licenses.Queries.GetDrivingLicense;
 
 public sealed record GetDrivingLicenseQuery() : IRequestResult<GetDrivingLicenseQuery, DrivingLicenseResponse?>;
 
-public sealed class GetDrivingLicenseQueryHandler(IApplicationDbContext context, ICurrentUserService currentUser)
+public sealed class GetDrivingLicenseQueryHandler(IApplicationDbContext context, ICurrentUserService currentUser, IImageUrlResolver imageUrls)
     : IRequestResultHandler<GetDrivingLicenseQuery, DrivingLicenseResponse?>
 {
     public async Task<Result<DrivingLicenseResponse?>> Handle(GetDrivingLicenseQuery request, CancellationToken cancellationToken = default)
@@ -29,8 +29,8 @@ public sealed class GetDrivingLicenseQueryHandler(IApplicationDbContext context,
             license.LicenseNumber,
             license.Categories,
             license.Categories.Select(c => c.ToDescription()).ToList(),
-            license.FrontImageUrl,
-            license.BackImageUrl,
+            imageUrls.Resolve(license.FrontImageUrl)!,
+            imageUrls.Resolve(license.BackImageUrl)!,
             license.ExpiryDate,
             license.ApprovalStatus,
             license.ApprovalStatus.ToDescription(),

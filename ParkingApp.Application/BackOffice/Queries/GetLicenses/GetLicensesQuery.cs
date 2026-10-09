@@ -9,7 +9,7 @@ namespace ParkingApp.Application.BackOffice.Queries.GetLicenses;
 public sealed record GetLicensesQuery(ApprovalStatusEnum? ApprovalStatus)
     : IRequestResult<GetLicensesQuery, GetLicensesResponse>;
 
-public sealed class GetLicensesQueryHandler(IApplicationDbContext context)
+public sealed class GetLicensesQueryHandler(IApplicationDbContext context, IImageUrlResolver imageUrls)
     : IRequestResultHandler<GetLicensesQuery, GetLicensesResponse>
 {
     public async Task<Result<GetLicensesResponse>> Handle(
@@ -52,8 +52,8 @@ public sealed class GetLicensesQueryHandler(IApplicationDbContext context)
                 d.LicenseNumber,
                 d.Categories,
                 d.Categories.Select(c => c.ToDescription()).ToList(),
-                d.FrontImageUrl,
-                d.BackImageUrl,
+                imageUrls.Resolve(d.FrontImageUrl)!,
+                imageUrls.Resolve(d.BackImageUrl)!,
                 d.ExpiryDate,
                 d.ApprovalStatus,
                 d.ApprovalStatus.ToDescription(),
