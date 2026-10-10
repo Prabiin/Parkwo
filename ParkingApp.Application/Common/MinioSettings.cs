@@ -10,4 +10,11 @@ public class MinioSettings
     public string Bucket { get; set; } = "parkingapp";
     public bool UseSsl { get; set; }
     public string PublicBaseUrl { get; set; } = default!;
+
+    /// <summary>
+    /// SigV4 region for S3-compatible backends. Required by some providers
+    /// (e.g. Cloudflare R2 uses "auto"); left empty for MinIO, which discovers
+    /// the bucket region itself.
+    /// </summary>
+    public string? Region { get; set; }
 }

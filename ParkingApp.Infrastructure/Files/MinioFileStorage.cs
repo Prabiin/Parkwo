@@ -23,11 +23,18 @@ public class MinioFileStorage : IFileStorage
     {
         _settings = settings;
         _logger = logger;
-        _client = new MinioClient()
+
+        var builder = new MinioClient()
             .WithEndpoint(settings.Endpoint)
             .WithCredentials(settings.AccessKey, settings.SecretKey)
-            .WithSSL(settings.UseSsl)
-            .Build();
+            .WithSSL(settings.UseSsl);
+
+        // Some S3-compatible providers (e.g. Cloudflare R2) require an explicit
+        // SigV4 region. MinIO itself discovers it, so only set it when provided.
+        if (!string.IsNullOrWhiteSpace(settings.Region))
+            builder = builder.WithRegion(settings.Region);
+
+        _client = builder.Build();
     }
 
     public async Task<StoredFile> SaveAsync(Stream content, string fileName, string contentType, string folder, CancellationToken cancellationToken = default)
@@ -183,6 +190,10 @@ public class MinioFileStorage : IFileStorage
                     new MakeBucketArgs().WithBucket(_settings.Bucket),
                     cancellationToken);
 
+                // Public-read policy is a MinIO convenience only; managed
+                // S3 providers such as Cloudflare R2 reject bucket policies.
+                // Images are served through the API (FilesApi), so this is
+                // best-effort and never blocks uploads.
                 var policy = $$"""
                     {
                       "Version": "2012-10-17",
@@ -197,11 +208,21 @@ public class MinioFileStorage : IFileStorage
                     }
                     """;
 
-                await _client.SetPolicyAsync(
-                    new SetPolicyArgs()
-                        .WithBucket(_settings.Bucket)
-                        .WithPolicy(policy),
-                    cancellationToken);
+                try
+                {
+                    await _client.SetPolicyAsync(
+                        new SetPolicyArgs()
+                            .WithBucket(_settings.Bucket)
+                            .WithPolicy(policy),
+                        cancellationToken);
+                }
+                catch (MinioException ex)
+                {
+                    _logger.LogWarning(
+                        ex,
+                        "Could not set public-read policy on bucket '{Bucket}'; objects will still be served through the API.",
+                        _settings.Bucket);
+                }
             }
 
             _initialized = true;
