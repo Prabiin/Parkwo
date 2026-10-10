@@ -8,7 +8,10 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.8" />
-    <PackageReference Include="Minio" Version="6.0.2" />
+    <!-- 6.0.2 silently swallows MinIO errors (empty stream / no exception on
+         unreachable endpoint or missing object), which surfaced images as
+         0-byte "corrupted" downloads. 7.0.0 restores proper error handling. -->
+    <PackageReference Include="Minio" Version="7.0.0" />
     <PackageReference Include="NetTopologySuite" Version="2.6.0" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite" Version="10.0.3" />

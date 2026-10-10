@@ -1,5 +1,7 @@
+using Microsoft.Extensions.Logging;
 using Minio;
 using Minio.DataModel.Args;
+using Minio.Exceptions;
 using ParkingApp.Application.Common.Interfaces;
 using ParkingApp.Application.Configuration;
 
@@ -13,12 +15,14 @@ public class MinioFileStorage : IFileStorage
 {
     private readonly MinioSettings _settings;
     private readonly IMinioClient _client;
+    private readonly ILogger<MinioFileStorage> _logger;
     private readonly SemaphoreSlim _initLock = new(1, 1);
     private bool _initialized;
 
-    public MinioFileStorage(MinioSettings settings)
+    public MinioFileStorage(MinioSettings settings, ILogger<MinioFileStorage> logger)
     {
         _settings = settings;
+        _logger = logger;
         _client = new MinioClient()
             .WithEndpoint(settings.Endpoint)
             .WithCredentials(settings.AccessKey, settings.SecretKey)
@@ -65,6 +69,20 @@ public class MinioFileStorage : IFileStorage
                     .WithObjectSize(size)
                     .WithContentType(contentType),
                 cancellationToken);
+
+            // Verify the bytes actually landed. Older Minio SDKs silently
+            // reported success against an unreachable server, leaving a DB row
+            // pointing at a non-existent object that later read back as a
+            // 0-byte "corrupted" image. Fail loudly instead.
+            var stored = await _client.StatObjectAsync(
+                new StatObjectArgs()
+                    .WithBucket(_settings.Bucket)
+                    .WithObject(key),
+                cancellationToken);
+
+            if (stored.Size != size)
+                throw new InvalidOperationException(
+                    $"MinIO upload verification failed for '{key}': expected {size} bytes, storage reports {stored.Size}.");
         }
         finally
         {
@@ -99,14 +117,27 @@ public class MinioFileStorage : IFileStorage
                     .WithCallbackStream(stream => stream.CopyTo(buffer)),
                 cancellationToken);
 
+            // A stored image is never legitimately empty. Getting zero bytes
+            // back means the object (or the whole MinIO server) is missing.
+            // Treat it as "not found" so the API answers 404 instead of
+            // handing the caller a 0-byte file that reads as corrupted.
+            if (buffer.Length == 0)
+            {
+                buffer.Dispose();
+                _logger.LogWarning(
+                    "MinIO object '{Bucket}/{Key}' read back empty (reported size {Size}); returning not-found.",
+                    _settings.Bucket, key, stat.Size);
+                return null;
+            }
+
             buffer.Position = 0;
 
             return new StoredFileContent(
                 buffer,
                 string.IsNullOrWhiteSpace(stat.ContentType) ? "application/octet-stream" : stat.ContentType,
-                stat.Size);
+                buffer.Length);
         }
-        catch (Minio.Exceptions.MinioException)
+        catch (MinioException)
         {
             return null;
         }
