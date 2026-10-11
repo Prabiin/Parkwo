@@ -138,6 +138,21 @@ public class BookingAvailabilityTests
             Base.AddHours(2)));
     }
 
+    [Theory]
+    [InlineData(BookingStatusEnum.Confirmed)]
+    [InlineData(BookingStatusEnum.Active)]
+    public void A_Paid_Booking_Consumes_A_Space_Before_Its_Window_Starts(BookingStatusEnum status)
+    {
+        // The availability feed ignores the window: a space reserved for later
+        // is not "available" now, or the feed would promise it and the booking
+        // gate would refuse with a 409.
+        Assert.True(BookingAvailability.ConsumesCapacity(
+            status,
+            Base.AddHours(10),
+            null,
+            Base));
+    }
+
     [Fact]
     public void An_Exit_Scan_Does_Not_Resurrect_A_Lapsed_Pending_Hold()
     {

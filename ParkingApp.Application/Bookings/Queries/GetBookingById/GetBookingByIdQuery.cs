@@ -44,7 +44,7 @@ public sealed class GetBookingByIdQueryHandler(
                 b.FacilityId,
                 FacilityName = b.Facility!.Name,
                 b.VehicleId,
-                VehicleNumber = b.Vehicle!.VehicleNumber,
+                VehicleNumber = b.Vehicle != null ? b.Vehicle.VehicleNumber : "",
                 UserId = b.UserId
             })
             .FirstOrDefaultAsync(cancellationToken);

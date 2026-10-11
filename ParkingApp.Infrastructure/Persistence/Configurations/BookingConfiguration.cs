@@ -43,6 +43,21 @@ public class BookingConfiguration : IEntityTypeConfiguration<Booking>
         builder.Property(x => x.CancellationReason)
             .HasMaxLength(256);
 
+        // Walk-in snapshot columns. All nullable because a walk-in is a normal
+        // booking with no linked account; a normal booking leaves them empty.
+        // The phone is stored narrow because it is only ever a lookup key.
+        builder.Property(x => x.IsWalkInBooking)
+            .IsRequired();
+
+        builder.Property(x => x.WalkInRiderName)
+            .HasMaxLength(120);
+
+        builder.Property(x => x.WalkInPhoneNumber)
+            .HasMaxLength(20);
+
+        builder.Property(x => x.WalkInPlateNumber)
+            .HasMaxLength(30);
+
         builder.Property(x => x.PassNonce)
             .IsRequired();
 
@@ -56,6 +71,7 @@ public class BookingConfiguration : IEntityTypeConfiguration<Booking>
         builder.Property(x => x.OverstayBillableHours);
         builder.Property(x => x.OverstayAmountPaisa);
 
+        // Legacy rider-account gate operators. Kept for old rows; no longer written.
         builder.HasOne(x => x.EnteredByUser)
             .WithMany()
             .HasForeignKey(x => x.EnteredByUserId)
@@ -64,6 +80,23 @@ public class BookingConfiguration : IEntityTypeConfiguration<Booking>
         builder.HasOne(x => x.ExitedByUser)
             .WithMany()
             .HasForeignKey(x => x.ExitedByUserId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        // Staff attribution. SetNull so removing a staff row never deletes gate
+        // history; the booking stays, the operator id is simply cleared.
+        builder.HasOne(x => x.OpenedByStaff)
+            .WithMany()
+            .HasForeignKey(x => x.OpenedByStaffId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        builder.HasOne(x => x.EnteredByStaff)
+            .WithMany()
+            .HasForeignKey(x => x.EnteredByStaffId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        builder.HasOne(x => x.ExitedByStaff)
+            .WithMany()
+            .HasForeignKey(x => x.ExitedByStaffId)
             .OnDelete(DeleteBehavior.SetNull);
 
         builder.Property(x => x.CreatedAtUtc)
@@ -95,6 +128,12 @@ public class BookingConfiguration : IEntityTypeConfiguration<Booking>
         // gate dashboard and the sweeper that releases spaces nobody scanned out.
         builder.HasIndex(x => new { x.FacilityId, x.Status })
             .HasDatabaseName("IX_Bookings_Facility_Status");
+
+        // The staff walk-in board: everything gate staff opened at one facility,
+        // filtered by state. Kept separate from the rider index above because it
+        // is queried by facility, and walk-ins have no UserId to key on.
+        builder.HasIndex(x => new { x.FacilityId, x.IsWalkInBooking, x.Status })
+            .HasDatabaseName("IX_Bookings_Facility_WalkIn_Status");
 
         // Supports "vehicles still on site past their window" for overstay review.
         builder.HasIndex(x => new { x.Status, x.EndsAtUtc })

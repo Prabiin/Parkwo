@@ -55,7 +55,7 @@ public class BookingGateLifecycleTests
 
         Assert.Equal(BookingStatusEnum.Active, booking.Status);
         Assert.Equal(entry, booking.EnteredAtUtc);
-        Assert.Equal(Staff, booking.EnteredByUserId);
+        Assert.Equal(Staff, booking.EnteredByStaffId);
     }
 
     [Fact]
@@ -65,7 +65,7 @@ public class BookingGateLifecycleTests
 
         booking.Activate(Start.AddMinutes(5), Staff);
 
-        Assert.Equal(Staff, booking.EnteredByUserId);
+        Assert.Equal(Staff, booking.EnteredByStaffId);
     }
 
     [Fact]
@@ -79,7 +79,7 @@ public class BookingGateLifecycleTests
 
         Assert.Equal(BookingStatusEnum.Completed, booking.Status);
         Assert.Equal(exit, booking.ExitedAtUtc);
-        Assert.Equal(Staff, booking.ExitedByUserId);
+        Assert.Equal(Staff, booking.ExitedByStaffId);
         Assert.Equal(exit, booking.SpaceReleasedAtUtc);
     }
 
@@ -155,7 +155,7 @@ public class BookingGateLifecycleTests
 
         Assert.NotNull(booking.SpaceReleasedAtUtc);
         Assert.Null(booking.ExitedAtUtc);
-        Assert.Null(booking.ExitedByUserId);
+        Assert.Null(booking.ExitedByStaffId);
         Assert.Equal(BookingStatusEnum.Active, booking.Status);
     }
 

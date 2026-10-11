@@ -18,7 +18,9 @@ public record ParkingFacilityItemResponse(
     int RatingCount,
     bool HasMarkedParkingLot,
     string? RejectionReason,
+    int TwoWheelerAvailable,
     int TwoWheelerOccupancy,
+    int FourWheelerAvailable,
     int FourWheelerOccupancy,
     decimal? LandAreaSqM,
     bool HasPendingCapacityChange);

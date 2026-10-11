@@ -20,7 +20,13 @@ namespace ParkingApp.Domain;
 public class OverstayPayment : AuditableEntity
 {
     public Guid BookingId { get; private set; }
-    public Guid UserId { get; private set; }
+
+    /// <summary>
+    /// The account the charge is attributed to. Null for a walk-in overstay: the
+    /// rider at the gate has no Parkwo account, so the charge rides on the
+    /// booking alone.
+    /// </summary>
+    public Guid? UserId { get; private set; }
 
     public PaymentGatewayEnum Gateway { get; private set; }
     public PaymentStatusEnum Status { get; private set; }
@@ -38,13 +44,21 @@ public class OverstayPayment : AuditableEntity
     public DateTimeOffset? PaidAtUtc { get; private set; }
     public string? FailureReason { get; private set; }
 
+    /// <summary>Legacy rider-account confirmer. No longer written.</summary>
+    public Guid? VerifiedManuallyByUserId { get; private set; }
+
+    /// <summary>Set when gate staff confirmed a walk-in overstay on-screen, with who and when.</summary>
+    public Guid? VerifiedManuallyByStaffId { get; private set; }
+
+    public DateTimeOffset? VerifiedManuallyAtUtc { get; private set; }
+
     public Booking? Booking { get; private set; }
 
     private OverstayPayment() { }
 
     public static OverstayPayment Create(
         Guid bookingId,
-        Guid userId,
+        Guid? userId,
         PaymentGatewayEnum gateway,
         long amountPaisa)
     {
@@ -98,6 +112,21 @@ public class OverstayPayment : AuditableEntity
     public void MarkRefunded()
     {
         Status = PaymentStatusEnum.Refunded;
+        UpdatedAtUtc = DateTimeOffset.UtcNow;
+    }
+
+    /// <summary>
+    /// Settles a walk-in overstay on a staff member's visual confirmation of the
+    /// on-screen payment, without a gateway transaction id. The staff id and
+    /// time keep the settlement attributable and reconcilable.
+    /// </summary>
+    public void MarkManuallyVerified(Guid staffId)
+    {
+        Status = PaymentStatusEnum.Completed;
+        PaidAtUtc = DateTimeOffset.UtcNow;
+        VerifiedManuallyByStaffId = staffId;
+        VerifiedManuallyAtUtc = DateTimeOffset.UtcNow;
+        FailureReason = null;
         UpdatedAtUtc = DateTimeOffset.UtcNow;
     }
 

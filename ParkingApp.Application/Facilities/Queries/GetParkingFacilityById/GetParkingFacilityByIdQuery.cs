@@ -78,6 +78,12 @@ public sealed class GetParkingFacilityByIdQueryHandler(IApplicationDbContext con
                 i.SortOrder))
             .ToList();
 
+        var takenSpaces = await FacilityAvailability.LoadTakenSpacesAsync(
+            context,
+            [facility.Id],
+            DateTimeOffset.UtcNow,
+            cancellationToken);
+
         return Result<GetParkingFacilityByIdResponse>.Success(
             new GetParkingFacilityByIdResponse(
                 facility.Id,
@@ -90,7 +96,11 @@ public sealed class GetParkingFacilityByIdQueryHandler(IApplicationDbContext con
                 facility.ApprovalStatus,
                 facility.ApprovalStatus.ToDescription(),
                 facility.CreatedAtUtc,
+                FacilityAvailability.Available(
+                    facility.TwoWheelerOccupancy, takenSpaces, facility.Id, VehicleTypeEnum.TwoWheeler),
                 facility.TwoWheelerOccupancy,
+                FacilityAvailability.Available(
+                    facility.FourWheelerOccupancy, takenSpaces, facility.Id, VehicleTypeEnum.FourWheeler),
                 facility.FourWheelerOccupancy,
                 facility.LandAreaSqM,
                 facility.PendingTwoWheelerOccupancy,

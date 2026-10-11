@@ -82,6 +82,7 @@ services:
       - Jwt__Audience=ParkingApp.Mobile
       - Jwt__AccessTokenExpirationMinutes=30
       - Jwt__RefreshTokenExpirationDays=30
+      - Jwt__StaffRefreshTokenExpirationDays=1
       - Minio__Endpoint=minio:9000
       - Minio__AccessKey=admin
       - Minio__SecretKey=admin12345

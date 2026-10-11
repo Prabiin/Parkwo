@@ -29,6 +29,13 @@ public class PaymentConfiguration : IEntityTypeConfiguration<Payment>
         builder.Property(x => x.FailureReason)
             .HasMaxLength(256);
 
+        // Audit of a staff-confirmed walk-in settlement: who confirmed it and
+        // when. Null for a normal gateway-settled payment. The ByUserId column is
+        // legacy (rider/org confirmers); new confirmations record the staff id.
+        builder.Property(x => x.VerifiedManuallyByUserId);
+        builder.Property(x => x.VerifiedManuallyByStaffId);
+        builder.Property(x => x.VerifiedManuallyAtUtc);
+
         builder.Property(x => x.Status)
             .IsRequired();
 

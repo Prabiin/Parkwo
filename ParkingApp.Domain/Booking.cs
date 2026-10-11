@@ -12,10 +12,45 @@ namespace ParkingApp.Domain;
 /// </summary>
 public class Booking : AuditableEntity
 {
-    public Guid UserId { get; private set; }
+    /// <summary>
+    /// The rider account that owns this booking. Null for a walk-in: a rider at
+    /// the gate with no Parkwo account. Nullability is the whole point — a
+    /// walk-in is a real reservation that simply has no identity behind it,
+    /// rather than a fabricated account pretending to be one.
+    /// </summary>
+    public Guid? UserId { get; private set; }
+
     public Guid FacilityId { get; private set; }
-    public Guid VehicleId { get; private set; }
+
+    /// <summary>
+    /// The rider's vehicle, one owned by <see cref="UserId"/>. Null for a
+    /// walk-in, whose vehicle is only ever the <see cref="WalkInPlateNumber"/>
+    /// snapshot.
+    /// </summary>
+    public Guid? VehicleId { get; private set; }
+
     public VehicleTypeEnum VehicleType { get; private set; }
+
+    /// <summary>
+    /// True when gate staff opened this booking for a rider with no account.
+    /// Such a booking has no <see cref="UserId"/> or <see cref="VehicleId"/>;
+    /// the rider's details live in the snapshot fields below instead, so the row
+    /// is self-describing at the gate and links to no one.
+    /// </summary>
+    public bool IsWalkInBooking { get; private set; }
+
+    /// <summary>Walk-in rider's name, as volunteered at the gate. A snapshot, never verified.</summary>
+    public string? WalkInRiderName { get; private set; }
+
+    /// <summary>
+    /// Walk-in rider's phone, as volunteered at the gate. Unverified by design:
+    /// it is the lookup key for the exit fallback and a candidate for a later
+    /// OTP-gated claim, never an authentication factor or a link to an account.
+    /// </summary>
+    public string? WalkInPhoneNumber { get; private set; }
+
+    /// <summary>Walk-in vehicle plate, as volunteered at the gate. A snapshot, never verified.</summary>
+    public string? WalkInPlateNumber { get; private set; }
 
     public DateTimeOffset StartsAtUtc { get; private set; }
     public DateTimeOffset EndsAtUtc { get; private set; }
@@ -54,18 +89,38 @@ public class Booking : AuditableEntity
     /// <summary>When the rider physically parked (entry scan).</summary>
     public DateTimeOffset? EnteredAtUtc { get; private set; }
 
-    /// <summary>When the rider left (exit scan). Set together with <see cref="ExitedByUserId"/>.</summary>
+    /// <summary>When the rider left (exit scan). Set together with <see cref="ExitedByStaffId"/>.</summary>
     public DateTimeOffset? ExitedAtUtc { get; private set; }
 
-    /// <summary>Gate staff who admitted the vehicle. Keeps entry disputes attributable.</summary>
+    /// <summary>
+    /// Legacy rider-account gate operator. No longer written: the gate is
+    /// operated by Parkwo staff (<see cref="EnteredByStaffId"/>), not by provider
+    /// organizations. Kept so older rows stay self-describing.
+    /// </summary>
     public Guid? EnteredByUserId { get; private set; }
 
-    /// <summary>Gate staff who released the vehicle on the way out.</summary>
+    /// <summary>Legacy rider-account gate operator. No longer written.</summary>
     public Guid? ExitedByUserId { get; private set; }
+
+    /// <summary>
+    /// The staff member who opened a walk-in at the desk. Null for an app
+    /// booking, which the rider created themselves. This is the "who let this
+    /// vehicle in with no account" attribution the walk-in flow needs.
+    /// </summary>
+    public Guid? OpenedByStaffId { get; private set; }
+
+    /// <summary>The staff member who admitted the vehicle. Keeps entry disputes attributable.</summary>
+    public Guid? EnteredByStaffId { get; private set; }
+
+    /// <summary>The staff member who released the vehicle on the way out.</summary>
+    public Guid? ExitedByStaffId { get; private set; }
 
     // Navigation properties (gate operators, kept nullable — staff can be removed)
     public User? EnteredByUser { get; private set; }
     public User? ExitedByUser { get; private set; }
+    public Staff? OpenedByStaff { get; private set; }
+    public Staff? EnteredByStaff { get; private set; }
+    public Staff? ExitedByStaff { get; private set; }
 
     /// <summary>
     /// Measured stay in whole minutes (entry to exit). Null until the exit scan.
@@ -143,6 +198,56 @@ public class Booking : AuditableEntity
         };
     }
 
+    /// <summary>
+    /// Opens an unpaid hold for a walk-in: a rider at the gate with no Parkwo
+    /// account. Identity is captured as snapshots rather than a User/Vehicle
+    /// row, so nothing the rider volunteers can be linked to — or poison — a
+    /// real account. Name, phone and plate are all required at the gate: the
+    /// phone is the exit-fallback lookup key and the plate is what staff match
+    /// the physical vehicle against. The space is held and released exactly like
+    /// an app booking; only the owner columns differ.
+    /// </summary>
+    public static Booking CreateWalkIn(
+        Guid facilityId,
+        VehicleTypeEnum vehicleType,
+        DateTimeOffset startsAtUtc,
+        DateTimeOffset endsAtUtc,
+        decimal pricePerHourNpr,
+        int billableHours,
+        decimal platformFeeNpr,
+        int holdMinutes,
+        string riderName,
+        string phoneNumber,
+        string plateNumber,
+        Guid openedByStaffId)
+    {
+        var totalAmount = pricePerHourNpr * billableHours;
+
+        return new Booking
+        {
+            UserId = null,
+            FacilityId = facilityId,
+            VehicleId = null,
+            VehicleType = vehicleType,
+            IsWalkInBooking = true,
+            OpenedByStaffId = openedByStaffId,
+            WalkInRiderName = riderName.Trim(),
+            WalkInPhoneNumber = phoneNumber.Trim(),
+            WalkInPlateNumber = plateNumber.Trim(),
+            StartsAtUtc = startsAtUtc,
+            EndsAtUtc = endsAtUtc,
+            PricePerHourNpr = pricePerHourNpr,
+            BillableHours = billableHours,
+            TotalAmountNpr = totalAmount,
+            PlatformFeeNpr = platformFeeNpr,
+            ProviderAmountNpr = totalAmount - platformFeeNpr,
+            Status = BookingStatusEnum.PendingPayment,
+            HoldExpiresAtUtc = DateTimeOffset.UtcNow.AddMinutes(holdMinutes),
+            PassNonce = Guid.CreateVersion7(),
+            CreatedAtUtc = DateTimeOffset.UtcNow
+        };
+    }
+
     /// <summary>Hold lapsed without payment — releases the space.</summary>
     public void Expire()
     {
@@ -158,16 +263,16 @@ public class Booking : AuditableEntity
     }
 
     /// <summary>
-    /// Gate entry scan. Records when the vehicle actually parked and who let it
-    /// in, which is the start of the measured stay. Deliberately takes the
-    /// timestamp and the operator id from the caller so the recorded time is
-    /// the server's, never the scanner device's (untrusted clocks).
+    /// Gate entry scan. Records when the vehicle actually parked and which staff
+    /// member let it in, which is the start of the measured stay. Deliberately
+    /// takes the timestamp and the operator id from the caller so the recorded
+    /// time is the server's, never the scanner device's (untrusted clocks).
     /// </summary>
-    public void Activate(DateTimeOffset enteredAtUtc, Guid scannedByUserId)
+    public void Activate(DateTimeOffset enteredAtUtc, Guid scannedByStaffId)
     {
         Status = BookingStatusEnum.Active;
         EnteredAtUtc = enteredAtUtc;
-        EnteredByUserId = scannedByUserId;
+        EnteredByStaffId = scannedByStaffId;
         UpdatedAtUtc = DateTimeOffset.UtcNow;
     }
 
@@ -176,11 +281,11 @@ public class Booking : AuditableEntity
     /// only after an entry scan, so <see cref="EnteredAtUtc"/> is always set and
     /// the stay length is always measurable.
     /// </summary>
-    public void Complete(DateTimeOffset exitedAtUtc, Guid scannedByUserId)
+    public void Complete(DateTimeOffset exitedAtUtc, Guid scannedByStaffId)
     {
         Status = BookingStatusEnum.Completed;
         ExitedAtUtc = exitedAtUtc;
-        ExitedByUserId = scannedByUserId;
+        ExitedByStaffId = scannedByStaffId;
         SpaceReleasedAtUtc = exitedAtUtc;
         UpdatedAtUtc = DateTimeOffset.UtcNow;
 

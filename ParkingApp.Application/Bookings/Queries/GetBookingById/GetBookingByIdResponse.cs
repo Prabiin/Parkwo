@@ -8,7 +8,7 @@ public record GetBookingByIdResponse(
     string StatusDescription,
     Guid FacilityId,
     string FacilityName,
-    Guid VehicleId,
+    Guid? VehicleId,
     string VehicleNumber,
     VehicleTypeEnum VehicleType,
     string VehicleTypeDescription,

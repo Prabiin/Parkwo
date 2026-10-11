@@ -17,7 +17,11 @@ public interface IApplicationDbContext
     DbSet<ParkingFacility> ParkingFacilities { get; }
     DbSet<ParkingFacilityImage> ParkingFacilityImages { get; }
     DbSet<ParkingFacilityReview> ParkingFacilityReviews { get; }
+    DbSet<FreeParkingFacility> FreeParkingFacilities { get; }
+    DbSet<FreeParkingFacilityImage> FreeParkingFacilityImages { get; }
     DbSet<BackOfficeUser> BackOfficeUsers { get; }
+    DbSet<Staff> Staffs { get; }
+    DbSet<StaffRefreshToken> StaffRefreshTokens { get; }
     DbSet<Booking> Bookings { get; }
     DbSet<Payment> Payments { get; }
     DbSet<OverstayPayment> OverstayPayments { get; }

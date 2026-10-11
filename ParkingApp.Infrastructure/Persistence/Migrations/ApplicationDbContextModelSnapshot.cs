@@ -127,11 +127,17 @@ namespace ParkingApp.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset?>("EnteredAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<Guid?>("EnteredByStaffId")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid?>("EnteredByUserId")
                         .HasColumnType("uuid");
 
                     b.Property<DateTimeOffset?>("ExitedAtUtc")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("ExitedByStaffId")
+                        .HasColumnType("uuid");
 
                     b.Property<Guid?>("ExitedByUserId")
                         .HasColumnType("uuid");
@@ -141,6 +147,12 @@ namespace ParkingApp.Infrastructure.Persistence.Migrations
 
                     b.Property<DateTimeOffset>("HoldExpiresAtUtc")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsWalkInBooking")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid?>("OpenedByStaffId")
+                        .HasColumnType("uuid");
 
                     b.Property<long?>("OverstayAmountPaisa")
                         .HasColumnType("bigint");
@@ -181,20 +193,38 @@ namespace ParkingApp.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("UpdatedBy")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("UserId")
+                    b.Property<Guid?>("UserId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("VehicleId")
+                    b.Property<Guid?>("VehicleId")
                         .HasColumnType("uuid");
 
                     b.Property<int>("VehicleType")
                         .HasColumnType("integer");
 
+                    b.Property<string>("WalkInPhoneNumber")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("WalkInPlateNumber")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<string>("WalkInRiderName")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("EnteredByStaffId");
 
                     b.HasIndex("EnteredByUserId");
 
+                    b.HasIndex("ExitedByStaffId");
+
                     b.HasIndex("ExitedByUserId");
+
+                    b.HasIndex("OpenedByStaffId");
 
                     b.HasIndex("UserId")
                         .HasDatabaseName("IX_Bookings_Unsettled_Overstay")
@@ -209,6 +239,9 @@ namespace ParkingApp.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("IX_Bookings_Open_Overstay");
 
                     b.HasIndex("UserId", "Status");
+
+                    b.HasIndex("FacilityId", "IsWalkInBooking", "Status")
+                        .HasDatabaseName("IX_Bookings_Facility_WalkIn_Status");
 
                     b.HasIndex("FacilityId", "VehicleType", "StartsAtUtc", "EndsAtUtc")
                         .HasDatabaseName("IX_Bookings_Availability");
@@ -277,6 +310,123 @@ namespace ParkingApp.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("DrivingLicenses", (string)null);
+                });
+
+            modelBuilder.Entity("ParkingApp.Domain.FreeParkingFacility", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Address")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<int?>("FourWheelerOccupancy")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<double>("Latitude")
+                        .HasColumnType("double precision");
+
+                    b.Property<Point>("Location")
+                        .HasColumnType("geography (point)");
+
+                    b.Property<double>("Longitude")
+                        .HasColumnType("double precision");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int?>("TwoWheelerOccupancy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Location");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("Location"), "GIST");
+
+                    b.HasIndex("IsActive", "IsDeleted");
+
+                    b.ToTable("FreeParkingFacilities", (string)null);
+                });
+
+            modelBuilder.Entity("ParkingApp.Domain.FreeParkingFacilityImage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<Guid>("FreeParkingFacilityId")
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("SizeInBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Url")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FreeParkingFacilityId");
+
+                    b.ToTable("FreeParkingFacilityImages", (string)null);
                 });
 
             modelBuilder.Entity("ParkingApp.Domain.Organization", b =>
@@ -442,7 +592,16 @@ namespace ParkingApp.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("UpdatedBy")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("UserId")
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("VerifiedManuallyAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("VerifiedManuallyByStaffId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("VerifiedManuallyByUserId")
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
@@ -738,7 +897,16 @@ namespace ParkingApp.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("UpdatedBy")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("UserId")
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("VerifiedManuallyAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("VerifiedManuallyByStaffId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("VerifiedManuallyByUserId")
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
@@ -804,6 +972,140 @@ namespace ParkingApp.Infrastructure.Persistence.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("RefreshTokens", (string)null);
+                });
+
+            modelBuilder.Entity("ParkingApp.Domain.Staff", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateOnly?>("DateOfBirth")
+                        .HasColumnType("date");
+
+                    b.Property<string>("DeviceBrand")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("DeviceName")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<Guid>("FacilityId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("FullName")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<int?>("Gender")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<DateTimeOffset?>("LastLoginAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("MustChangePassword")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
+                    b.Property<string>("PasswordHash")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<string>("PhoneNumber")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTimeOffset?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Email")
+                        .IsUnique();
+
+                    b.HasIndex("FacilityId", "IsDeleted", "IsActive")
+                        .HasDatabaseName("IX_Staffs_Facility_Status");
+
+                    b.ToTable("Staffs", (string)null);
+                });
+
+            modelBuilder.Entity("ParkingApp.Domain.StaffRefreshToken", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("ExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ReplacedByToken")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<DateTimeOffset?>("RevokedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("RevokedReason")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<Guid>("StaffId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<DateTimeOffset?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StaffId");
+
+                    b.HasIndex("Token")
+                        .IsUnique();
+
+                    b.ToTable("StaffRefreshTokens", (string)null);
                 });
 
             modelBuilder.Entity("ParkingApp.Domain.User", b =>
@@ -949,9 +1251,19 @@ namespace ParkingApp.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("ParkingApp.Domain.Booking", b =>
                 {
+                    b.HasOne("ParkingApp.Domain.Staff", "EnteredByStaff")
+                        .WithMany()
+                        .HasForeignKey("EnteredByStaffId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("ParkingApp.Domain.User", "EnteredByUser")
                         .WithMany()
                         .HasForeignKey("EnteredByUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ParkingApp.Domain.Staff", "ExitedByStaff")
+                        .WithMany()
+                        .HasForeignKey("ExitedByStaffId")
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.HasOne("ParkingApp.Domain.User", "ExitedByUser")
@@ -965,23 +1277,32 @@ namespace ParkingApp.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("ParkingApp.Domain.Staff", "OpenedByStaff")
+                        .WithMany()
+                        .HasForeignKey("OpenedByStaffId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("ParkingApp.Domain.User", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Cascade);
 
                     b.HasOne("ParkingApp.Domain.Vehicle", "Vehicle")
                         .WithMany()
                         .HasForeignKey("VehicleId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("EnteredByStaff");
 
                     b.Navigation("EnteredByUser");
+
+                    b.Navigation("ExitedByStaff");
 
                     b.Navigation("ExitedByUser");
 
                     b.Navigation("Facility");
+
+                    b.Navigation("OpenedByStaff");
 
                     b.Navigation("User");
 
@@ -997,6 +1318,17 @@ namespace ParkingApp.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("ParkingApp.Domain.FreeParkingFacilityImage", b =>
+                {
+                    b.HasOne("ParkingApp.Domain.FreeParkingFacility", "Facility")
+                        .WithMany("Images")
+                        .HasForeignKey("FreeParkingFacilityId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Facility");
                 });
 
             modelBuilder.Entity("ParkingApp.Domain.Organization", b =>
@@ -1101,6 +1433,28 @@ namespace ParkingApp.Infrastructure.Persistence.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("ParkingApp.Domain.Staff", b =>
+                {
+                    b.HasOne("ParkingApp.Domain.ParkingFacility", "Facility")
+                        .WithMany()
+                        .HasForeignKey("FacilityId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Facility");
+                });
+
+            modelBuilder.Entity("ParkingApp.Domain.StaffRefreshToken", b =>
+                {
+                    b.HasOne("ParkingApp.Domain.Staff", "Staff")
+                        .WithMany("RefreshTokens")
+                        .HasForeignKey("StaffId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Staff");
+                });
+
             modelBuilder.Entity("ParkingApp.Domain.UserOrganization", b =>
                 {
                     b.HasOne("ParkingApp.Domain.Organization", "Organization")
@@ -1131,6 +1485,11 @@ namespace ParkingApp.Infrastructure.Persistence.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("ParkingApp.Domain.FreeParkingFacility", b =>
+                {
+                    b.Navigation("Images");
+                });
+
             modelBuilder.Entity("ParkingApp.Domain.Organization", b =>
                 {
                     b.Navigation("Members");
@@ -1148,6 +1507,11 @@ namespace ParkingApp.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("ParkingApp.Domain.ParkingProvider", b =>
                 {
                     b.Navigation("Facilities");
+                });
+
+            modelBuilder.Entity("ParkingApp.Domain.Staff", b =>
+                {
+                    b.Navigation("RefreshTokens");
                 });
 
             modelBuilder.Entity("ParkingApp.Domain.User", b =>

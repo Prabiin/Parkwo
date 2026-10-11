@@ -10,14 +10,15 @@ namespace ParkingApp.Api.Apis;
 /// Single-gate scan endpoints used by staff phones. Every route is
 /// facility-scoped: the facility id in the body is not decoration, it is what
 /// the handler authorises the caller against, so a pass cannot be presented at
-/// the wrong lot.
+/// the wrong lot. Staff-only: the scanner is always a Parkwo staff member, and
+/// the policy also holds back the route until the generated password is changed.
 /// </summary>
 public class GateApi : EndpointGroupBase
 {
     public override void Map(IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("gate")
-            .RequireAuthorization(ProfileCompleteRequirement.PolicyName);
+            .RequireAuthorization(StaffPasswordChangedRequirement.PolicyName);
 
         group.MapPost(ScanGate, "entry-exit", "");
     }

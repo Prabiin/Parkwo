@@ -195,7 +195,7 @@ public sealed class CreateBookingCommandHandler(
                 booking.Status.ToDescription(),
                 booking.FacilityId,
                 facility.Name,
-                booking.VehicleId,
+                vehicle.Id,
                 vehicle.VehicleNumber,
                 booking.VehicleType,
                 booking.VehicleType.ToDescription(),

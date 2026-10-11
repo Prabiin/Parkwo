@@ -58,7 +58,7 @@ public sealed class GetBookingPassQueryHandler(
                 b.FacilityId,
                 FacilityName = b.Facility!.Name,
                 b.VehicleId,
-                VehicleNumber = b.Vehicle!.VehicleNumber,
+                VehicleNumber = b.Vehicle != null ? b.Vehicle.VehicleNumber : b.WalkInPlateNumber ?? "",
                 b.VehicleType,
                 b.Status,
                 b.StartsAtUtc,

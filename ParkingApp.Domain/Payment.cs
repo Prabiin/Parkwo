@@ -11,7 +11,13 @@ namespace ParkingApp.Domain;
 public class Payment : AuditableEntity
 {
     public Guid BookingId { get; private set; }
-    public Guid UserId { get; private set; }
+
+    /// <summary>
+    /// The account the charge is attributed to. Null for a walk-in payment: the
+    /// rider at the gate has no Parkwo account, so the charge is tied to the
+    /// booking alone rather than to a fabricated user.
+    /// </summary>
+    public Guid? UserId { get; private set; }
 
     public PaymentGatewayEnum Gateway { get; private set; }
     public PaymentStatusEnum Status { get; private set; }
@@ -28,6 +34,21 @@ public class Payment : AuditableEntity
     public DateTimeOffset? PaidAtUtc { get; private set; }
     public string? FailureReason { get; private set; }
 
+    /// <summary>
+    /// Legacy rider-account confirmer. No longer written: manual confirmation is
+    /// a staff action (<see cref="VerifiedManuallyByStaffId"/>). Kept for history.
+    /// </summary>
+    public Guid? VerifiedManuallyByUserId { get; private set; }
+
+    /// <summary>
+    /// Set when gate staff confirmed an on-screen walk-in payment before the
+    /// gateway callback arrived. Recorded with who and when so a staff-confirmed
+    /// settlement is auditable and never indistinguishable from a machine one.
+    /// </summary>
+    public Guid? VerifiedManuallyByStaffId { get; private set; }
+
+    public DateTimeOffset? VerifiedManuallyAtUtc { get; private set; }
+
     // Navigation property
     public Booking? Booking { get; private set; }
 
@@ -35,7 +56,7 @@ public class Payment : AuditableEntity
 
     public static Payment Create(
         Guid bookingId,
-        Guid userId,
+        Guid? userId,
         PaymentGatewayEnum gateway,
         long amountPaisa)
     {
@@ -89,6 +110,23 @@ public class Payment : AuditableEntity
     public void MarkRefunded()
     {
         Status = PaymentStatusEnum.Refunded;
+        UpdatedAtUtc = DateTimeOffset.UtcNow;
+    }
+
+    /// <summary>
+    /// Marks this attempt settled on a staff member's on-screen confirmation,
+    /// rather than a gateway lookup. The staff id and time are recorded so the
+    /// settlement stays attributable and reconcilable if the gateway later
+    /// disagrees. Deliberately bypasses <see cref="GatewayTransactionId"/>,
+    /// which only a real gateway response may populate.
+    /// </summary>
+    public void MarkManuallyVerified(Guid staffId)
+    {
+        Status = PaymentStatusEnum.Completed;
+        PaidAtUtc = DateTimeOffset.UtcNow;
+        VerifiedManuallyByStaffId = staffId;
+        VerifiedManuallyAtUtc = DateTimeOffset.UtcNow;
+        FailureReason = null;
         UpdatedAtUtc = DateTimeOffset.UtcNow;
     }
 

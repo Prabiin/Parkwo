@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using ParkingApp.Application.Common;
 using ParkingApp.Application.Common.Cqrs;
+using ParkingApp.Application.Common.Helpers;
 using ParkingApp.Application.Common.Interfaces;
 using ParkingApp.Domain.Common.Enums;
 
@@ -56,6 +57,13 @@ public sealed class GetParkingFacilitiesQueryHandler(IApplicationDbContext conte
             .OrderByDescending(f => f.CreatedAtUtc)
             .ToListAsync(cancellationToken);
 
+        var now = DateTimeOffset.UtcNow;
+        var takenSpaces = await FacilityAvailability.LoadTakenSpacesAsync(
+            context,
+            facilities.Select(f => f.Id).ToList(),
+            now,
+            cancellationToken);
+
         var items = facilities
             .Select(f => new ParkingFacilityItemResponse(
                 f.Id,
@@ -73,7 +81,11 @@ public sealed class GetParkingFacilitiesQueryHandler(IApplicationDbContext conte
                 f.RatingCount,
                 f.HasMarkedParkingLot,
                 f.RejectionReason,
+                FacilityAvailability.Available(
+                    f.TwoWheelerOccupancy, takenSpaces, f.Id, VehicleTypeEnum.TwoWheeler),
                 f.TwoWheelerOccupancy,
+                FacilityAvailability.Available(
+                    f.FourWheelerOccupancy, takenSpaces, f.Id, VehicleTypeEnum.FourWheeler),
                 f.FourWheelerOccupancy,
                 f.LandAreaSqM,
                 f.HasPendingCapacityChange))

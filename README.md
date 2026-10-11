@@ -4,6 +4,46 @@ A peer-to-peer parking marketplace API where users find parking spaces and land 
 
 ## Change Log
 
+### 2026-10-12 — Gate staff as a first-class identity (staff app login, BackOffice CRUD, staff-only scans)
+
+- New `Staff` entity + table (migration `20261011190019_AddStaff`): Name, canonical PhoneNumber, unique Email (the login), `PasswordHash`, `MustChangePassword`, `DateOfBirth` (not an age), `Gender`, `DeviceName`/`DeviceBrand` (tracking metadata only — no device binding), one `FacilityId`, `IsActive`, `IsDeleted` (soft delete), `LastLoginAtUtc`. Staff are **not** app users: separate table, separate credentials, no rider account, vehicle or bookings. A staff member is tied to exactly one facility. `StaffRefreshToken` is a separate table from the rider `RefreshToken` (whose FK points at `User`) so a staff session can never borrow the wrong identity.
+- Staff auth (own `IStaffTokenService`, role claim `Staff`): `POST /staff/auth/login` (email + password → access token + rotating refresh token + `mustChangePassword`), `POST /staff/auth/refresh-token`, `POST /staff/auth/logout`, `POST /staff/auth/change-password`, and `GET /staff/profile`. A password is required once per day because the refresh token is the only server session and staff sessions use a short lifetime (`Jwt:StaffRefreshTokenExpirationDays`, default **1**) — **PIN/fingerprint are a local device convenience that unlock the stored token and never reach the server** (there is deliberately no PIN endpoint).
+- Account lifecycle: BackOffice `POST /backoffice/staff` generates a random password (`PasswordGenerator`, one of each character class) and **emails it** (new `IEmailSender`; console sender in dev) with `MustChangePassword = true`. Operational routes (gate + walk-in desk) are gated by policy `StaffOperational`, which reads the live staff row and refuses until the generated password has been changed; login/refresh/change-password/profile stay reachable. `PUT /backoffice/staff/{id}/password` resets + re-emails + re-forces the change. The email must be a valid address, and it **is** the username.
+- BackOffice staff CRUD (`BackOfficeOnly`): `GET /backoffice/staff?facilityId=&search=&status=` where `status` is **all | active | inactive** (absent = all; any other value is a 400 — the three states are handled, not hardcoded), plus `GET /backoffice/staff/{id}`, `GET /backoffice/staff/init` (facility id/name dropdown + genders + status options), `PUT /backoffice/staff/{id}`, `PUT /backoffice/staff/{id}/active`, `DELETE /backoffice/staff/{id}` (soft delete). Email uniqueness is enforced across all rows, including soft-deleted ones — the login is unique for good.
+- **Scan rights are staff-only.** `GateAccess.CanScanAsync` no longer authorises a provider owner or an org Monitor/Admin/Owner; it requires a live (active, non-deleted) staff member assigned to the facility. `POST /gate/entry-exit` and every `walkins/*` route moved from `ProfileComplete` to `StaffOperational`, and all walk-in/gate handlers read `ICurrentUserService.StaffId`.
+- **Every gate action now records the staff member** — for both online bookings and walk-ins. `Booking.OpenedByStaffId` (walk-in desk), `Booking.EnteredByStaffId`/`ExitedByStaffId` (scans) and `Payment`/`OverstayPayment`.`VerifiedManuallyByStaffId` (manual settlement) replace the old provider/org attribution. The legacy `EnteredByUserId`/`ExitedByUserId`/`VerifiedManuallyByUserId` columns are kept so historic rows stay readable but are **no longer written**; provider scan attribution is retired.
+- Build + tests pass (268, +9).
+
+### 2026-10-11 — Walk-in desk (staff-opened bookings for riders with no account)
+
+- Bookings can now exist **without a rider account**: `Booking.UserId` and `Booking.VehicleId` became nullable, `Booking.IsWalkInBooking` marks such a row, and the rider's details travel as unverified **snapshots** (`WalkInRiderName`, `WalkInPhoneNumber`, `WalkInPlateNumber`). No synthetic guest `User`/`Vehicle` is ever created — a volunteered name or phone cannot collide with, squat on, or pollute a real account. For the same reason `Payment.UserId` and `OverstayPayment.UserId` became nullable, and both gained `VerifiedManuallyByUserId`/`VerifiedManuallyAtUtc`. Migrations `20261011174105_AddWalkInBooking` (two `DROP NOT NULL` + snapshot columns) and `20261011174823_AddWalkInOverstayPayments`.
+- Gate staff (provider owner, or a Monitor/Admin/Owner in the owning org — the existing `GateAccess` trust boundary) drive the whole flow: **create → pay → verify → issue the one shared pass → scan in / resolve by phone and scan out**. Every route is facility-scoped and re-authorises the caller against that facility, so a walk-in opened at one lot cannot be paid, passed or closed at another. Riders can no longer reach the desk: the handlers all check gate access and return 403.
+- `POST /walkins` opens a `PendingPayment` hold (10 min) through the **same SERIALIZABLE availability gate** as `POST /bookings`, so a walk-in and an app booking can never double-sell the last space; an early exit / lapsed hold releases the space the same way. Required fields are vehicle type, hours, rider name, phone **and plate** — the phone is the exit-fallback lookup key, and the plate is what staff match the physical vehicle against when a QR will not scan. Price is the Parkwo rate, snapshotted; a walk-in over 24 h is rejected as a mistyped digit.
+- `POST /walkins/{id}/pay` starts the prepaid charge and returns the gateway pay-URL; the staff device renders it as a **dynamic QR** the rider scans with any phone. `POST /walkins/{id}/verify-payment` is the "rider paid, webhook is slow" override — it settles the latest attempt on the staff member's visual confirmation, records who confirmed it, and confirms the booking; a later real callback reconciles as a no-op and can never double-charge (the existing `ProcessPaymentCallbackCommand` still settles the normal webhook-first case).
+- `GET /walkins/{id}/pass` issues the **same signed pass an app rider gets** (same `ParkingPassService`, same nonce) to the staff device, which shows it to the rider to photograph. Entry and exit then run through the existing single-gate `POST /gate/entry-exit` — direction from state, no parallel scan logic. The scan response now falls back to the walk-in plate when there is no linked vehicle.
+- Exit fallback for an unreadable QR: `GET /walkins/lookup?facilityId=&phone=` searches **today's** walk-ins at that facility under the normalised number (a Kathmandu day, so a shift across local midnight stays findable) and returns the **full snapshot captured at creation** — vehicle type, purchased hours, rider name, phone, plate and amount — so staff can match the plate and proceed. It returns every match rather than one (a picker, not a silent guess), and `POST /walkins/{id}/exit` closes the chosen stay through the identical `Complete()` + overstay-snapshot path the scan uses — so the overstay the rider is offered is one frozen number either way, and a stay can be checked out without any QR at all.
+- Overstay settlement for a walk-in (a rider with no app cannot call the account-owned `POST /payments/overstay`): `POST /walkins/{id}/overstay-pay` restarts the post-exit charge on the staff device as a dynamic QR, and `POST /walkins/{id}/verify-overstay` is its manual override. `GET /walkins?facilityId=&status=` is the staff board (e.g. `status=1` = unpaid holds to chase, `status=3` = still parked).
+- Rider reads that key on the owner (booking detail / pass / transactions / overstay summary) reject a walk-in's null owner with 403, exactly as intended — a walk-in can neither block a rider's new booking nor be blocked by one.
+- Build + tests pass (259, +28).
+
+### 2026-10-11 — Parkwo-listed public free parkings (display-only map markers)
+
+- New `FreeParkingFacility` (+ `FreeParkingFacilityImage`) entity, table, EF config and migration `20261011152858_AddFreeParkingFacility`. It is deliberately a **separate table**, not a nullable-provider `ParkingFacility`: free parkings have no provider, no approval and no price, and must never be bookable — a separate table guarantees the booking gate and the review flow (both keyed on `ApprovalStatus == Verified`) can never pick one up.
+- Fields: name, description, address, required lat/long (from which a GiST-indexed PostGIS `Location` point is derived), nullable two/four-wheeler occupancy (informational — never gated), `isActive` (publish toggle), `isDeleted` (soft delete) and optional images. No `providerId`, no prices, no approval, no ratings.
+- BackOffice CRUD (BackOffice token): `POST /backoffice/free-parkings` and `PUT /backoffice/free-parkings/{id}` are each **one multipart request** carrying the fields *and* the photos (mirrors `POST /licenses`), plus `GET /backoffice/free-parkings?name=&isActive=` (one endpoint returning **all** non-deleted rows ordered by name; optional case-insensitive `name` partial search and `isActive=true/false` for Active/Inactive), `GET /backoffice/free-parkings/{id}` (detail, with images, for populating the edit page) and `DELETE /backoffice/free-parkings/{id}` (soft delete, also flips `isActive` off). On update the request's image set is the final state: `keepImageIds` retains existing photos, `files` appends new ones, and anything not kept is deleted. Images are stored under `free-parking-images/` in MinIO; the operator's id is recorded in `createdBy`/`updatedBy`.
+- **Soft-deleted rows are never surfaced anywhere** — not to riders and not in BackOffice list or detail. A row that is absent either does not exist or is deleted, and is recoverable only by a manual data patch. Detail shows active *and* inactive rows (and 404s a deleted one).
+- `GET /facilities/nearby` now merges active, non-deleted free parkings into the same nearest-first list with `isFree = true` and price `0`; provider-owned paid facilities carry `isFree = false`. In `vehicleType` mode a free lot is kept unless it explicitly declares `0` of that type (null = unknown → kept). Still max 50 overall.
+- New rider read `GET /free-parkings/{id}` (auth) backs the "tap a marker → detail" screen — only active, non-deleted rows, with images resolved to reachable URLs. There is no booking path: free parkings never touch `POST /bookings`.
+- Build + tests pass (231, +4).
+
+### 2026-10-11 — Availability feeds now subtract live bookings
+
+- `GET /facilities/nearby` no longer reports `available == occupancy`. Every space already spoken for is subtracted: a paid booking whether the stay is in progress or still scheduled, plus an unexpired checkout hold (`PendingPayment`) — deliberately the same set `CreateBookingCommand` counts, so the feed can never advertise a space the booking gate would refuse (409). Early exits (`SpaceReleasedAtUtc`) and lapsed holds release the space lazily.
+- Owner-facing reads gained the same real availability: `GET /facilities` (list) and `GET /facilities/{id}` now carry `twoWheelerAvailable` / `fourWheelerAvailable` next to their occupancy, so an owner sees "7 / 12" (7 free of 12) on their dashboard.
+- The `vehicleType` mode of `GET /facilities/nearby` ("available spaces near me") now drops facilities whose remaining count of that type has hit zero, instead of only filtering on `occupancy > 0`. Plain "parkings near me" (no `vehicleType`) still lists all lots as map pins.
+- The rule lives in one shared helper, `FacilityAvailability.LoadTakenSpacesAsync` / `Available`, so every feed reports the same number; `BookingAvailability` stays the pure, unit-tested math underneath.
+- No migration (read-only query). Build + tests pass (227).
+
 ### 2026-10-08 — Provider rates removed; Parkwo sets the price
 
 - Facilities no longer carry per-type prices — `TwoWheelerPricePerHourNpr` / `FourWheelerPricePerHourNpr` columns, request fields and responses are gone (migration `20261008044802_RemoveProviderFacilityRates` drops both columns; existing bookings keep their snapshotted rate). Providers declare occupancy and area only at `POST /facilities`.
@@ -56,7 +96,7 @@ A peer-to-peer parking marketplace API where users find parking spaces and land 
 - New `ParkingFacility.HasMarkedParkingLot` (`bool`, default `false`) — set at `POST /facilities` via the UI toggle; surfaced in all facility responses (my list/detail, BackOffice list/detail). Later decides seat-map vs slot-count UI per facility.
 - New `ParkingFacility.Location` (PostGIS `geography(Point, 4326)`, GiST-indexed, derived from lat/long at create) — `Latitude`/`Longitude` doubles stay the API contract; `Location` is query-only. Backfilled for existing rows in-migration.
 - New `GET /facilities/nearby?latitude=&longitude=&radiusKm=&vehicleType=` (auth, nearest-first, max 50) with two modes: no `vehicleType` = **"parkings near me"** (pure spatial, `Verified` + has coords + within radius); with `vehicleType` (code `1`/`2`) = **"available spaces near me"** (adds `occupancy > 0` filter for that type). `radiusKm` default 5, max 20 (400 beyond); lat/lng range-validated.
-- Response per lot: `distanceMeters`, rating, `imageCount` + `firstImageUrl`, `hasMarkedParkingLot`, and per type `available`/`occupancy`/`pricePerHourNpr` (`available == occupancy` until bookings land — overlapping holds subtract here via `TODO(bookings)`).
+- Response per lot: `distanceMeters`, rating, `imageCount` + `firstImageUrl`, `hasMarkedParkingLot`, and per type `available`/`occupancy`/`pricePerHourNpr` (`available` = occupancy minus every live booking — in progress or scheduled — and unexpired holds; early exits/lapsed holds release lazily).
 - `NetTopologySuite` referenced by Domain (geometry only) + Application; `UseNetTopologySuite` was already wired in DI.
 - Migration `20260928151516_AddFacilityMarkedFlagAndLocation` (flag + geography column + backfill + GiST). Build + tests pass.
 
@@ -92,7 +132,7 @@ A peer-to-peer parking marketplace API where users find parking spaces and land 
 
 ### 2026-09-19 — Facility images (MinIO) + ratings & reviews + profile picture
 
-- **Images are optional at onboarding, MinIO-backed.** One `parkingapp` bucket, two prefixes: `facility-images/` and `profile-images/` (S3/MinIO "folders" are key prefixes). `POST /facilities/{id}/images` (multipart, owner-only) and `POST /profile/picture` (single file, replaces the previous one — the old object is deleted best-effort). Only the public URL is persisted (`ParkingFacilityImages` rows / `Users.ProfileImageUrl`); jpg/jpeg/png ≤ 5 MB (limits from `Upload` config — override via `Upload__*` env vars).
+- **Images are optional at onboarding, MinIO-backed.** One `parkingapp` bucket, three prefixes: `facility-images/`, `profile-images/` and `free-parking-images/` (S3/MinIO "folders" are key prefixes). `POST /facilities/{id}/images` (multipart, owner-only) and `POST /profile/picture` (single file, replaces the previous one — the old object is deleted best-effort) are the standalone uploads; free-parking photos instead ride along with the create/update multipart requests. Only the public URL is persisted (`ParkingFacilityImages` / `FreeParkingFacilityImages` rows / `Users.ProfileImageUrl`); jpg/jpeg/png ≤ 5 MB (limits from `Upload` config — override via `Upload__*` env vars).
 - **Compliance sees the evidence.** Facility list/detail responses (mobile + BackOffice) carry `ImageCount` and the image list — facilities with no images are the ones compliance spends manual review time on.
 - **Rating stored on the table, reviews in their own table** (the standard Booking/Google pattern): `ParkingFacilities` gains `AverageRating` + `RatingCount`, recomputed transactionally on each accepted review; `ParkingFacilityReviews` holds one row per review (`FacilityId`, `AuthorId`, `Rating` 1–5, optional `Comment`), with a **unique `(FacilityId, AuthorId)`** constraint = one review per rider per facility.
 - **Usage proof deferred to bookings (no visit table).** A dedicated `ParkingFacilityVisits` entity was considered and removed — an owner-recorded visit is gameable and becomes dead code once bookings arrive. Reviews currently require a `Verified` facility + the one-review rule; a `TODO(bookings)` in the handler marks where a completed-booking/payment check slots in.
@@ -177,14 +217,14 @@ No business-logic changes today. The goal was to lock in the folder pattern the 
 
 > Read-first section — skim this at the start of every session before touching code. If a flow isn't written here, it isn't decided yet.
 
-**Parkwo in one line:** one app, one account, three hats — the same `User` is a **rider**, a **parking provider**, and a **company admin** at the same time, with no role or app switching (Pathao rider + pillion model). The hat is decided per action, not per login.
+**Parkwo in one line:** one app, one account, several hats — the same `User` is a **rider**, a **parking provider**, and a **company admin**, and a provider owner also acts as **gate staff** at their own barrier, with no role or app switching (Pathao rider + pillion model). The hat is decided per action, not per login. Parkwo itself is also a (free, non-bookable) supplier, and bookings exist **with or without** a rider account.
 
 ### Hat 1 — Rider (demand): register → find → book → pay → park → exit
 
 1. OTP login/registration (phone-first), then onboarding (`PUT /profile`).
 2. Register vehicle from the Vehicles tab (`GET /vehicles/init` → `POST /vehicles`: category Scooter/Motorcycle/CarJeepVan + brand/model/color for identification).
 3. Submit driving license (`GET /licenses/init` → `POST /licenses` multipart with front/back photos; starts `Pending`). **Booking hard-gates on it**: a `Verified`, unexpired license whose categories cover the vehicle, else 403.
-4. Find parking: `GET /facilities/nearby` (nearest-first, per type `available/occupancy/price`). Only `Verified` lots with capacity appear.
+4. Find parking: `GET /facilities/nearby` (nearest-first, per type `available/occupancy/price`). Only `Verified` lots appear, and `available` is `occupancy` **minus every space already spoken for** — a paid booking (in progress or still scheduled) plus an unexpired `PendingPayment` hold — so the feed can never advertise a space the booking gate would 409. The same subtraction feeds the owner dashboard (`GET /facilities`). "Parkings near me" lists every lot as a pin; the `vehicleType` mode drops a lot whose remaining count of that type has hit zero. Parkwo's own public **free** parkings (`isFree = true`, price 0) ride along as markers only — tap one for detail (`GET /free-parkings/{id}`) with no booking option. A free marker never reaches `POST /bookings`.
 5. Book: `POST /bookings` with a UTC window (≥ 1 billable hour, hours round up, clamped 1–168). Availability is counted inside a **SERIALIZABLE** transaction against overlapping capacity-consuming bookings of the same vehicle type — two riders tapping "pay" at once cannot both win the last space. Creates an unpaid `PendingPayment` **hold** with a 10-minute `HoldExpiresAtUtc`, so an abandoned checkout releases the space automatically. An early exit frees the space immediately (`SpaceReleasedAtUtc`) and availability counts against the effective end, not the raw window end.
 6. Pay: `GET /bookings/{id}/summary` (pre-payment confirmation; local times + NPR come from the server) → `POST /payments` (today Khalti: `mode` Redirect / DeepLink / FormPost). The gateway redirect alone is not enough — the app must also call `GET /payments/khalti/return` to force reconciliation, then poll until the booking leaves `PendingPayment`. The amount is always the server-side snapshot, never client-supplied.
 7. Show the pass: `GET /bookings/{id}/pass` → `passToken` QR, valid across the booking window (400 while `PendingPayment`). `POST .../pass/rotate` prints a new token and invalidates every older QR (`PassNonce`).
@@ -200,11 +240,31 @@ No business-logic changes today. The goal was to lock in the folder pattern the 
 4. Compliance verifies in BackOffice (`Pending` → `Verified`); only then can riders book/review it.
 5. Nothing about the `User` row changes — the rider just gains a provider profile.
 
+### Parkwo as provider — free public parkings (display-only)
+
+Not every lot has a landlord. Parkwo lists its own **free** parkings from BackOffice — a public convenience, not a marketplace listing. They live in their own table (`FreeParkingFacility`), carry no provider, price, approval, capacity gating or ratings, and are **never bookable**: the booking gate and the review flow are both keyed on `ApprovalStatus == Verified`, and a separate table guarantees they can never be picked up. Riders see them as `isFree` markers on the map and can open a detail page, nothing more.
+
+- BackOffice CRUD is **one multipart request per create/update** (fields + photos together, mirroring `POST /licenses`); an edit's image set is the final state (`keepImageIds` retains, `files` appends, unlisted are deleted). Photos live under `free-parking-images/` in MinIO.
+- Publish is a toggle (`isActive`); delete is a **soft delete that surfaces nowhere** — list, detail and the rider map all hide it. Detail returns active *and* inactive rows and 404s a deleted one.
+- In `GET /facilities/nearby` a free lot carries `isFree = true`, price `0`, an informational (never-gated) occupancy and a `Verified`-style approval so the same list can render it beside paid pins.
+
 ### Hat 3 — Company (fleet demand): register → approval → employee subscriptions
 
 1. Rider as company owner calls `POST /organizations` (name, registrationNumber unique, contactNumber, address); caller becomes `Owner`.
 2. Compliance checks the profile from BackOffice; on approval the company can book parking **subscriptions for all its employees**.
 3. Step 2's subscription model is **decided as direction, not designed** — no subscription/employee-booking code exists. Open questions before Phase 4: whose vehicle, whose wallet, who may book on the company's behalf (`Owner`? `Admin`?).
+
+### Hat 4 — Gate staff: every scan, plus the walk-in desk (create → pay → verify → pass → exit)
+
+Gate staff are a **first-class identity**, not an app user: a `Staff` row created by BackOffice, tied to one facility, logging into the staff app with an email + BackOffice-generated password (changed on first login; PIN/fingerprint are only a local unlock of the stored refresh token). Because the gate is always staffed by Parkwo staff, **every** gate action is attributed to a staff member — an online rider's entry/exit scan (`EnteredByStaffId`/`ExitedByStaffId`) as much as a walk-in (`OpenedByStaffId`). Provider owners and org members have no scan rights.
+
+The walk-in desk is one flow on the same staff app: a rider arrives at a barrier without the app. Gate staff open a booking **for them** — no sign-up, no synthetic account. The booking is a real reservation (same hold, same availability gate, same pass, same overstay math as an app booking); only its owner columns are empty, with the rider's name/phone/plate kept as unverified snapshots.
+
+1. Open: `POST /walkins` (vehicle type, hours, rider name, phone **and plate** — all required) → an unpaid `PendingPayment` hold via the shared SERIALIZABLE availability gate.
+2. Pay: `POST /walkins/{id}/pay` returns a gateway pay-URL the staff device shows as a dynamic QR; the rider scans it with any phone. If the webhook is slow, `POST /walkins/{id}/verify-payment` settles it on the staff member's visual confirmation (audited with who/when) and confirms the booking.
+3. Pass: `GET /walkins/{id}/pass` gives the staff device the **same signed pass** an app rider gets; the rider photographs it. `POST /gate/entry-exit` scans it in exactly like an app pass.
+4. Out — QR works: scan it as usual. QR fails (blurry, cracked, dead phone): `GET /walkins/lookup?facilityId=&phone=` searches **today's** walk-ins at this facility under that number and returns the full creation snapshot; staff match the plate, then `POST /walkins/{id}/exit` closes the stay with no scan at all. Either way the overstay snapshot comes from the same `Complete()`.
+5. Overstay: `POST /walkins/{id}/overstay-pay` + `POST /walkins/{id}/verify-overstay` settle it on the staff device, since the rider has no account to pay from.
 
 ### Rules that must not break
 
@@ -215,16 +275,20 @@ No business-logic changes today. The goal was to lock in the folder pattern the 
 - **Uniqueness:** plate per account; `registrationNumber` global; `licenseNumber` global + one license per user; one `Individual` provider per user; one provider per org; one review per rider per facility (and only on `Verified` facilities).
 - **Single gate, direction from state.** `POST /gate/entry-exit` derives Entry vs Exit from `BookingStatusEnum` (`GateRules.DirectionFor`) — the client never picks a mode. The same `passToken` scans in first, then out; `facilityId` in the body is an authorization check, not a decoration.
 - **Overstay never touches the booking.** The booking is `Completed` and the space freed at exit; the overstay is a row in `OverstayPayments`. A paid/refunded overstay payment clears the debt; the "unsettled" test is identical in the create-booking gate and in `CreateOverstayPaymentCommand`.
+- **Walk-ins have no account, by design.** `Booking.UserId`/`VehicleId` are nullable and a walk-in's identity is unverified snapshots only — never a synthetic `User`/`Vehicle`, never a link to a real account. Name, phone and plate are all required at the gate; the phone is the lookup key for the exit fallback and the plate is what staff match the vehicle against, neither ever an authentication factor. Every walk-in handler re-authorises the caller as gate staff (`GateAccess`), and the walk-in uses the same pass, availability gate and overstay math as an app booking.
+- **Staff are the gate, and only staff.** Gate scan and walk-in rights require a live `Staff` row assigned to the facility (active, not soft-deleted) — never a rider account, provider owner or org member. The generated first password cannot open the gate: operational routes are gated until it is changed. PIN/fingerprint never reach the server; the refresh token is the only session, which is what makes the password a daily login. Every scan and manual settlement records the staff id, so gate history is attributable to a person.
+- **Availability never lies.** Every availability feed (`nearby`, owner list/detail) subtracts the same set the booking gate counts — `PendingPayment` holds that haven't lapsed, plus `Confirmed`/`Active` bookings up to their effective end — so the app can never advertise a space the gate would refuse. Early exits and lapsed holds release the space lazily; the rule lives once in `FacilityAvailability` over the pure `BookingAvailability` math.
+- **Free parkings are display-only.** Parkwo's own free parkings are a separate table with no provider, price, approval or capacity gate, and are never bookable; soft-deleted rows surface nowhere. They appear on the map as `isFree` markers and have a detail read only.
 - **SERIALIZABLE where races cost money.** Availability counting on create, and both gate scans — two taps must not both admit on entry, both close on exit, or both record an overstay.
 - **Amounts are server-frozen snapshots.** Booking total at create, overstay charge at the exit scan — the client and gateway agree on one number; the gateway is never told a client-supplied amount.
 - **The server clock is the billing clock.** UTC goes in, pre-formatted local time comes out. Skewed gate scanners cannot shorten a stay — `ScannedAtUtc`/`EnteredAtUtc` are server times.
 - **Passes are re-issued, not edited.** `passToken` = signature + nonce; rotating kills every older QR; too-early, lapsed, unpaid and wrong-lot scans are refused with distinct messages.
 - **Write responses are ids** (`Guid`/`Unit` — display data always comes from the `GET`s).
 
-### Built vs planned (2026-10-06)
+### Built vs planned (2026-10-11)
 
-- Built: OTP auth, onboarding, vehicles (+ brand/model/color/category, dropdown inits), driving-license submission + license queue + **booking-time license gate**, org/provider/facility (occupancy)/images/reviews + capacity-approval, **nearby search**, **booking + 10-min hold + availability**, **QR pass + rotation**, **single-gate entry/exit scan**, **Khalti payment + return-reconcile + payment history**, **overstay settlement** (summary, payment, separate callback, new-booking block while unsettled).
-- Planned: more payment gateways (eSewa/IME/Fonepay), company employee subscriptions + on-behalf booking rules, Redis-backed availability/locks, real SMS OTP.
+- Built: OTP auth, onboarding, vehicles (+ brand/model/color/category, dropdown inits), driving-license submission + license queue + **booking-time license gate**, org/provider/facility (occupancy)/images/reviews + capacity-approval, **nearby search**, **honest availability** (every feed subtracts live bookings + unexpired holds), **Parkwo-listed free parkings** (display-only map markers, BackOffice CRUD, never bookable), **booking + 10-min hold + availability**, **QR pass + rotation**, **single-gate entry/exit scan**, **Khalti payment + return-reconcile + payment history**, **overstay settlement** (summary, payment, separate callback, new-booking block while unsettled), **walk-in desk** (staff-opened no-account bookings: hold → dynamic-QR pay → manual verify → shared pass → QR or phone-lookup exit → overstay settlement), **gate staff identities** (BackOffice CRUD + generated-password email + forced first change, staff-app login/refresh/change-password + `GET /staff/profile`, staff-only scans with per-scan staff attribution).
+- Planned: more payment gateways (eSewa/IME/Fonepay), company employee subscriptions + on-behalf booking rules, Redis-backed availability/locks, real SMS OTP, real email delivery (SMTP/SES) behind `IEmailSender`.
 
 ## Tech Stack
 
@@ -518,6 +582,33 @@ One row per rider review (the standard pattern: aggregate on the facility, bodie
 | Comment | string? | Optional, max 1000 |
 | (FacilityId, AuthorId) | — | **Unique**: one review per rider per facility |
 
+#### FreeParkingFacility (`ParkingApp.Domain/FreeParkingFacility.cs`)
+A public, free parking place listed by Parkwo itself (BackOffice), **not** by a provider. It is display-only: it appears on the rider map as a marker but is never bookable, so it carries no provider, price, approval, capacity gating or ratings. Kept in its own table (rather than a nullable-provider `ParkingFacility`) so the booking gate and review flow — both keyed on `ApprovalStatus == Verified` — can never pick one up.
+
+| Property | Type | Constraints |
+|---|---|---|
+| Name | string | Required, max 200 |
+| Description | string? | Optional, max 1000 |
+| Address | string | Required, max 300 |
+| Latitude / Longitude | double | Required GPS; `SetCoordinates` derives the PostGIS point |
+| Location | Point? | Query-only PostGIS `geography(Point, 4326)`, GiST-indexed (nearby search) |
+| TwoWheelerOccupancy / FourWheelerOccupancy | int? | Optional, ≥ 0 when present — informational only, never gated; null = unknown |
+| IsActive | bool | Default true (publish toggle; riders see only active) |
+| IsDeleted | bool | Default false (soft delete; never surfaced anywhere — list, detail or riders) |
+| Images | ICollection\<FreeParkingFacilityImage\> | Navigation |
+
+#### FreeParkingFacilityImage (`ParkingApp.Domain/FreeParkingFacilityImage.cs`)
+Optional photos of a free parking, uploaded by BackOffice (free parkings have no owner). Mirrors `ParkingFacilityImage`; bytes live in MinIO under the `free-parking-images/` prefix.
+
+| Property | Type | Constraints |
+|---|---|---|
+| FreeParkingFacilityId | Guid | FK to FreeParkingFacility, cascade delete |
+| FileName | string | Required, max 255 (original name) |
+| Url | string | Required, max 500 (public MinIO URL) |
+| ContentType | string | Required, max 100 |
+| SizeInBytes | long | Required |
+| SortOrder | int | Required (upload order) |
+
 ### 3. EF Core Migrations
 
 - Initial migration generated (`20260916160931_InitialCreate`)
@@ -531,6 +622,10 @@ One row per rider review (the standard pattern: aggregate on the facility, bodie
 - Driving license + vehicle details migration generated (`20260928134240_AddDrivingLicenseAndVehicleDetails`) -- creates `DrivingLicenses` (unique `UserId`, unique `LicenseNumber`); adds `VehicleCategory`, `Brand`, `Model`, `Color` to `Vehicles` (existing rows default to `""`/`0` — re-register or wipe dev DBs)
 - Facility marked-flag + location migration generated (`20260928151516_AddFacilityMarkedFlagAndLocation`) -- adds `HasMarkedParkingLot` (default false) + `Location` geography with GiST index (backfilled from lat/long for existing rows)
 - Occupancy migration generated (`ReplaceSpotsWithOccupancy`) -- drops `ParkingSpots`; adds occupancy/prices/landArea/pending columns to `ParkingFacilities`
+- Remove provider rates migration generated (`20261008044802_RemoveProviderFacilityRates`) -- drops per-type price columns from `ParkingFacilities` (Parkwo prices centrally; bookings keep their snapshotted rate)
+- Free parking migration generated (`20261011152858_AddFreeParkingFacility`) -- creates `FreeParkingFacilities` (+ `FreeParkingFacilityImages`) for BackOffice-listed public free parkings; `Location` geography GiST-indexed, `(IsActive, IsDeleted)` index, default `true`/`false` flags
+- Walk-in booking migration generated (`20261011174105_AddWalkInBooking`) -- makes `Bookings.UserId`/`Bookings.VehicleId` nullable and `Payments.UserId` nullable; adds `Bookings.IsWalkInBooking`, `WalkInRiderName`, `WalkInPhoneNumber`, `WalkInPlateNumber`, `Payments.VerifiedManuallyByUserId`/`VerifiedManuallyAtUtc`, plus index `IX_Bookings_Facility_WalkIn_Status` (staff board)
+- Walk-in overstay migration generated (`20261011174823_AddWalkInOverstayPayments`) -- makes `OverstayPayments.UserId` nullable; adds `VerifiedManuallyByUserId`/`VerifiedManuallyAtUtc`
 - Creates 12 tables: `Users`, `Otps`, `RefreshTokens`, `Vehicles`, `DrivingLicenses`, `Organizations`, `UserOrganizations`, `ParkingProviders`, `BackOfficeUsers`, `ParkingFacilities`, `ParkingFacilityImages`, `ParkingFacilityReviews`
 - PostGIS extension enabled
 - Unique indexes on `Users.PhoneNumber`, `Users.Email`, `RefreshTokens.Token`
@@ -607,14 +702,15 @@ Endpoints are defined as **minimal API endpoint groups** (`ParkingApp/Apis/AuthA
 | GET | `/parking-providers` | — | `GetParkingProvidersResponse` (user) | Bearer token |
 | POST | `/parking-providers` | `CreateParkingProviderRequest` | `Guid` (provider id) | Bearer token |
 | GET | `/facilities` | — | `GetParkingFacilitiesResponse` (user) | Bearer token |
-| GET | `/facilities/nearby?latitude=&longitude=&radiusKm=&vehicleType=` | — | `GetNearbyFacilitiesResponse` (distance + available/occupancy/price per type, nearest first) | Bearer token |
+| GET | `/facilities/nearby?latitude=&longitude=&radiusKm=&vehicleType=` | — | `GetNearbyFacilitiesResponse` (distance + available/occupancy/price per type, nearest first; includes `isFree` markers for public free parkings) | Bearer token |
 | POST | `/facilities` | `CreateParkingFacilityRequest` | `Guid` (facility id) | Bearer token |
-| GET | `/facilities` | — | `GetParkingFacilitiesResponse` (user, with occupancy + pending flag) | Bearer token |
-| GET | `/facilities/{facilityId}` | — | `GetParkingFacilityByIdResponse` (occupancy + pending set, no spot list) | Bearer token |
+| GET | `/facilities` | — | `GetParkingFacilitiesResponse` (user, with available/occupancy + pending flag) | Bearer token |
+| GET | `/facilities/{facilityId}` | — | `GetParkingFacilityByIdResponse` (available/occupancy + pending set, no spot list) | Bearer token |
 | PUT | `/facilities/{facilityId}/capacity` | `UpdateFacilityCapacityRequest` | `Unit` (`{}`; Verified lots stage to pending) | Bearer token |
 | POST | `/facilities/{facilityId}/images` | multipart `files` | `{ Images[] }` | Bearer token |
 | POST | `/facilities/{facilityId}/reviews` | `CreateParkingFacilityReviewRequest` | `Guid` (review id) | Bearer token |
 | GET | `/facilities/{facilityId}/reviews` | — | `GetParkingFacilityReviewsResponse` | Bearer token |
+| GET | `/free-parkings/{freeParkingId}` | — | `GetPublicFreeParkingResponse` (marker detail; active, non-deleted only) | Bearer token |
 | POST | `/profile/picture` | multipart `file` | `{ ProfileImageUrl }` | Bearer token |
 | POST | `/backoffice/auth/login` | `BackOfficeLoginRequest` | `BackOfficeLoginResponse` | No |
 | GET | `/backoffice/riders` | `(?vehicleType=)` | `GetRidersResponse` | BackOffice bearer |
@@ -627,14 +723,28 @@ Endpoints are defined as **minimal API endpoint groups** (`ParkingApp/Apis/AuthA
 | PUT | `/backoffice/facilities/{id}/approval` | `UpdateParkingFacilityApprovalRequest` | `Unit` (`{}`; re-fetch list) | BackOffice bearer |
 | PUT | `/backoffice/facilities/{id}/capacity-approval` | `UpdateFacilityCapacityApprovalRequest` | `Unit` (`{}`; re-fetch detail) | BackOffice bearer |
 | PUT | `/backoffice/licenses/{id}/approval` | `UpdateDrivingLicenseApprovalRequest` | `Unit` (`{}`; re-fetch list) | BackOffice bearer |
+| GET | `/backoffice/free-parkings` | `(?name=&isActive=)` | `GetFreeParkingsResponse` (all non-deleted, ordered by name; optional `name` partial + `isActive=true/false`) | BackOffice bearer |
+| POST | `/backoffice/free-parkings` | multipart `name, description, address, latitude, longitude, twoWheelerOccupancy, fourWheelerOccupancy, isActive, files` | `Guid` (free parking id) | BackOffice bearer |
+| GET | `/backoffice/free-parkings/{id}` | — | `GetFreeParkingByIdResponse` (active or inactive; deleted → 404; full images) | BackOffice bearer |
+| PUT | `/backoffice/free-parkings/{id}` | multipart `name, description, address, latitude, longitude, twoWheelerOccupancy, fourWheelerOccupancy, isActive, keepImageIds, files` | `Unit` (`{}`; re-fetch detail) | BackOffice bearer |
+| DELETE | `/backoffice/free-parkings/{id}` | — | `Unit` (`{}`; soft delete) | BackOffice bearer |
 | POST | `/gate/entry-exit` | `ScanGateCommand` (passToken, facilityId) | `ScanGateResponse` (direction, outcome, gate timestamps, overstay snapshot) | Bearer token |
 | GET | `/bookings/{bookingId}/exit-summary` | — | exit + overstay summary (local times, NPR amounts) | Bearer token |
 | GET | `/bookings/{bookingId}/overstay/summary` | — | overstay summary (minutes, grace, billable hours, rate, amount) | Bearer token |
 | GET | `/bookings/{bookingId}/transactions` | — | prepaid + overstay payments merged | Bearer token |
 | POST | `/payments/overstay` | `CreateOverstayPaymentRequest` | gateway mode/payload (overstay charge) | Bearer token |
 | GET | `/payments/khalti/overstay/return` | `?pidx&status&amount` | overstay reconciliation result | No (AllowAnonymous) |
+| POST | `/walkins` | `CreateWalkInBookingCommand` (facilityId, vehicleType, hours, riderName, phoneNumber, plateNumber) | `CreateWalkInBookingResponse` (PendingPayment hold + snapshot + amount) | Bearer token (facility staff) |
+| GET | `/walkins?facilityId=&status=` | — | `GetWalkInsResponse` (staff board, newest first; `status` = BookingStatusEnum number) | Bearer token (facility staff) |
+| GET | `/walkins/lookup?facilityId=&phone=` | — | `FindWalkInByPhoneResponse` (today's Active walk-ins at the facility under the normalised phone, full creation snapshot; picker). Exit without a scan via `/walkins/{id}/exit` | Bearer token (facility staff) |
+| GET | `/walkins/{bookingId}/pass` | — | `GetBookingPassResponse` (the same signed pass an app rider gets) | Bearer token (facility staff) |
+| POST | `/walkins/{bookingId}/pay` | `CreateWalkInPaymentCommand` (facilityId, gateway) | `CreatePaymentResponse` (gateway pay-URL = dynamic QR) | Bearer token (facility staff) |
+| POST | `/walkins/{bookingId}/verify-payment` | `VerifyWalkInPaymentCommand` (facilityId) | `VerifyWalkInPaymentResponse` (manual settlement + booking state) | Bearer token (facility staff) |
+| POST | `/walkins/{bookingId}/exit` | `CompleteWalkInExitCommand` (facilityId) | `CompleteWalkInExitResponse` (exit + overstay snapshot) | Bearer token (facility staff) |
+| POST | `/walkins/{bookingId}/overstay-pay` | `CreateWalkInOverstayPaymentCommand` (facilityId, gateway) | `CreateOverstayPaymentResponse` (dynamic QR) | Bearer token (facility staff) |
+| POST | `/walkins/{bookingId}/verify-overstay` | `VerifyWalkInOverstayPaymentCommand` (facilityId) | `VerifyWalkInOverstayPaymentResponse` | Bearer token (facility staff) |
 
-Note: BackOffice list endpoints use the **`BackOfficeOnly`** authorization policy (`Role = BackOffice` claim) — app-user tokens are rejected. BackOffice routes are `/backoffice/*` (no `/api` prefix); organization, parking-provider and facility routes are top-level (`/organizations`, `/parking-providers`, `/facilities`) using app-user Bearer tokens.
+Note: BackOffice list endpoints use the **`BackOfficeOnly`** authorization policy (`Role = BackOffice` claim) — app-user tokens are rejected. BackOffice routes are `/backoffice/*` (no `/api` prefix); organization, parking-provider, facility and free-parking routes are top-level (`/organizations`, `/parking-providers`, `/facilities`, `/free-parkings`) using app-user Bearer tokens.
 
 **Commands** (built from the request body via `FromRequest`):
 ```
@@ -661,15 +771,18 @@ GetVehiclesQuery    ()                                                        ->
 GetDrivingLicenseQuery ()                                                     -> DrivingLicenseResponse (Id, LicenseNumber, Categories[], CategoryDescriptions[], FrontImageUrl, BackImageUrl, ExpiryDate, ApprovalStatus, ApprovalStatusDescription; 404 when nothing submitted)
 GetOrganizationsQuery () [user]                                                  -> GetOrganizationsResponse (Organizations[Id, Name, RegistrationNumber, ContactNumber, Address, ApprovalStatus, ApprovalStatusDescription, Role, RoleDescription])
 GetParkingProvidersQuery () [user]                                               -> GetParkingProvidersResponse (ParkingProviders[Id, ProviderType, ProviderTypeDescription, OwnerUserId, OwnerOrganizationId])
-GetParkingFacilitiesQuery () [user]                                              -> GetParkingFacilitiesResponse (Facilities[Id, ..., Occupancy×2, LandAreaSqM, Prices×2, HasPendingCapacityChange, ...])
-GetParkingFacilityByIdQuery (FacilityId)                                      -> GetParkingFacilityByIdResponse (Facility[...] + Images + pending set, no spot list)
-GetNearbyFacilitiesQuery (Latitude, Longitude, RadiusKm? default 5/max 20, VehicleType?) -> GetNearbyFacilitiesResponse (Facilities[..., TwoWheeler{Available,Occupancy,Price}, FourWheeler{...}] nearest-first, max 50; available == occupancy until bookings)
+GetParkingFacilitiesQuery () [user]                                              -> GetParkingFacilitiesResponse (Facilities[Id, ..., Available×2, Occupancy×2, LandAreaSqM, Prices×2, HasPendingCapacityChange, ...])
+GetParkingFacilityByIdQuery (FacilityId)                                      -> GetParkingFacilityByIdResponse (Facility[...] + Available×2 + Images + pending set, no spot list)
+GetNearbyFacilitiesQuery (Latitude, Longitude, RadiusKm? default 5/max 20, VehicleType?) -> GetNearbyFacilitiesResponse (Facilities[..., TwoWheeler{Available,Occupancy,Price}, FourWheeler{...}, IsFree] nearest-first, max 50; available = occupancy − live bookings in progress or scheduled, plus unexpired holds; IsFree markers are Parkwo's free parkings with price 0)
 GetParkingFacilityReviewsQuery (FacilityId)                                   -> GetParkingFacilityReviewsResponse (FacilityId, AverageRating, RatingCount, Reviews[Id, Rating, Comment, AuthorId, AuthorFullName, CreatedAtUtc] newest-first)
+GetPublicFreeParkingQuery (FreeParkingFacilityId)                            -> GetPublicFreeParkingResponse (Id, Name, Description, Address, Latitude, Longitude, Occupancy×2, Images[]; active + non-deleted only, else 404)
 GetRidersQuery      (VehicleType?)                                             -> GetRidersResponse (Users[Id, FullName, PhoneNumber, IsProfileComplete, Vehicles])
 GetOrganizationsQuery (ApprovalStatus?) [BackOffice]                              -> GetOrganizationsResponse (Organizations[Id, Name, RegistrationNumber, ContactNumber, Address, ApprovalStatus, ApprovalStatusDescription])
 GetParkingProvidersQuery () [BackOffice]                                              -> GetParkingProvidersResponse (ParkingProviders[Id, ProviderType, ProviderTypeDescription, Owner...] — oversight list, no approval)
 GetParkingFacilitiesQuery (ApprovalStatus?) [BackOffice]                          -> GetParkingFacilitiesResponse (Facilities[Id, ..., Occupancy×2, LandAreaSqM, Prices×2, HasPendingCapacityChange, ...])
 GetParkingFacilityDetailQuery (FacilityId)                                     -> GetParkingFacilityDetailResponse (Facility[...] + Images + pending set + estimatedAreaRequiredSqM/exceedsLandArea)
+GetFreeParkingsQuery (Name?, IsActive?) [BackOffice]                          -> GetFreeParkingsResponse (FreeParkings[Id, Name, Description, Address, Lat/Long, Occupancy×2, IsActive, CreatedAtUtc, UpdatedAtUtc, ImageCount, FirstImageUrl]; all non-deleted ordered by name; `Name` case-insensitive partial, `IsActive` optional)
+GetFreeParkingByIdQuery (FreeParkingFacilityId) [BackOffice]                  -> GetFreeParkingByIdResponse (active or inactive, full Images[]; deleted → 404)
 ```
 
 **BackOffice commands** (Password-based auth — no OTP):
@@ -679,6 +792,22 @@ UpdateOrganizationApprovalCommand (OrganizationId, ApprovalStatus, RejectionReas
 UpdateParkingFacilityApprovalCommand (FacilityId, ApprovalStatus, RejectionReason?) -> Unit
 UpdateFacilityCapacityApprovalCommand (FacilityId, Approve, RejectionReason?) -> Unit (approve flips pending live; reject clears with reason)
 UpdateDrivingLicenseApprovalCommand (LicenseId, ApprovalStatus, RejectionReason?) -> Unit
+CreateFreeParkingCommand (Name, Description?, Address, Latitude, Longitude, TwoWheelerOccupancy?, FourWheelerOccupancy?, IsActive, Images[]) -> Guid (free parking id; one multipart request — fields + photos; goes live with no approval)
+UpdateFreeParkingCommand (FreeParkingFacilityId, Name, Description?, Address, Latitude, Longitude, TwoWheelerOccupancy?, FourWheelerOccupancy?, IsActive, KeepImageIds[], NewImages[]) -> Unit (one multipart request — final image state)
+DeleteFreeParkingCommand (FreeParkingFacilityId)                              -> Unit (soft delete; also flips IsActive off)
+```
+
+**Walk-in commands** (staff device — app-user Bearer token, facility-scoped; every handler re-checks `GateAccess`):
+```
+CreateWalkInBookingCommand (FacilityId, VehicleType, Hours 1-24, RiderName, PhoneNumber, PlateNumber)        -> CreateWalkInBookingResponse (unpaid hold; snapshotted Parkwo rate; null owner + rider snapshots)
+CreateWalkInPaymentCommand (BookingId, FacilityId, Gateway)                 -> CreatePaymentResponse (prepaid gateway pay-URL = dynamic QR; Payment.UserId null)
+VerifyWalkInPaymentCommand (BookingId, FacilityId)                          -> VerifyWalkInPaymentResponse (settles the latest attempt + confirms booking; idempotent)
+GetWalkInPassQuery (BookingId)                                             -> GetBookingPassResponse (the same pass as an app rider)
+GetWalkInsQuery (FacilityId, Status?)                                      -> GetWalkInsResponse (staff board; newest first)
+FindWalkInByPhoneQuery (FacilityId, PhoneNumber)                           -> FindWalkInByPhoneResponse (today's Active matches at the facility; full creation snapshot; phone normalised both sides)
+CompleteWalkInExitCommand (BookingId, FacilityId)                          -> CompleteWalkInExitResponse (Complete + overstay snapshot in one transaction)
+CreateWalkInOverstayPaymentCommand (BookingId, FacilityId, Gateway)       -> CreateOverstayPaymentResponse (post-exit overstay QR; OverstayPayment.UserId null)
+VerifyWalkInOverstayPaymentCommand (BookingId, FacilityId)                 -> VerifyWalkInOverstayPaymentResponse (manual overstay settlement)
 ```
 
 ### 7. OTP Sender
@@ -767,6 +896,7 @@ Use the `ParkingApp.http` file or Postman:
 1. **Login**: `POST /backoffice/auth/login` with `SuperAdmin` + `P@ssw0rd` -> returns a BackOffice bearer token.
 2. **List pending work**: `GET /backoffice/organizations?approvalStatus=Pending`, `GET /backoffice/facilities?approvalStatus=Pending`, `GET /backoffice/licenses?approvalStatus=Pending`, `GET /backoffice/riders`, `GET /backoffice/parking-providers` (oversight, no approval) (all require the BackOffice token).
 3. **Verify a facility**: `GET /backoffice/facilities/{id}` — the two/four-wheeler occupancy claims, area, uploaded images and ratings. No images → slower manual review.
+4. **List a public free parking**: `POST /backoffice/free-parkings` — a single multipart request with the fields (name, description, address, lat/long, optional occupancy + `isActive`) **and** the picked images under `files`. These are Parkwo's own listings — no provider, no approval, never bookable — and appear on the rider map as `isFree` markers. **Edit** the same way: load the form from `GET /backoffice/free-parkings/{id}` (fields + images), then `PUT /backoffice/free-parkings/{id}` as one multipart request where `keepImageIds` lists the existing photo ids to retain, `files` adds new ones, and any existing photo not kept is deleted. Manage the list with `GET /backoffice/free-parkings` (all non-deleted, ordered by name; `?name=&isActive=` narrows by partial name and Active/Inactive) and soft-delete via `DELETE` (deleted rows disappear everywhere).
 
 **Provider catalog flow** (supply side):
 1. Become a provider: `POST /parking-providers` (`Individual`, or `Company` + owned `organizationId`).
@@ -774,6 +904,14 @@ Use the `ParkingApp.http` file or Postman:
 3. Optionally `POST /facilities/{id}/images` (multipart) — more evidence, faster compliance review.
 4. `GET /facilities` shows your inventory with spot counts, image counts, ratings and `ApprovalStatus`; compliance sees the same via BackOffice.
 5. Riders review once the facility is `Verified`: `POST /facilities/{id}/reviews` (one per rider; a completed-booking gate follows with bookings).
+
+**Walk-in desk flow** (staff device, app-user token for a provider owner / org Monitor-Admin-Owner; every call is facility-scoped):
+1. Open a hold: `POST /walkins` `{ facilityId, vehicleType: 1, hours: 2, riderName: "Ram Bahadur", phoneNumber: "9800000000", plateNumber: "BA 3 JA 1234" }` → a `PendingPayment` booking with the snapshotted amount. No account is created.
+2. Take payment: `POST /walkins/{bookingId}/pay` `{ facilityId, gateway: 1 }` → `payload` is the gateway pay-URL; render it as a QR for the rider to scan. If the callback lags: `POST /walkins/{bookingId}/verify-payment` `{ facilityId }` (records who confirmed).
+3. Issue the pass: `GET /walkins/{bookingId}/pass` → `passToken`; show it to the rider to photograph. Entry/exit then use `POST /gate/entry-exit` unchanged.
+4. Exit without a readable QR: `GET /walkins/lookup?facilityId=<id>&phone=9800000000` → returns today's Active walk-in(s) at that facility under the number, each with the full creation snapshot. Match the `plateNumber` against the vehicle, then `POST /walkins/{bookingId}/exit` `{ facilityId }`; the response carries the overstay snapshot. No scan needed.
+5. Settle an overstay: `POST /walkins/{bookingId}/overstay-pay` `{ facilityId, gateway: 1 }` for the QR, then `POST /walkins/{bookingId}/verify-overstay` `{ facilityId }` if the callback lags.
+6. Staff board: `GET /walkins?facilityId=<id>` (all), `?status=1` (unpaid holds), `?status=3` (still parked).
 
 ## Branching & Environments
 
@@ -784,6 +922,11 @@ Use the `ParkingApp.http` file or Postman:
 - Later: `release/sit`, `release/uat` branches with their own workflows once development completes.
 
 ## Roadmap (Plans — focus on ONE item at a time)
+
+### Backlog (TODO)
+
+- [ ] **Country flag + dial code init API** — for the first screen of the auth page: an init API that returns the country list with its flag and dial code for the phone-number picker.
+- [ ] **BackOffice role page actions + menu seeding** — implement role-based page actions and seed the BackOffice navigation menus.
 
 ### Phase 0 — Release what works today (unblocks the mobile team)
 

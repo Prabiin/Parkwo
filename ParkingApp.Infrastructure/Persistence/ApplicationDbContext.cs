@@ -24,7 +24,11 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<ParkingFacility> ParkingFacilities => Set<ParkingFacility>();
     public DbSet<ParkingFacilityImage> ParkingFacilityImages => Set<ParkingFacilityImage>();
     public DbSet<ParkingFacilityReview> ParkingFacilityReviews => Set<ParkingFacilityReview>();
+    public DbSet<FreeParkingFacility> FreeParkingFacilities => Set<FreeParkingFacility>();
+    public DbSet<FreeParkingFacilityImage> FreeParkingFacilityImages => Set<FreeParkingFacilityImage>();
     public DbSet<BackOfficeUser> BackOfficeUsers => Set<BackOfficeUser>();
+    public DbSet<Staff> Staffs => Set<Staff>();
+    public DbSet<StaffRefreshToken> StaffRefreshTokens => Set<StaffRefreshToken>();
     public DbSet<Booking> Bookings => Set<Booking>();
     public DbSet<Payment> Payments => Set<Payment>();
     public DbSet<OverstayPayment> OverstayPayments => Set<OverstayPayment>();

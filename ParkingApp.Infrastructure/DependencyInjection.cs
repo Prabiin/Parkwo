@@ -15,13 +15,22 @@ using ParkingApp.Application.Bookings.Commands.Cancel;
 using ParkingApp.Application.Bookings.Commands.Create;
 using ParkingApp.Application.Bookings.Commands.RotatePass;
 using ParkingApp.Application.Bookings.Commands.ScanGate;
+using ParkingApp.Application.Bookings.Commands.CreateWalkIn;
+using ParkingApp.Application.Bookings.Commands.CompleteWalkIn;
 using ParkingApp.Application.Bookings.Queries.GetBookingById;
 using ParkingApp.Application.Bookings.Queries.GetBookingPass;
 using ParkingApp.Application.Bookings.Queries.GetBookingSummary;
 using ParkingApp.Application.Bookings.Queries.GetExitSummary;
 using ParkingApp.Application.Bookings.Queries.GetOverstaySummary;
+using ParkingApp.Application.Bookings.Queries.GetWalkInPass;
+using ParkingApp.Application.Bookings.Queries.GetWalkIns;
+using ParkingApp.Application.Bookings.Queries.FindWalkInByPhone;
 using ParkingApp.Application.Payments.Commands.Create;
 using ParkingApp.Application.Payments.Commands.CreateOverstay;
+using ParkingApp.Application.Payments.Commands.CreateWalkIn;
+using ParkingApp.Application.Payments.Commands.CreateWalkInOverstay;
+using ParkingApp.Application.Payments.Commands.VerifyWalkIn;
+using ParkingApp.Application.Payments.Commands.VerifyWalkInOverstay;
 using ParkingApp.Application.Payments.Commands.ProcessCallback;
 using ParkingApp.Application.Payments.Commands.ProcessOverstayCallback;
 using ParkingApp.Application.Payments.Queries.GetPaymentGateways;
@@ -45,6 +54,25 @@ using ParkingApp.Application.Facilities.Queries.GetNearbyFacilities;
 using ParkingApp.Application.Facilities.Queries.GetParkingFacilities;
 using ParkingApp.Application.Facilities.Queries.GetParkingFacilityById;
 using ParkingApp.Application.Facilities.Queries.GetParkingFacilityReviews;
+using ParkingApp.Application.FreeParkings.Commands.Create;
+using ParkingApp.Application.FreeParkings.Commands.Delete;
+using ParkingApp.Application.FreeParkings.Commands.Update;
+using ParkingApp.Application.FreeParkings.Queries.GetFreeParkingById;
+using ParkingApp.Application.FreeParkings.Queries.GetFreeParkings;
+using ParkingApp.Application.FreeParkings.Queries.GetPublicFreeParking;
+using ParkingApp.Application.StaffAuth.Commands.ChangePassword;
+using ParkingApp.Application.StaffAuth.Commands.Login;
+using ParkingApp.Application.StaffAuth.Commands.Logout;
+using ParkingApp.Application.StaffAuth.Commands.RefreshToken;
+using ParkingApp.Application.Staffs.Commands.Create;
+using ParkingApp.Application.Staffs.Commands.Delete;
+using ParkingApp.Application.Staffs.Commands.ResetPassword;
+using ParkingApp.Application.Staffs.Commands.SetActive;
+using ParkingApp.Application.Staffs.Commands.Update;
+using ParkingApp.Application.Staffs.Queries.GetStaffById;
+using ParkingApp.Application.Staffs.Queries.GetStaffInit;
+using ParkingApp.Application.Staffs.Queries.GetStaffProfile;
+using ParkingApp.Application.Staffs.Queries.GetStaffs;
 using ParkingApp.Application.Features.Logout.Command;
 using ParkingApp.Application.Features.RefreshToken.Command;
 using ParkingApp.Application.Features.SendOtp.Command;
@@ -224,9 +252,25 @@ public static class DependencyInjection
                 policy.RequireAuthenticatedUser();
                 policy.AddRequirements(new ProfileCompleteRequirement());
             });
+
+            // The staff realm. StaffOnly authenticates any staff token (login,
+            // refresh, change-password, profile); StaffOperational additionally
+            // holds back the gate and walk-in routes until the generated password
+            // has been replaced.
+            options.AddPolicy("StaffOnly", policy =>
+                policy.RequireAuthenticatedUser()
+                    .RequireClaim(ClaimTypes.Role, StaffRoles.Staff));
+
+            options.AddPolicy(StaffPasswordChangedRequirement.PolicyName, policy =>
+            {
+                policy.RequireAuthenticatedUser();
+                policy.RequireClaim(ClaimTypes.Role, StaffRoles.Staff);
+                policy.AddRequirements(new StaffPasswordChangedRequirement());
+            });
         });
 
         services.AddScoped<IAuthorizationHandler, ProfileCompleteAuthorizationHandler>();
+        services.AddScoped<IAuthorizationHandler, StaffPasswordChangedAuthorizationHandler>();
 
         services.AddHttpContextAccessor();
 
@@ -261,6 +305,13 @@ public static class DependencyInjection
         services.AddScoped<IRequestResultHandler<GetParkingFacilityDetailQuery, GetParkingFacilityDetailResponse>, GetParkingFacilityDetailQueryHandler>();
         services.AddScoped<IRequestResultHandler<GetNearbyFacilitiesQuery, GetNearbyFacilitiesResponse>, GetNearbyFacilitiesQueryHandler>();
 
+        services.AddScoped<IRequestResultHandler<CreateFreeParkingCommand, Guid>, CreateFreeParkingCommandHandler>();
+        services.AddScoped<IRequestResultHandler<UpdateFreeParkingCommand, Unit>, UpdateFreeParkingCommandHandler>();
+        services.AddScoped<IRequestResultHandler<DeleteFreeParkingCommand, Unit>, DeleteFreeParkingCommandHandler>();
+        services.AddScoped<IRequestResultHandler<GetFreeParkingsQuery, GetFreeParkingsResponse>, GetFreeParkingsQueryHandler>();
+        services.AddScoped<IRequestResultHandler<GetFreeParkingByIdQuery, GetFreeParkingByIdResponse>, GetFreeParkingByIdQueryHandler>();
+        services.AddScoped<IRequestResultHandler<GetPublicFreeParkingQuery, GetPublicFreeParkingResponse>, GetPublicFreeParkingQueryHandler>();
+
         services.AddScoped<IRequestResultHandler<CreateParkingFacilityReviewCommand, Guid>, CreateParkingFacilityReviewCommandHandler>();
         services.AddScoped<IRequestResultHandler<GetParkingFacilityReviewsQuery, GetParkingFacilityReviewsResponse>, GetParkingFacilityReviewsQueryHandler>();
         services.AddScoped<IRequestResultHandler<UpdateOrganizationApprovalCommand, Unit>, UpdateOrganizationApprovalCommandHandler>();
@@ -287,6 +338,33 @@ public static class DependencyInjection
         services.AddScoped<IRequestResultHandler<GetExitSummaryQuery, GetExitSummaryResponse>, GetExitSummaryQueryHandler>();
         services.AddScoped<IRequestResultHandler<GetOverstaySummaryQuery, GetOverstaySummaryResponse>, GetOverstaySummaryQueryHandler>();
 
+        // Walk-in desk: staff create, pay, verify and close bookings for riders
+        // with no Parkwo account. The gate scan itself is shared with app riders.
+        services.AddScoped<IRequestResultHandler<CreateWalkInBookingCommand, CreateWalkInBookingResponse>, CreateWalkInBookingCommandHandler>();
+        services.AddScoped<IRequestResultHandler<CreateWalkInPaymentCommand, CreatePaymentResponse>, CreateWalkInPaymentCommandHandler>();
+        services.AddScoped<IRequestResultHandler<VerifyWalkInPaymentCommand, VerifyWalkInPaymentResponse>, VerifyWalkInPaymentCommandHandler>();
+        services.AddScoped<IRequestResultHandler<GetWalkInPassQuery, GetBookingPassResponse>, GetWalkInPassQueryHandler>();
+        services.AddScoped<IRequestResultHandler<GetWalkInsQuery, GetWalkInsResponse>, GetWalkInsQueryHandler>();
+        services.AddScoped<IRequestResultHandler<FindWalkInByPhoneQuery, FindWalkInByPhoneResponse>, FindWalkInByPhoneQueryHandler>();
+        services.AddScoped<IRequestResultHandler<CompleteWalkInExitCommand, CompleteWalkInExitResponse>, CompleteWalkInExitCommandHandler>();
+        services.AddScoped<IRequestResultHandler<CreateWalkInOverstayPaymentCommand, CreateOverstayPaymentResponse>, CreateWalkInOverstayPaymentCommandHandler>();
+        services.AddScoped<IRequestResultHandler<VerifyWalkInOverstayPaymentCommand, VerifyWalkInOverstayPaymentResponse>, VerifyWalkInOverstayPaymentCommandHandler>();
+
+        // Staff: BackOffice CRUD plus the staff app's own auth and profile.
+        services.AddScoped<IRequestResultHandler<CreateStaffCommand, CreateStaffResponse>, CreateStaffCommandHandler>();
+        services.AddScoped<IRequestResultHandler<UpdateStaffCommand, Unit>, UpdateStaffCommandHandler>();
+        services.AddScoped<IRequestResultHandler<ResetStaffPasswordCommand, Unit>, ResetStaffPasswordCommandHandler>();
+        services.AddScoped<IRequestResultHandler<SetStaffActiveCommand, Unit>, SetStaffActiveCommandHandler>();
+        services.AddScoped<IRequestResultHandler<DeleteStaffCommand, Unit>, DeleteStaffCommandHandler>();
+        services.AddScoped<IRequestResultHandler<GetStaffsQuery, GetStaffsResponse>, GetStaffsQueryHandler>();
+        services.AddScoped<IRequestResultHandler<GetStaffByIdQuery, GetStaffByIdResponse>, GetStaffByIdQueryHandler>();
+        services.AddScoped<IRequestResultHandler<GetStaffInitQuery, GetStaffInitResponse>, GetStaffInitQueryHandler>();
+        services.AddScoped<IRequestResultHandler<GetStaffProfileQuery, GetStaffProfileResponse>, GetStaffProfileQueryHandler>();
+        services.AddScoped<IRequestResultHandler<StaffLoginCommand, StaffLoginResponse>, StaffLoginCommandHandler>();
+        services.AddScoped<IRequestResultHandler<StaffRefreshTokenCommand, StaffRefreshTokenResponse>, StaffRefreshTokenCommandHandler>();
+        services.AddScoped<IRequestResultHandler<StaffChangePasswordCommand, Unit>, StaffChangePasswordCommandHandler>();
+        services.AddScoped<IRequestResultHandler<StaffLogoutCommand, Unit>, StaffLogoutCommandHandler>();
+
         // Command validators
         services.AddScoped<IValidator<SendOtpCommand>, SendOtpCommandValidator>();
         services.AddScoped<IValidator<VerifyOtpCommand>, VerifyOtpCommandValidator>();
@@ -306,6 +384,8 @@ public static class DependencyInjection
         services.AddScoped<IValidator<BackOfficeFacilities.GetParkingFacilitiesQuery>, BackOfficeFacilities.GetParkingFacilitiesQueryValidator>();
         services.AddScoped<IValidator<GetParkingFacilityDetailQuery>, GetParkingFacilityDetailQueryValidator>();
         services.AddScoped<IValidator<GetNearbyFacilitiesQuery>, GetNearbyFacilitiesQueryValidator>();
+        services.AddScoped<IValidator<CreateFreeParkingCommand>, CreateFreeParkingCommandValidator>();
+        services.AddScoped<IValidator<UpdateFreeParkingCommand>, UpdateFreeParkingCommandValidator>();
         services.AddScoped<IValidator<CreateParkingFacilityReviewCommand>, CreateParkingFacilityReviewCommandValidator>();
         services.AddScoped<IValidator<GetParkingFacilityReviewsQuery>, GetParkingFacilityReviewsQueryValidator>();
         services.AddScoped<IValidator<UpdateOrganizationApprovalCommand>, UpdateOrganizationApprovalCommandValidator>();
@@ -314,12 +394,21 @@ public static class DependencyInjection
         services.AddScoped<IValidator<GetLicensesQuery>, GetLicensesQueryValidator>();
         services.AddScoped<IValidator<CreateDrivingLicenseCommand>, CreateDrivingLicenseCommandValidator>();
         services.AddScoped<IValidator<CreateBookingCommand>, CreateBookingCommandValidator>();
+        services.AddScoped<IValidator<CreateWalkInBookingCommand>, CreateWalkInBookingCommandValidator>();
+        services.AddScoped<IValidator<CreateStaffCommand>, CreateStaffCommandValidator>();
+        services.AddScoped<IValidator<UpdateStaffCommand>, UpdateStaffCommandValidator>();
+        services.AddScoped<IValidator<StaffLoginCommand>, StaffLoginCommandValidator>();
+        services.AddScoped<IValidator<StaffRefreshTokenCommand>, StaffRefreshTokenCommandValidator>();
+        services.AddScoped<IValidator<StaffChangePasswordCommand>, StaffChangePasswordCommandValidator>();
+        services.AddScoped<IValidator<StaffLogoutCommand>, StaffLogoutCommandValidator>();
 
         // Services
         services.AddScoped<ITokenService, TokenService>();
         services.AddScoped<IBackOfficeTokenService, BackOfficeTokenService>();
+        services.AddScoped<IStaffTokenService, StaffTokenService>();
         services.AddScoped<IPasswordHasher, PasswordHasher>();
         services.AddScoped<IOtpSender, ConsoleOtpSender>();
+        services.AddScoped<IEmailSender, ConsoleEmailSender>();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
         services.AddScoped<IFileStorage, MinioFileStorage>();
         services.AddScoped<IImageUrlResolver, MinioImageUrlResolver>();

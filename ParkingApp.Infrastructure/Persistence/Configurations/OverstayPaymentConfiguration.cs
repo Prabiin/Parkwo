@@ -29,6 +29,12 @@ public class OverstayPaymentConfiguration : IEntityTypeConfiguration<OverstayPay
         builder.Property(x => x.FailureReason)
             .HasMaxLength(256);
 
+        // Audit of a staff-confirmed walk-in overstay settlement. The ByUserId
+        // column is legacy; new confirmations record the staff id.
+        builder.Property(x => x.VerifiedManuallyByUserId);
+        builder.Property(x => x.VerifiedManuallyByStaffId);
+        builder.Property(x => x.VerifiedManuallyAtUtc);
+
         builder.Property(x => x.Status)
             .IsRequired();
 

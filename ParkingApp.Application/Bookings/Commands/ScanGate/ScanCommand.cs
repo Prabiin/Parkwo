@@ -65,7 +65,7 @@ public sealed class ScanGateCommandHandler(
         ScanGateCommand request,
         CancellationToken cancellationToken = default)
     {
-        var staffId = currentUser.UserId;
+        var staffId = currentUser.StaffId;
         if (staffId is null)
             return Result<ScanGateResponse>.Failure("Authentication required.", 401);
 
@@ -184,7 +184,7 @@ public sealed class ScanGateCommandHandler(
                     finalOutcome,
                     finalOutcome.ToDescription(),
                     booking.Id,
-                    booking.Vehicle?.VehicleNumber ?? string.Empty,
+                    booking.Vehicle?.VehicleNumber ?? booking.WalkInPlateNumber ?? string.Empty,
                     booking.VehicleType,
                     booking.VehicleType.ToDescription(),
                     booking.StartsAtUtc,
@@ -214,7 +214,7 @@ public sealed class ScanGateCommandHandler(
                 ScanOutcomeEnum.Accepted,
                 ScanOutcomeEnum.Accepted.ToDescription(),
                 booking.Id,
-                booking.Vehicle?.VehicleNumber ?? string.Empty,
+                booking.Vehicle?.VehicleNumber ?? booking.WalkInPlateNumber ?? string.Empty,
                 booking.VehicleType,
                 booking.VehicleType.ToDescription(),
                 booking.StartsAtUtc,

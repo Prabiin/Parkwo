@@ -1,32 +1,26 @@
 using Microsoft.EntityFrameworkCore;
 using ParkingApp.Application.Common.Interfaces;
-using ParkingApp.Domain.Common.Enums;
 
 namespace ParkingApp.Application.Common.Helpers;
 
 public static class GateAccess
 {
     /// <summary>
-    /// True when the caller may scan passes at this facility. Gate staff are the
-    /// provider that owns the lot, or a Monitor/Admin/Owner in that provider's
-    /// organization — the same trust boundary the rest of the provider APIs use.
+    /// True when the caller may operate the gate at this facility. The gate is
+    /// staffed by Parkwo field staff, so the trust boundary is the staff record
+    /// itself: the member must be live (not deactivated or soft-deleted) and
+    /// assigned to this facility. Provider owners and organization members have
+    /// no scan rights at all.
     /// </summary>
     public static Task<bool> CanScanAsync(
         IApplicationDbContext context,
-        Guid userId,
+        Guid staffId,
         Guid facilityId,
         CancellationToken cancellationToken = default)
-        => context.ParkingFacilities
-            .Where(f => f.Id == facilityId)
-            .AnyAsync(f => context.ParkingProviders
-                .Any(p => p.Id == f.ProviderId
-                          && (p.OwnerUserId == userId
-                              || (p.OwnerOrganizationId != null
-                                  && context.UserOrganizations.Any(m =>
-                                      m.OrganizationId == p.OwnerOrganizationId
-                                      && m.UserId == userId
-                                      && (m.Role == OrganizationRoleEnum.Owner
-                                          || m.Role == OrganizationRoleEnum.Admin
-                                          || m.Role == OrganizationRoleEnum.Monitor))))),
+        => context.Staffs
+            .AnyAsync(s => s.Id == staffId
+                           && !s.IsDeleted
+                           && s.IsActive
+                           && s.FacilityId == facilityId,
                 cancellationToken);
 }
