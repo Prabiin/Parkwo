@@ -195,6 +195,16 @@ public static class DependencyInjection
         services.Configure<ParkwoPricingSettings>(configuration.GetSection(ParkwoPricingSettings.SectionName));
         services.AddSingleton(parkwoPricing);
 
+        // Rider discovery. The "near me" radius is fixed here rather than a
+        // client parameter — small on purpose, because a rider who wants a
+        // different area searches for it by name. Defaults apply when the
+        // section is absent; override with Nearby__NearMeRadiusKm.
+        var nearbySettings = configuration.GetSection(NearbySettings.SectionName).Get<NearbySettings>()
+                             ?? new NearbySettings();
+
+        services.Configure<NearbySettings>(configuration.GetSection(NearbySettings.SectionName));
+        services.AddSingleton(nearbySettings);
+
         // Khalti ePayment v2 (parking checkout). Optional section: payments stay
         // unavailable until Khalti__SecretKey is set, so the server boots and
         // every non-payment feature works without gateway credentials.

@@ -34,4 +34,51 @@ public class LocalTimeTests
         Assert.Equal(0, local.Minute);
         Assert.Equal(0, local.Second);
     }
+
+    private static readonly DateOnly Day = new(2026, 10, 19);
+
+    [Fact]
+    public void A_Local_Day_Is_Twenty_Four_Hours_From_Local_Midnight()
+    {
+        var start = LocalTime.StartOfLocalDayUtc(Day);
+        var end = LocalTime.EndOfLocalDayUtc(Day);
+
+        Assert.Equal(TimeSpan.FromHours(24), end - start);
+
+        var local = TimeZoneInfo.ConvertTime(start, Kathmandu);
+        Assert.Equal(0, local.Hour);
+        Assert.Equal(0, local.Minute);
+    }
+
+    [Fact]
+    public void Local_Date_Follows_The_Nepal_Clock_Not_Utc()
+    {
+        // 00:30 on the 19th in Kathmandu is still the 18th in UTC.
+        var instant = LocalTime.StartOfLocalDayUtc(Day).AddMinutes(30);
+
+        Assert.Equal(Day, LocalTime.LocalDateOf(instant));
+        Assert.NotEqual(Day, DateOnly.FromDateTime(instant.UtcDateTime));
+    }
+
+    [Fact]
+    public void FormatTime_Shows_The_Local_Hour()
+        => Assert.Equal("12:00 AM", LocalTime.FormatTime(LocalTime.StartOfLocalDayUtc(Day)));
+
+    [Fact]
+    public void Ceil_To_Local_Hour_Rounds_Up_Off_The_Hour()
+    {
+        var offset = Kathmandu.GetUtcOffset(new DateTime(2026, 10, 19, 13, 15, 0));
+        var atQuarterPastOne = new DateTimeOffset(new DateTime(2026, 10, 19, 13, 15, 0), offset).ToUniversalTime();
+
+        Assert.Equal("2:00 PM", LocalTime.FormatTime(LocalTime.CeilToLocalHour(atQuarterPastOne)));
+    }
+
+    [Fact]
+    public void Ceil_To_Local_Hour_Leaves_An_On_The_Hour_Instant_Alone()
+    {
+        var offset = Kathmandu.GetUtcOffset(new DateTime(2026, 10, 19, 13, 0, 0));
+        var atOne = new DateTimeOffset(new DateTime(2026, 10, 19, 13, 0, 0), offset).ToUniversalTime();
+
+        Assert.Equal(atOne, LocalTime.CeilToLocalHour(atOne));
+    }
 }

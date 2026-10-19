@@ -9,10 +9,12 @@ using ParkingApp.Application.Facilities;
 using ParkingApp.Application.Facilities.Commands.Create;
 using ParkingApp.Application.Facilities.Commands.CreateReview;
 using ParkingApp.Application.Facilities.Commands.UpdateCapacity;
+using ParkingApp.Application.Facilities.Queries.GetFacilityAvailability;
 using ParkingApp.Application.Facilities.Queries.GetNearbyFacilities;
 using ParkingApp.Application.Facilities.Queries.GetParkingFacilities;
 using ParkingApp.Application.Facilities.Queries.GetParkingFacilityById;
 using ParkingApp.Application.Facilities.Queries.GetParkingFacilityReviews;
+using ParkingApp.Application.Facilities.Queries.GetPublicFacilityDetail;
 using ParkingApp.Domain;
 using ParkingApp.Domain.Common.Enums;
 using ParkingApp.Infrastructure.Auth;
@@ -29,6 +31,13 @@ public class FacilityApi : EndpointGroupBase
             .MapGet(ListFacilities, "", "")
             .MapGet(ListNearbyFacilities, "nearby", "")
             .MapGet(GetFacilityById, "{facilityId}", "")
+            // Rider "View details": richer than the pin popup (description,
+            // gallery, per-type rate) and Verified-only, so riders never see a
+            // lot the owner is still setting up.
+            .MapGet(GetPublicFacilityDetail, "{facilityId}/detail", "")
+            // Rider availability grid: the hourly slots a rider can tap through
+            // on the booking screen, for a day or one exact window.
+            .MapGet(GetFacilityAvailability, "{facilityId}/availability", "")
             .MapPut(UpdateCapacity, "{facilityId}/capacity", "")
             .MapPost(UploadImages, "{facilityId}/images", "", disableAntiforgery: true)
             .MapPost(CreateReview, "{facilityId}/reviews", "")
@@ -57,7 +66,7 @@ public class FacilityApi : EndpointGroupBase
             request with { FacilityId = facilityId }, serviceProvider, cancellationToken);
 
     private static async Task<IResult> ListNearbyFacilities(ISender sender, IServiceProvider serviceProvider,
-        double latitude, double longitude, double? radiusKm, string? vehicleType,
+        double latitude, double longitude, string? vehicleType, string? query,
         CancellationToken cancellationToken)
     {
         VehicleTypeEnum? parsedType = null;
@@ -71,8 +80,39 @@ public class FacilityApi : EndpointGroupBase
         }
 
         return await ExecuteQuery<GetNearbyFacilitiesQuery, GetNearbyFacilitiesResponse>(sender,
-            new GetNearbyFacilitiesQuery(latitude, longitude, radiusKm, parsedType),
+            new GetNearbyFacilitiesQuery(latitude, longitude, parsedType, query),
             serviceProvider, cancellationToken);
+    }
+
+    private static async Task<IResult> GetFacilityAvailability(ISender sender, IServiceProvider serviceProvider,
+        Guid facilityId, string? vehicleType, DateOnly? date, DateTimeOffset? fromUtc, DateTimeOffset? toUtc,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(vehicleType)
+            || !int.TryParse(vehicleType, out var code)
+            || !Enum.IsDefined(typeof(VehicleTypeEnum), code))
+            return Results.BadRequest(new { Errors = new[] { "vehicleType: Invalid vehicle type." } });
+
+        return await ExecuteQuery<GetFacilityAvailabilityQuery, GetFacilityAvailabilityResponse>(sender,
+            new GetFacilityAvailabilityQuery(facilityId, (VehicleTypeEnum)code, date, fromUtc, toUtc),
+            serviceProvider, cancellationToken);
+    }
+
+    private static async Task<IResult> GetPublicFacilityDetail(ISender sender, IServiceProvider serviceProvider,
+        Guid facilityId, string? vehicleType, CancellationToken cancellationToken)
+    {
+        VehicleTypeEnum? parsedType = null;
+        if (!string.IsNullOrWhiteSpace(vehicleType))
+        {
+            if (!int.TryParse(vehicleType, out var code)
+                || !Enum.IsDefined(typeof(VehicleTypeEnum), code))
+                return Results.BadRequest(new { Errors = new[] { "vehicleType: Invalid vehicle type." } });
+
+            parsedType = (VehicleTypeEnum)code;
+        }
+
+        return await ExecuteQuery<GetPublicFacilityDetailQuery, GetPublicFacilityDetailResponse>(sender,
+            new GetPublicFacilityDetailQuery(facilityId, parsedType), serviceProvider, cancellationToken);
     }
 
     private static async Task<IResult> CreateReview(ISender sender, IServiceProvider serviceProvider,

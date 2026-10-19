@@ -1,13 +1,11 @@
 using FluentValidation;
+using ParkingApp.Application.Common.Helpers;
 using ParkingApp.Domain.Common.Enums;
 
 namespace ParkingApp.Application.Facilities.Queries.GetNearbyFacilities;
 
 public sealed class GetNearbyFacilitiesQueryValidator : AbstractValidator<GetNearbyFacilitiesQuery>
 {
-    public const double DefaultRadiusKm = 5;
-    public const double MaxRadiusKm = 20;
-
     public GetNearbyFacilitiesQueryValidator()
     {
         RuleFor(x => x.Latitude)
@@ -16,13 +14,25 @@ public sealed class GetNearbyFacilitiesQueryValidator : AbstractValidator<GetNea
         RuleFor(x => x.Longitude)
             .InclusiveBetween(-180d, 180d);
 
-        RuleFor(x => x.RadiusKm)
-            .GreaterThan(0)
-            .LessThanOrEqualTo(MaxRadiusKm)
-            .When(x => x.RadiusKm.HasValue);
+        // A blank query is the "near me" mode, not an error. A typed one must be
+        // long enough to be selective and short enough to be a search term.
+        RuleFor(x => x.Query)
+            .Must(BeValidSearchTerm)
+            .WithMessage($"Enter a search term of {FacilityTextSearch.MinQueryLength} to "
+                         + $"{FacilityTextSearch.MaxQueryLength} characters.");
 
         RuleFor(x => x.VehicleType)
             .IsInEnum()
             .When(x => x.VehicleType.HasValue);
+    }
+
+    private static bool BeValidSearchTerm(string? query)
+    {
+        if (!FacilityTextSearch.HasQuery(query))
+            return true;
+
+        var length = query!.Trim().Length;
+        return length >= FacilityTextSearch.MinQueryLength
+               && length <= FacilityTextSearch.MaxQueryLength;
     }
 }

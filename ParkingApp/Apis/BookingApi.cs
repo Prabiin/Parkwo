@@ -3,6 +3,7 @@ using ParkingApp.Application.Bookings.Commands.Cancel;
 using ParkingApp.Application.Bookings.Commands.Create;
 using ParkingApp.Application.Bookings.Commands.RotatePass;
 using ParkingApp.Application.Bookings.Queries.GetBookingById;
+using ParkingApp.Application.Bookings.Queries.GetBookingInit;
 using ParkingApp.Application.Bookings.Queries.GetBookingPass;
 using ParkingApp.Application.Bookings.Queries.GetBookingSummary;
 using ParkingApp.Application.Bookings.Queries.GetExitSummary;
@@ -21,6 +22,8 @@ public class BookingApi : EndpointGroupBase
     {
         app.MapGroup("bookings")
             .MapPost(CreateBooking, "", "")
+            // The "Book a spot" screen: parking name + the rider's vehicles.
+            .MapGet(GetBookingInit, "init", "")
             .MapGet(GetBookingById, "{bookingId}", "")
             // The rate/amount confirmation shown before the prepaid payment starts.
             .MapGet(GetBookingSummary, "{bookingId}/summary", "")
@@ -44,6 +47,11 @@ public class BookingApi : EndpointGroupBase
         CreateBookingCommand request, CancellationToken cancellationToken)
         => await ExecuteCommand<CreateBookingCommand, CreateBookingResponse>(sender,
             request, serviceProvider, cancellationToken);
+
+    private static async Task<IResult> GetBookingInit(ISender sender, IServiceProvider serviceProvider,
+        Guid facilityId, CancellationToken cancellationToken)
+        => await ExecuteQuery<GetBookingInitQuery, GetBookingInitResponse>(sender,
+            new GetBookingInitQuery(facilityId), serviceProvider, cancellationToken);
 
     private static async Task<IResult> GetBookingById(ISender sender, IServiceProvider serviceProvider,
         Guid bookingId, CancellationToken cancellationToken)

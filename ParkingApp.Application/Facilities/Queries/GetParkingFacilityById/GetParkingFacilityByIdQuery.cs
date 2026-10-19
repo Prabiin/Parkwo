@@ -78,10 +78,12 @@ public sealed class GetParkingFacilityByIdQueryHandler(IApplicationDbContext con
                 i.SortOrder))
             .ToList();
 
+        var now = DateTimeOffset.UtcNow;
         var takenSpaces = await FacilityAvailability.LoadTakenSpacesAsync(
             context,
             [facility.Id],
-            DateTimeOffset.UtcNow,
+            AvailabilityWindows.StartingNow(now),
+            now,
             cancellationToken);
 
         return Result<GetParkingFacilityByIdResponse>.Success(
