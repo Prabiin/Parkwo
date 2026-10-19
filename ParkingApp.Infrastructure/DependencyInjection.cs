@@ -18,6 +18,7 @@ using ParkingApp.Application.Bookings.Commands.ScanGate;
 using ParkingApp.Application.Bookings.Commands.CreateWalkIn;
 using ParkingApp.Application.Bookings.Commands.CompleteWalkIn;
 using ParkingApp.Application.Bookings.Queries.GetBookingById;
+using ParkingApp.Application.Bookings.Queries.GetBookingInit;
 using ParkingApp.Application.Bookings.Queries.GetBookingPass;
 using ParkingApp.Application.Bookings.Queries.GetBookingSummary;
 using ParkingApp.Application.Bookings.Queries.GetExitSummary;
@@ -50,10 +51,12 @@ using ParkingApp.Application.Configuration;
 using ParkingApp.Application.Facilities.Commands.Create;
 using ParkingApp.Application.Facilities.Commands.CreateReview;
 using ParkingApp.Application.Facilities.Commands.UpdateCapacity;
+using ParkingApp.Application.Facilities.Queries.GetFacilityAvailability;
 using ParkingApp.Application.Facilities.Queries.GetNearbyFacilities;
 using ParkingApp.Application.Facilities.Queries.GetParkingFacilities;
 using ParkingApp.Application.Facilities.Queries.GetParkingFacilityById;
 using ParkingApp.Application.Facilities.Queries.GetParkingFacilityReviews;
+using ParkingApp.Application.Facilities.Queries.GetPublicFacilityDetail;
 using ParkingApp.Application.FreeParkings.Commands.Create;
 using ParkingApp.Application.FreeParkings.Commands.Delete;
 using ParkingApp.Application.FreeParkings.Commands.Update;
@@ -314,6 +317,8 @@ public static class DependencyInjection
         services.AddScoped<IRequestResultHandler<BackOfficeFacilities.GetParkingFacilitiesQuery, BackOfficeFacilities.GetParkingFacilitiesResponse>, BackOfficeFacilities.GetParkingFacilitiesQueryHandler>();
         services.AddScoped<IRequestResultHandler<GetParkingFacilityDetailQuery, GetParkingFacilityDetailResponse>, GetParkingFacilityDetailQueryHandler>();
         services.AddScoped<IRequestResultHandler<GetNearbyFacilitiesQuery, GetNearbyFacilitiesResponse>, GetNearbyFacilitiesQueryHandler>();
+        services.AddScoped<IRequestResultHandler<GetFacilityAvailabilityQuery, GetFacilityAvailabilityResponse>, GetFacilityAvailabilityQueryHandler>();
+        services.AddScoped<IRequestResultHandler<GetPublicFacilityDetailQuery, GetPublicFacilityDetailResponse>, GetPublicFacilityDetailQueryHandler>();
 
         services.AddScoped<IRequestResultHandler<CreateFreeParkingCommand, Guid>, CreateFreeParkingCommandHandler>();
         services.AddScoped<IRequestResultHandler<UpdateFreeParkingCommand, Unit>, UpdateFreeParkingCommandHandler>();
@@ -334,6 +339,7 @@ public static class DependencyInjection
 
         services.AddScoped<IRequestResultHandler<CreateBookingCommand, CreateBookingResponse>, CreateBookingCommandHandler>();
         services.AddScoped<IRequestResultHandler<GetBookingByIdQuery, GetBookingByIdResponse>, GetBookingByIdQueryHandler>();
+        services.AddScoped<IRequestResultHandler<GetBookingInitQuery, GetBookingInitResponse>, GetBookingInitQueryHandler>();
         services.AddScoped<IRequestResultHandler<GetBookingSummaryQuery, GetBookingSummaryResponse>, GetBookingSummaryQueryHandler>();
         services.AddScoped<IRequestResultHandler<CancelBookingCommand, Unit>, CancelBookingCommandHandler>();
         services.AddScoped<IRequestResultHandler<CreatePaymentCommand, CreatePaymentResponse>, CreatePaymentCommandHandler>();
@@ -394,6 +400,9 @@ public static class DependencyInjection
         services.AddScoped<IValidator<BackOfficeFacilities.GetParkingFacilitiesQuery>, BackOfficeFacilities.GetParkingFacilitiesQueryValidator>();
         services.AddScoped<IValidator<GetParkingFacilityDetailQuery>, GetParkingFacilityDetailQueryValidator>();
         services.AddScoped<IValidator<GetNearbyFacilitiesQuery>, GetNearbyFacilitiesQueryValidator>();
+        services.AddScoped<IValidator<GetFacilityAvailabilityQuery>, GetFacilityAvailabilityQueryValidator>();
+        services.AddScoped<IValidator<GetPublicFacilityDetailQuery>, GetPublicFacilityDetailQueryValidator>();
+        services.AddScoped<IValidator<GetBookingInitQuery>, GetBookingInitQueryValidator>();
         services.AddScoped<IValidator<CreateFreeParkingCommand>, CreateFreeParkingCommandValidator>();
         services.AddScoped<IValidator<UpdateFreeParkingCommand>, UpdateFreeParkingCommandValidator>();
         services.AddScoped<IValidator<CreateParkingFacilityReviewCommand>, CreateParkingFacilityReviewCommandValidator>();

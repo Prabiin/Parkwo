@@ -4,6 +4,13 @@ A peer-to-peer parking marketplace API where users find parking spaces and land 
 
 ## Change Log
 
+### 2026-10-19 — Rider endpoints registered in DI; enum query params are numbers, not strings
+
+- **The three new rider queries are now actually registered.** `GetFacilityAvailabilityQueryHandler`, `GetBookingInitQueryHandler` and `GetPublicFacilityDetailQueryHandler` — and their three validators — were added without the hand-written `services.AddScoped` lines in `Infrastructure/DependencyInjection.cs`. They compiled and unit-tested green (tests build the handler directly), but every one of those endpoints 500'd at runtime with `No service for type 'IRequestResultHandler`2[…]' has been registered`. This repo registers handlers by hand rather than by assembly scan, which is exactly how it slipped through.
+- **Guard against it recurring:** new `DependencyInjectionTests` reflects over the Application assembly and fails if *any* handler or validator has no registration in `AddInfrastructure`. The wiring can now only drift in one direction — the test says which type is missing.
+- **`vehicleType` is a typed enum on the rider endpoints.** `GET /facilities/nearby`, `GET /facilities/{facilityId}/availability` and `GET /facilities/{facilityId}/detail` bind it as `VehicleTypeEnum?` — send `1` or `2`. The hand-rolled `int.TryParse` + `Enum.IsDefined` blocks are gone; an out-of-range number is now caught by the query validator's `IsInEnum()` and returns the same `{ "Errors": [...] }` 400 body as any other validation failure, and an unparseable value (e.g. `vehicleType=abc`) is rejected by model binding with a 400. The wire format is unchanged — clients were already sending `vehicleType=1`.
+- Build + tests pass (332, +1).
+
 ### 2026-10-19 — Parking no longer requires a driving license
 
 - **The booking-time license gate is gone.** `CreateBookingCommand` no longer requires a `Verified`, unexpired driving license whose categories cover the vehicle — a rider with a vehicle and a free space now books and pays unblocked. `LicenseGate` and its tests are deleted. There was no separate license check in the payment path, so booking was the only place to lift.

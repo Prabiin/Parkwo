@@ -66,54 +66,25 @@ public class FacilityApi : EndpointGroupBase
             request with { FacilityId = facilityId }, serviceProvider, cancellationToken);
 
     private static async Task<IResult> ListNearbyFacilities(ISender sender, IServiceProvider serviceProvider,
-        double latitude, double longitude, string? vehicleType, string? query,
+        double latitude, double longitude, VehicleTypeEnum? vehicleType, string? query,
         CancellationToken cancellationToken)
-    {
-        VehicleTypeEnum? parsedType = null;
-        if (!string.IsNullOrWhiteSpace(vehicleType))
-        {
-            if (!int.TryParse(vehicleType, out var code)
-                || !Enum.IsDefined(typeof(VehicleTypeEnum), code))
-                return Results.BadRequest(new { Errors = new[] { "vehicleType: Invalid vehicle type." } });
-
-            parsedType = (VehicleTypeEnum)code;
-        }
-
-        return await ExecuteQuery<GetNearbyFacilitiesQuery, GetNearbyFacilitiesResponse>(sender,
-            new GetNearbyFacilitiesQuery(latitude, longitude, parsedType, query),
+        => await ExecuteQuery<GetNearbyFacilitiesQuery, GetNearbyFacilitiesResponse>(sender,
+            new GetNearbyFacilitiesQuery(latitude, longitude, vehicleType, query),
             serviceProvider, cancellationToken);
-    }
 
     private static async Task<IResult> GetFacilityAvailability(ISender sender, IServiceProvider serviceProvider,
-        Guid facilityId, string? vehicleType, DateOnly? date, DateTimeOffset? fromUtc, DateTimeOffset? toUtc,
+        Guid facilityId, VehicleTypeEnum? vehicleType, DateOnly? date, DateTimeOffset? fromUtc, DateTimeOffset? toUtc,
         CancellationToken cancellationToken)
-    {
-        if (string.IsNullOrWhiteSpace(vehicleType)
-            || !int.TryParse(vehicleType, out var code)
-            || !Enum.IsDefined(typeof(VehicleTypeEnum), code))
-            return Results.BadRequest(new { Errors = new[] { "vehicleType: Invalid vehicle type." } });
-
-        return await ExecuteQuery<GetFacilityAvailabilityQuery, GetFacilityAvailabilityResponse>(sender,
-            new GetFacilityAvailabilityQuery(facilityId, (VehicleTypeEnum)code, date, fromUtc, toUtc),
+        // vehicleType is required; a missing one falls through as the undefined
+        // zero value and the query validator rejects it with the usual 400 body.
+        => await ExecuteQuery<GetFacilityAvailabilityQuery, GetFacilityAvailabilityResponse>(sender,
+            new GetFacilityAvailabilityQuery(facilityId, vehicleType ?? default, date, fromUtc, toUtc),
             serviceProvider, cancellationToken);
-    }
 
     private static async Task<IResult> GetPublicFacilityDetail(ISender sender, IServiceProvider serviceProvider,
-        Guid facilityId, string? vehicleType, CancellationToken cancellationToken)
-    {
-        VehicleTypeEnum? parsedType = null;
-        if (!string.IsNullOrWhiteSpace(vehicleType))
-        {
-            if (!int.TryParse(vehicleType, out var code)
-                || !Enum.IsDefined(typeof(VehicleTypeEnum), code))
-                return Results.BadRequest(new { Errors = new[] { "vehicleType: Invalid vehicle type." } });
-
-            parsedType = (VehicleTypeEnum)code;
-        }
-
-        return await ExecuteQuery<GetPublicFacilityDetailQuery, GetPublicFacilityDetailResponse>(sender,
-            new GetPublicFacilityDetailQuery(facilityId, parsedType), serviceProvider, cancellationToken);
-    }
+        Guid facilityId, VehicleTypeEnum? vehicleType, CancellationToken cancellationToken)
+        => await ExecuteQuery<GetPublicFacilityDetailQuery, GetPublicFacilityDetailResponse>(sender,
+            new GetPublicFacilityDetailQuery(facilityId, vehicleType), serviceProvider, cancellationToken);
 
     private static async Task<IResult> CreateReview(ISender sender, IServiceProvider serviceProvider,
         Guid facilityId, CreateParkingFacilityReviewCommand request, CancellationToken cancellationToken)
