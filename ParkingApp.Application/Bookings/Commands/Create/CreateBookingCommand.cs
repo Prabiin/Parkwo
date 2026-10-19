@@ -112,15 +112,6 @@ public sealed class CreateBookingCommandHandler(
         if (capacity < 1)
             return Result<CreateBookingResponse>.Failure($"This facility has no {vehicle.VehicleType.ToDescription().ToLowerInvariant()} spaces.", 409);
 
-        var licenseGate = LicenseGate.Check(
-            await context.DrivingLicenses.AsNoTracking()
-                .Where(d => d.UserId == userId)
-                .ToListAsync(cancellationToken),
-            vehicle.VehicleCategory);
-
-        if (licenseGate is not null)
-            return Result<CreateBookingResponse>.Failure(licenseGate, 403);
-
         // SERIALIZABLE: the availability count and the insert must not interleave
         // with a competing booking for the same lot, or both reads see one free
         // space and both write.

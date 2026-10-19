@@ -79,6 +79,7 @@ GET {{ParkingApp_HostAddress}}/licenses/init
 Authorization: Bearer paste-access-token-here
 
 ### Submit driving license (requires Bearer token; MinIO license-images/; starts Pending)
+### NOTE: OPTIONAL for parking - booking and payment no longer check a license; it is kept for a future ride-rental feature.
 # NOTE: multipart/form-data — fields licenseNumber, categories (comma-separated codes, e.g. "2,4"), expiryDate (yyyy-MM-dd), files front + back
 POST {{ParkingApp_HostAddress}}/licenses
 Authorization: Bearer paste-access-token-here
