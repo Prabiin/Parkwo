@@ -99,6 +99,9 @@ services:
       # for promos or pricing experiments.
       - ParkwoPricing__TwoWheelerPricePerHourNpr=${PARKWO_TWO_WHEELER_PRICE_PER_HOUR_NPR:-40}
       - ParkwoPricing__FourWheelerPricePerHourNpr=${PARKWO_FOUR_WHEELER_PRICE_PER_HOUR_NPR:-100}
+      # Rider discovery "near me" radius in km. Fixed server-side; a rider who
+      # wants another area searches by name instead of widening the circle.
+      - Nearby__NearMeRadiusKm=${NEARBY_NEAR_ME_RADIUS_KM:-1}
       # Gate pass signing key. Optional: with no key the API boots and passes are
       # switched off, returning "not configured" until one is set. Same posture as
       # KHALTI_SECRET_KEY above.

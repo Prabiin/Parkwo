@@ -190,19 +190,44 @@ Authorization: Bearer paste-app-token-here
   "landAreaSqM": 165.5
 }
 
-### Nearby parkings (pure spatial: Verified lots within radiusKm, nearest first; radiusKm default 5, max 20)
-GET {{ParkingApp_HostAddress}}/facilities/nearby?latitude=27.6964&longitude=85.3247&radiusKm=5
+### Nearby parkings (no query: Verified + free lots within Nearby:NearMeRadiusKm, default 1 km, nearest first)
+GET {{ParkingApp_HostAddress}}/facilities/nearby?latitude=27.6964&longitude=85.3247
 Authorization: Bearer paste-app-token-here
 
-### Nearby available spaces (spatial + capacity: only lots with a free TwoWheeler spot; 1=TwoWheeler, 2=FourWheeler)
-GET {{ParkingApp_HostAddress}}/facilities/nearby?latitude=27.6964&longitude=85.3247&radiusKm=5&vehicleType=1
+### Nearby available spaces (same ring, only lots with a free TwoWheeler spot; 1=TwoWheeler, 2=FourWheeler)
+GET {{ParkingApp_HostAddress}}/facilities/nearby?latitude=27.6964&longitude=85.3247&vehicleType=1
+Authorization: Bearer paste-app-token-here
+
+### Search parkings by name/address (no distance filter; lat/long only set the distance shown)
+GET {{ParkingApp_HostAddress}}/facilities/nearby?latitude=27.6964&longitude=85.3247&query=Durbar Marg
+Authorization: Bearer paste-app-token-here
+
+### Rider: View details (Verified-only; description + gallery + per-type rate; optional ?vehicleType= hides a category the lot does not serve; reviews via /reviews)
+GET {{ParkingApp_HostAddress}}/facilities/paste-facility-id-here/detail?vehicleType=1
+Authorization: Bearer paste-app-token-here
+
+### Book a spot - screen data: parking name + per-type occupancy + my vehicles the lot can take (requires Bearer token)
+GET {{ParkingApp_HostAddress}}/bookings/init?facilityId=paste-facility-id-here
+Authorization: Bearer paste-app-token-here
+
+### Availability grid, today (hourly Kathmandu slots from the next local hour; 1=TwoWheeler, 2=FourWheeler; isBooked = full)
+GET {{ParkingApp_HostAddress}}/facilities/paste-facility-id-here/availability?vehicleType=1
+Authorization: Bearer paste-app-token-here
+
+### Availability grid, a future day (yyyy-MM-dd, up to 7 days ahead)
+GET {{ParkingApp_HostAddress}}/facilities/paste-facility-id-here/availability?vehicleType=1&date=2026-10-22
+Authorization: Bearer paste-app-token-here
+
+### Check one exact window before booking a multi-slot selection (UTC; both ends required)
+### 2 PM-4 PM Kathmandu = 08:15-10:15 UTC (Nepal is UTC+5:45)
+GET {{ParkingApp_HostAddress}}/facilities/paste-facility-id-here/availability?vehicleType=1&fromUtc=2026-10-22T08:15:00Z&toUtc=2026-10-22T10:15:00Z
 Authorization: Bearer paste-app-token-here
 
 ### List my facilities (with two/four-wheeler spot counts + approval status)
 GET {{ParkingApp_HostAddress}}/facilities
 Authorization: Bearer paste-app-token-here
 
-### Facility detail with its spots
+### Facility detail with its spots (owner-only)
 GET {{ParkingApp_HostAddress}}/facilities/paste-facility-id-here
 Authorization: Bearer paste-app-token-here
 

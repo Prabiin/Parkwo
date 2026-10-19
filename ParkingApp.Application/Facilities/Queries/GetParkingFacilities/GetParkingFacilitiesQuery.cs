@@ -57,10 +57,13 @@ public sealed class GetParkingFacilitiesQueryHandler(IApplicationDbContext conte
             .OrderByDescending(f => f.CreatedAtUtc)
             .ToListAsync(cancellationToken);
 
+        // The owner's list reports the same "free for the next hour" figure the
+        // rider map shows, from the same overlap rule.
         var now = DateTimeOffset.UtcNow;
         var takenSpaces = await FacilityAvailability.LoadTakenSpacesAsync(
             context,
             facilities.Select(f => f.Id).ToList(),
+            AvailabilityWindows.StartingNow(now),
             now,
             cancellationToken);
 

@@ -11,30 +11,37 @@ using ParkingApp.Domain.Common.Enums;
 namespace ParkingApp.Application.Facilities.Queries.GetNearbyFacilities;
 
 /// <summary>
-/// Two modes in one endpoint:
-/// - no vehicleType: "parkings near me" — pure spatial query (map pins).
-/// - with vehicleType: "available spaces near me" — spatial + only places with
-///   at least one space of that type still unclaimed.
-/// Paid facilities subtract every live booking — the stay in progress or one
-/// still to come, plus unexpired checkout holds (the same set
-/// CreateBookingCommand counts) — so the feed can never advertise a space the
-/// booking gate would refuse with a 409. Parkwo's own public free parkings
-/// (FreeParkingFacility) are merged into the same list as markers with
+/// Rider discovery, two modes in one endpoint:
+/// - no query: "parkings near me" — Verified lots within
+///   <see cref="NearbySettings.NearMeRadiusKm"/> of the supplied point (map
+///   pins). The radius is fixed server-side: nobody walks kilometres to park,
+///   and a rider who wants another area searches for it instead of widening
+///   the circle.
+/// - with query: name/address search — the point is used only to measure
+///   distance and break ties, never to filter, so a rider in Boudha can find a
+///   lot in Durbarmarg. Both sides normalise (lowercase, spaces removed) so
+///   "Durbarmarg" finds "Durbar Marg" — see <see cref="FacilityTextSearch"/>.
+/// Both modes keep the vehicleType filter, subtract every live booking — the
+/// stay in progress or one still to come, plus unexpired checkout holds (the
+/// same set CreateBookingCommand counts) — so the feed can never advertise a
+/// space the booking gate would refuse with a 409. Parkwo's own public free
+/// parkings (FreeParkingFacility) are merged into the same list as markers with
 /// IsFree = true and a zero price; they are never bookable, so no availability
 /// math applies to them.
 /// </summary>
 public sealed record GetNearbyFacilitiesQuery(
     double Latitude,
     double Longitude,
-    double? RadiusKm,
-    VehicleTypeEnum? VehicleType)
+    VehicleTypeEnum? VehicleType,
+    string? Query)
     : IRequestResult<GetNearbyFacilitiesQuery, GetNearbyFacilitiesResponse>;
 
 public sealed class GetNearbyFacilitiesQueryHandler(
     IApplicationDbContext context,
     ICurrentUserService currentUser,
     IImageUrlResolver imageUrls,
-    IOptions<ParkwoPricingSettings> pricingSettings)
+    IOptions<ParkwoPricingSettings> pricingSettings,
+    IOptions<NearbySettings> nearbySettings)
     : IRequestResultHandler<GetNearbyFacilitiesQuery, GetNearbyFacilitiesResponse>
 {
     private const int MaxResults = 50;
@@ -47,8 +54,20 @@ public sealed class GetNearbyFacilitiesQueryHandler(
         if (userId is null)
             return Result<GetNearbyFacilitiesResponse>.Failure("Authentication required.", 401);
 
-        var radiusMeters = (request.RadiusKm ?? GetNearbyFacilitiesQueryValidator.DefaultRadiusKm) * 1000;
+        // Search mode is decided by the text, not by the map: when a term is
+        // present the position drops to a distance calculator (and tie-breaker)
+        // so the match is found wherever the facility is.
+        string? searchTerm = null;
+        if (FacilityTextSearch.HasQuery(request.Query))
+            searchTerm = FacilityTextSearch.Normalize(request.Query!);
+
         var origin = new Point(request.Longitude, request.Latitude) { SRID = 4326 };
+
+        // A zero or negative radius would silently empty the map, so a bad
+        // config value falls back to the shipped default instead of hiding
+        // every pin (the handler is the only place this setting is read).
+        var configuredRadiusKm = nearbySettings.Value.NearMeRadiusKm;
+        var radiusMeters = (configuredRadiusKm > 0 ? configuredRadiusKm : NearbySettings.DefaultNearMeRadiusKm) * 1000;
 
         // The price shown is Parkwo's own rate (providers never price their
         // spaces), projected as constants so it is not translated to SQL.
@@ -58,8 +77,22 @@ public sealed class GetNearbyFacilitiesQueryHandler(
         var query = context.ParkingFacilities
             .AsNoTracking()
             .Where(f => f.ApprovalStatus == ApprovalStatusEnum.Verified
-                        && f.Location != null
-                        && f.Location.IsWithinDistance(origin, radiusMeters));
+                        && f.Location != null);
+
+        if (searchTerm is not null)
+        {
+            // Normalised on both sides, so the SQL "lower/replace" must stay in
+            // step with FacilityTextSearch.Normalize. EF renders Contains as a
+            // LIKE pattern and escapes the term itself, so a rider's "%" or "_"
+            // stays a character rather than becoming a wildcard.
+            var term = searchTerm;
+            query = query.Where(f => f.Name.ToLower().Replace(" ", "").Contains(term)
+                                     || f.Address.ToLower().Replace(" ", "").Contains(term));
+        }
+        else
+        {
+            query = query.Where(f => f.Location!.IsWithinDistance(origin, radiusMeters));
+        }
 
         if (request.VehicleType.HasValue)
         {
@@ -71,30 +104,37 @@ public sealed class GetNearbyFacilitiesQueryHandler(
             };
         }
 
-        var rows = await query
-            .OrderBy(f => f.Location!.Distance(origin))
-            .Take(MaxResults)
-            .Select(f => new
-            {
-                f.Id,
-                f.Name,
-                f.Address,
-                f.Latitude,
-                f.Longitude,
-                DistanceRaw = f.Location!.Distance(origin),
-                f.ApprovalStatus,
-                f.AverageRating,
-                f.RatingCount,
-                ImageCount = f.Images.Count,
-                FirstImageUrl = f.Images
-                    .OrderBy(i => i.SortOrder)
-                    .Select(i => i.Url)
-                    .FirstOrDefault(),
-                f.HasMarkedParkingLot,
-                f.TwoWheelerOccupancy,
-                f.FourWheelerOccupancy
-            })
-            .ToListAsync(cancellationToken);
+        var paidProjection = query.Select(f => new
+        {
+            f.Id,
+            f.Name,
+            f.Address,
+            f.Latitude,
+            f.Longitude,
+            DistanceRaw = f.Location!.Distance(origin),
+            f.ApprovalStatus,
+            f.AverageRating,
+            f.RatingCount,
+            ImageCount = f.Images.Count,
+            FirstImageUrl = f.Images
+                .OrderBy(i => i.SortOrder)
+                .Select(i => i.Url)
+                .FirstOrDefault(),
+            f.HasMarkedParkingLot,
+            f.TwoWheelerOccupancy,
+            f.FourWheelerOccupancy
+        });
+
+        // Near me: the ring is small, so SQL can take the nearest 50. Search:
+        // match quality must beat distance, and the term already bounds the
+        // candidate set (facilities are hand-verified, so it is small) — order
+        // in memory after the fetch.
+        var rows = searchTerm is null
+            ? await paidProjection
+                .OrderBy(f => f.DistanceRaw)
+                .Take(MaxResults)
+                .ToListAsync(cancellationToken)
+            : await paidProjection.ToListAsync(cancellationToken);
 
         // Parkwo's own free parkings: markers only, so the type filter is "does
         // it declare capacity for this type" — a null count means unknown, which
@@ -103,43 +143,60 @@ public sealed class GetNearbyFacilitiesQueryHandler(
             .AsNoTracking()
             .Where(f => f.IsActive
                         && !f.IsDeleted
-                        && f.Location != null
-                        && f.Location.IsWithinDistance(origin, radiusMeters));
+                        && f.Location != null);
+
+        if (searchTerm is not null)
+        {
+            var term = searchTerm;
+            freeQuery = freeQuery.Where(f => f.Name.ToLower().Replace(" ", "").Contains(term)
+                                             || f.Address.ToLower().Replace(" ", "").Contains(term));
+        }
+        else
+        {
+            freeQuery = freeQuery.Where(f => f.Location!.IsWithinDistance(origin, radiusMeters));
+        }
 
         if (request.VehicleType == VehicleTypeEnum.TwoWheeler)
             freeQuery = freeQuery.Where(f => f.TwoWheelerOccupancy == null || f.TwoWheelerOccupancy > 0);
         else if (request.VehicleType == VehicleTypeEnum.FourWheeler)
             freeQuery = freeQuery.Where(f => f.FourWheelerOccupancy == null || f.FourWheelerOccupancy > 0);
 
-        var freeRows = await freeQuery
-            .OrderBy(f => f.Location!.Distance(origin))
-            .Take(MaxResults)
-            .Select(f => new
-            {
-                f.Id,
-                f.Name,
-                f.Address,
-                f.Latitude,
-                f.Longitude,
-                DistanceRaw = f.Location!.Distance(origin),
-                ImageCount = f.Images.Count,
-                FirstImageUrl = f.Images
-                    .OrderBy(i => i.SortOrder)
-                    .Select(i => i.Url)
-                    .FirstOrDefault(),
-                f.TwoWheelerOccupancy,
-                f.FourWheelerOccupancy
-            })
-            .ToListAsync(cancellationToken);
+        var freeProjection = freeQuery.Select(f => new
+        {
+            f.Id,
+            f.Name,
+            f.Address,
+            f.Latitude,
+            f.Longitude,
+            DistanceRaw = f.Location!.Distance(origin),
+            ImageCount = f.Images.Count,
+            FirstImageUrl = f.Images
+                .OrderBy(i => i.SortOrder)
+                .Select(i => i.Url)
+                .FirstOrDefault(),
+            f.TwoWheelerOccupancy,
+            f.FourWheelerOccupancy
+        });
+
+        var freeRows = searchTerm is null
+            ? await freeProjection
+                .OrderBy(f => f.DistanceRaw)
+                .Take(MaxResults)
+                .ToListAsync(cancellationToken)
+            : await freeProjection.ToListAsync(cancellationToken);
 
         // Every space already spoken for is subtracted from what this feed
-        // advertises — a paid booking (stay in progress or still to come) and an
-        // unexpired checkout hold, the same set CreateBookingCommand counts, so
-        // the list and the booking gate agree.
+        // advertises — a paid booking that overlaps the pin's window (the stay
+        // in progress, or one starting within the hour) and an unexpired
+        // checkout hold, the same set CreateBookingCommand counts, so the list
+        // and the booking gate agree. Future-only bookings are ignored: a stay
+        // at 8 PM must not hide a lot that is free at 3 PM.
         var now = DateTimeOffset.UtcNow;
+        var window = AvailabilityWindows.StartingNow(now);
         var takenSpaces = await FacilityAvailability.LoadTakenSpacesAsync(
             context,
             rows.Select(r => r.Id).ToList(),
+            window,
             now,
             cancellationToken);
 
@@ -151,7 +208,7 @@ public sealed class GetNearbyFacilitiesQueryHandler(
                 var fourWheelerAvailable = FacilityAvailability.Available(
                     f.FourWheelerOccupancy, takenSpaces, f.Id, VehicleTypeEnum.FourWheeler);
 
-                return new NearbyFacilityItemResponse(
+                var item = new NearbyFacilityItemResponse(
                     f.Id,
                     f.Name,
                     f.Address,
@@ -172,45 +229,59 @@ public sealed class GetNearbyFacilitiesQueryHandler(
                     f.FourWheelerOccupancy,
                     fourWheelerRate,
                     false);
+
+                var rank = searchTerm is null ? 0 : FacilityTextSearch.Rank(f.Name, searchTerm);
+                return (Item: item, Rank: rank);
             })
             // "Available spaces near me": drop paid lots whose remaining count
             // for the requested type has hit zero. They still appear in the
             // plain "parkings near me" mode (no vehicleType) as map pins.
             .Where(f => request.VehicleType is null
                         || (request.VehicleType == VehicleTypeEnum.TwoWheeler
-                            ? f.TwoWheelerAvailable > 0
-                            : f.FourWheelerAvailable > 0));
+                            ? f.Item.TwoWheelerAvailable > 0
+                            : f.Item.FourWheelerAvailable > 0));
 
         // Free parkings carry no provider, no approval and no bookings. The
         // approval/rating fields are placeholders the app should ignore when
         // IsFree is true; price is 0 and "available" mirrors the declared count.
         var freeItems = freeRows
-            .Select(f => new NearbyFacilityItemResponse(
-                f.Id,
-                f.Name,
-                f.Address,
-                f.Latitude,
-                f.Longitude,
-                (int)Math.Round(f.DistanceRaw),
-                ApprovalStatusEnum.Verified,
-                ApprovalStatusEnum.Verified.ToDescription(),
-                0d,
-                0,
-                f.ImageCount,
-                imageUrls.Resolve(f.FirstImageUrl),
-                false,
-                f.TwoWheelerOccupancy ?? 0,
-                f.TwoWheelerOccupancy ?? 0,
-                0m,
-                f.FourWheelerOccupancy ?? 0,
-                f.FourWheelerOccupancy ?? 0,
-                0m,
-                true));
+            .Select(f =>
+            {
+                var item = new NearbyFacilityItemResponse(
+                    f.Id,
+                    f.Name,
+                    f.Address,
+                    f.Latitude,
+                    f.Longitude,
+                    (int)Math.Round(f.DistanceRaw),
+                    ApprovalStatusEnum.Verified,
+                    ApprovalStatusEnum.Verified.ToDescription(),
+                    0d,
+                    0,
+                    f.ImageCount,
+                    imageUrls.Resolve(f.FirstImageUrl),
+                    false,
+                    f.TwoWheelerOccupancy ?? 0,
+                    f.TwoWheelerOccupancy ?? 0,
+                    0m,
+                    f.FourWheelerOccupancy ?? 0,
+                    f.FourWheelerOccupancy ?? 0,
+                    0m,
+                    true);
 
+                var rank = searchTerm is null ? 0 : FacilityTextSearch.Rank(f.Name, searchTerm);
+                return (Item: item, Rank: rank);
+            });
+
+        // In "near me" every rank is 0, so this is the old nearest-first order.
+        // In search the best name match leads, address-only matches trail, and
+        // distance separates equals.
         var items = paidItems
             .Concat(freeItems)
-            .OrderBy(f => f.DistanceMeters)
+            .OrderBy(f => f.Rank)
+            .ThenBy(f => f.Item.DistanceMeters)
             .Take(MaxResults)
+            .Select(f => f.Item)
             .ToList();
 
         return Result<GetNearbyFacilitiesResponse>.Success(
