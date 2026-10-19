@@ -21,6 +21,7 @@
   <ItemGroup>
     <ProjectReference Include="..\ParkingApp.Domain\ParkingApp.Domain.csproj" />
     <ProjectReference Include="..\ParkingApp.Application\ParkingApp.Application.csproj" />
+    <ProjectReference Include="..\ParkingApp.Infrastructure\ParkingApp.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>
