@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using ParkingApp.Application.Common;
 using ParkingApp.Application.Common.Cqrs;
 using ParkingApp.Application.Common.Helpers;
@@ -13,6 +14,11 @@ namespace ParkingApp.Application.Staffs.Commands.Create;
 /// BackOffice-set facility and a generated password that is emailed to the
 /// staff member's address; <see cref="Staff.MustChangePassword"/> is left true,
 /// so the generated secret only ever opens the change-password screen.
+/// <para>
+/// The account is created whether or not the email goes out. A failed send is
+/// not an error to undo — it is the case the BackOffice "resend" button exists
+/// for, and the response says so in <see cref="CreateStaffResponse.PasswordEmailSent"/>.
+/// </para>
 /// </summary>
 public sealed record CreateStaffCommand(
     string FullName,
@@ -30,12 +36,20 @@ public sealed record CreateStaffResponse(
     string FullName,
     string Email,
     Guid FacilityId,
-    bool MustChangePassword);
+    bool MustChangePassword,
+    /// <summary>
+    /// False when the generated password could not be emailed. The account is
+    /// still created and usable — resend issues a fresh password. The client
+    /// shows the resend action on the strength of this plus
+    /// <see cref="MustChangePassword"/>.
+    /// </summary>
+    bool PasswordEmailSent);
 
 public sealed class CreateStaffCommandHandler(
     IApplicationDbContext context,
     IPasswordHasher passwordHasher,
     IEmailSender emailSender,
+    ILogger<CreateStaffCommandHandler> logger,
     ICurrentUserService currentUser)
     : IRequestResultHandler<CreateStaffCommand, CreateStaffResponse>
 {
@@ -72,29 +86,23 @@ public sealed class CreateStaffCommandHandler(
 
         staff.CreatedBy = currentUser.UserId;
 
-        // Deliver the secret before the row exists. The generated password is
-        // kept in no form other than its hash, so a delivery failure here has
-        // nothing to undo — the admin simply retries. Persisting first and
-        // emailing second would strand a staff account whose password nobody
-        // knows (only a reset would recover it), and this has no mail outbox to
-        // retry from: "created" has to mean "the password was delivered".
-        try
-        {
-            await emailSender.SendAsync(
-                staff.Email,
-                "Your Parkwo staff account",
-                StaffEmailTemplates.Welcome(staff.FullName, staff.Email, password),
-                cancellationToken);
-        }
-        catch (Exception ex)
-        {
-            return Result<CreateStaffResponse>.Failure(
-                $"The password email could not be sent, so no staff account was created. {ex.Message}",
-                502);
-        }
-
+        // Persist first, then try to deliver. An undelivered password is NOT a
+        // reason to throw the account away: the row is what the BackOffice
+        // "resend" acts on, and recreating the same person from scratch would
+        // be refused as a duplicate email. So the account is created either way
+        // and a failed send is recovered by resending, which issues a fresh
+        // password rather than trying to recall the one that was lost (it is
+        // only ever held as a hash, so there is nothing to recall).
         context.Staffs.Add(staff);
         await context.SaveChangesAsync(cancellationToken);
+
+        var deliveryStatus = await StaffPasswordDelivery.SendAsync(
+            emailSender,
+            logger,
+            staff,
+            "Your Parkwo staff account",
+            StaffEmailTemplates.Welcome(staff.FullName, staff.Email, password),
+            cancellationToken);
 
         return Result<CreateStaffResponse>.Success(
             new CreateStaffResponse(
@@ -102,6 +110,7 @@ public sealed class CreateStaffCommandHandler(
                 staff.FullName,
                 staff.Email,
                 staff.FacilityId,
-                staff.MustChangePassword));
+                StaffPasswordDelivery.IsPasswordOutstanding(staff),
+                !StaffPasswordDelivery.IsFailed(deliveryStatus)));
     }
 }

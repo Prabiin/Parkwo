@@ -70,6 +70,7 @@ using ParkingApp.Application.StaffAuth.Commands.RefreshToken;
 using ParkingApp.Application.Staffs.Commands.Create;
 using ParkingApp.Application.Staffs.Commands.Delete;
 using ParkingApp.Application.Staffs.Commands.ResetPassword;
+using ParkingApp.Application.Staffs.Commands.ResendInvite;
 using ParkingApp.Application.Staffs.Commands.SetActive;
 using ParkingApp.Application.Staffs.Commands.Update;
 using ParkingApp.Application.Staffs.Queries.GetStaffById;
@@ -370,6 +371,7 @@ public static class DependencyInjection
         services.AddScoped<IRequestResultHandler<CreateStaffCommand, CreateStaffResponse>, CreateStaffCommandHandler>();
         services.AddScoped<IRequestResultHandler<UpdateStaffCommand, Unit>, UpdateStaffCommandHandler>();
         services.AddScoped<IRequestResultHandler<ResetStaffPasswordCommand, Unit>, ResetStaffPasswordCommandHandler>();
+        services.AddScoped<IRequestResultHandler<ResendStaffInviteCommand, Unit>, ResendStaffInviteCommandHandler>();
         services.AddScoped<IRequestResultHandler<SetStaffActiveCommand, Unit>, SetStaffActiveCommandHandler>();
         services.AddScoped<IRequestResultHandler<DeleteStaffCommand, Unit>, DeleteStaffCommandHandler>();
         services.AddScoped<IRequestResultHandler<GetStaffsQuery, GetStaffsResponse>, GetStaffsQueryHandler>();
