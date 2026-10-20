@@ -427,7 +427,38 @@ public static class DependencyInjection
         services.AddScoped<IStaffTokenService, StaffTokenService>();
         services.AddScoped<IPasswordHasher, PasswordHasher>();
         services.AddScoped<IOtpSender, ConsoleOtpSender>();
-        services.AddScoped<IEmailSender, ConsoleEmailSender>();
+
+        // Email delivery, config-gated the way Khalti is: with Email:Host and
+        // Email:From set the deployment sends real SMTP mail; with neither it
+        // falls back to the console sender, which only logs the message. The
+        // half-configured case is a mistake rather than a fallback and is
+        // rejected at startup — otherwise a server that had only been handed
+        // Email__Host would drop generated passwords back into the logs while
+        // looking configured, which is the silent failure this gate exists to
+        // make impossible.
+        var emailSettings = configuration.GetSection(EmailSettings.SectionName).Get<EmailSettings>()
+                            ?? new EmailSettings();
+
+        var emailHasHost = !string.IsNullOrWhiteSpace(emailSettings.Host);
+        var emailHasFrom = !string.IsNullOrWhiteSpace(emailSettings.From);
+
+        if (emailHasHost != emailHasFrom)
+        {
+            throw new InvalidOperationException(
+                "Email settings are incomplete: set both Email:Host and Email:From to deliver mail, " +
+                "or neither to fall back to the console sender.");
+        }
+
+        if (emailHasHost)
+        {
+            services.AddSingleton(emailSettings);
+            services.AddScoped<IEmailSender, SmtpEmailSender>();
+        }
+        else
+        {
+            services.AddScoped<IEmailSender, ConsoleEmailSender>();
+        }
+
         services.AddScoped<ICurrentUserService, CurrentUserService>();
         services.AddScoped<IFileStorage, MinioFileStorage>();
         services.AddScoped<IImageUrlResolver, MinioImageUrlResolver>();

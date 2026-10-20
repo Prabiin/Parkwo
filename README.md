@@ -4,6 +4,14 @@ A peer-to-peer parking marketplace API where users find parking spaces and land 
 
 ## Change Log
 
+### 2026-10-20 — Staff password emails actually send (config-gated SMTP)
+
+- **`IEmailSender` had only ever logged.** `ConsoleEmailSender` was registered unconditionally, so a staff member created on a deployed server got a `201` and never received the generated password — which, being stored only as a hash, was recoverable solely from the server's own logs (and, where `Elastic:Url` is set, from Elasticsearch). New `SmtpEmailSender` delivers over SMTP, selected by config in the same shape as Khalti: `Email:Host` **and** `Email:From` → SMTP; neither → the console sender (local development needs no mail server); exactly one of the two → **startup error**, because a half-configured server must not silently drop generated passwords back into the logs. Settings in `EmailSettings` (`Email__*` env vars, `SMTP_*` passthrough in compose).
+- **Both staff flows now email before they persist.** The generated password is the only copy of itself, so the ordering is the whole recovery story: send first and a failed delivery creates no account (502, admin retries) instead of an account nobody can sign into. `PUT /backoffice/staff/{id}/password` likewise leaves the existing password untouched when the new one cannot be sent, rather than rotating to a secret that was lost. Delivery failures return the relay's message — BackOffice-only endpoint, so it is safe to show.
+- `SmtpEmailSender` sends plain text, one message per call, and logs only recipient and subject; it carries its own timeout through the cancellation token, since `SmtpClient.Timeout` does not apply to the async send.
+- **Rider OTP unchanged.** The code already comes back as `devCode` on `POST /auth/send-otp` (`Otp:ExposeDevCode`, forced off outside Development) and SMS remains a paid integration for later. No email is involved in booking.
+- Build + tests pass (335, +3, covering the registration guard and both config branches).
+
 ### 2026-10-19 — Rider endpoints registered in DI; enum query params are numbers, not strings
 
 - **The three new rider queries are now actually registered.** `GetFacilityAvailabilityQueryHandler`, `GetBookingInitQueryHandler` and `GetPublicFacilityDetailQueryHandler` — and their three validators — were added without the hand-written `services.AddScoped` lines in `Infrastructure/DependencyInjection.cs`. They compiled and unit-tested green (tests build the handler directly), but every one of those endpoints 500'd at runtime with `No service for type 'IRequestResultHandler`2[…]' has been registered`. This repo registers handlers by hand rather than by assembly scan, which is exactly how it slipped through.
@@ -298,6 +306,24 @@ The walk-in desk is one flow on the same staff app: a rider arrives at a barrier
 2. Pay: `POST /walkins/{id}/pay` returns a gateway pay-URL the staff device shows as a dynamic QR; the rider scans it with any phone. If the webhook is slow, `POST /walkins/{id}/verify-payment` settles it on the staff member's visual confirmation (audited with who/when) and confirms the booking.
 3. Pass: `GET /walkins/{id}/pass` gives the staff device the **same signed pass** an app rider gets; the rider photographs it. `POST /gate/entry-exit` scans it in exactly like an app pass.
 4. Out — QR works: scan it as usual. QR fails (blurry, cracked, dead phone): `GET /walkins/lookup?facilityId=&phone=` searches **today's** walk-ins at this facility under that number and returns the full creation snapshot; staff match the plate, then `POST /walkins/{id}/exit` closes the stay with no scan at all. Either way the overstay snapshot comes from the same `Complete()`.
+
+### Hat 5 — Staff password email (SMTP), and why booking/OTP were never emailed
+
+Staff creation and password reset hand out a **generated password as the only copy of it** (the database holds just the hash). Until now nothing delivered it: `IEmailSender` had one implementation, `ConsoleEmailSender`, registered unconditionally, which logs the message and returns. A staff member created on a deployed server was therefore created successfully and never told their password — recoverable only by reading the server's own logs.
+
+That is now a configuration choice, the same shape as Khalti:
+
+| Setting | Effect |
+| --- | --- |
+| `Email:Host` + `Email:From` set | `SmtpEmailSender` — real delivery over SMTP |
+| Neither set (default) | `ConsoleEmailSender` — logs the message; local development needs no mail server |
+| Only one of the two | **startup error** — a half-configured server must not quietly move generated passwords back into the logs |
+
+`SMTP_USERNAME` may be left empty for a relay that does not authenticate. `Email:EnableSsl` defaults to `true` (STARTTLS) and should stay on for any hosted relay.
+
+Both flows now **send before they persist**. The emailed secret exists nowhere else, so order decides what a failed delivery leaves behind: emailing first means a failure creates no staff row at all (502, admin retries, nothing orphaned), whereas saving first would leave an account whose password nobody knows and only a reset could rescue. Delivery errors surface as `502` with the relay's own message, so a wrong app password is diagnosable from the response instead of only from logs. The provider error text is shown only because this endpoint is BackOffice-only.
+
+Both sides were already real for OTP and are unchanged: rider OTP is returned in the `send-otp` response as `devCode` (gated on `Otp:ExposeDevCode`, forced off outside Development), and SMS stays a paid integration for later — the console OTP sender logs the code. No email was ever involved in booking.
 5. Overstay: `POST /walkins/{id}/overstay-pay` + `POST /walkins/{id}/verify-overstay` settle it on the staff device, since the rider has no account to pay from.
 
 ### Rules that must not break
@@ -974,7 +1000,7 @@ Use the `ParkingApp.http` file or Postman:
 - [ ] **Set up Git + GitHub** — repo is not under version control yet; two GitHub accounts on this machine (office + personal) → set up SSH keys + `~/.ssh/config`, `git init`, add `.gitignore`, push to GitHub (Render deploys from GitHub).
 - [ ] **Free Postgres with PostGIS** (hosted DB has no 30-day expiry) — Supabase or Neon free tier; Project connection string once created.
 - [ ] **Apply migrations to hosted DB** — `dotnet ef database update` against the hosted connection string.
-- [ ] **Deploy API to Render** (free web service) — env vars via `ConnectionStrings__DefaultConnection`, `Jwt__Secret`, `Jwt__Issuer`, `Jwt__Audience`; confirm app listens on Render's `PORT`.
+- [ ] **Deploy API to Render** (free web service) — env vars via `ConnectionStrings__DefaultConnection`, `Jwt__Secret`, `Jwt__Issuer`, `Jwt__Audience`; confirm app listens on Render's `PORT`. Add `Email__Host`, `Email__Port`, `Email__UserName`, `Email__Password`, `Email__From` (all but the from-address are given by the mail provider; the from-address must be one those credentials may send as) so staff passwords are actually delivered — with none of them set, generated passwords go to the Render log stream instead of an inbox. `Otp__ExposeDevCode` stays off outside Development on purpose.
 - [ ] **Keep-alive monitor** — free UptimeRobot ping every ~10 min (avoids the 15-min idle + cold-start lag for the mobile team).
 - [ ] Global error handling middleware
 - [ ] Production JWT secret management (env var, never committed)
@@ -983,7 +1009,7 @@ Use the `ParkingApp.http` file or Postman:
 ### Phase 1 — Auth & profile
 
 - [ ] User profile endpoints (get / update profile)
-- [ ] Real SMS/email OTP sender (Integration behind `IOtpSender`)
+- [ ] Real SMS/email OTP sender (Integration behind `IOtpSender`; email delivery itself is done — `SmtpEmailSender`, see Hat 5)
 - [ ] Rate limiting (OTP resend/verify abuse)
 
 ### Phase 2 — Parking spaces (landlord)

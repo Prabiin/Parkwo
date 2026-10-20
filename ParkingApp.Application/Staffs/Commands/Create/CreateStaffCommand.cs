@@ -72,14 +72,29 @@ public sealed class CreateStaffCommandHandler(
 
         staff.CreatedBy = currentUser.UserId;
 
+        // Deliver the secret before the row exists. The generated password is
+        // kept in no form other than its hash, so a delivery failure here has
+        // nothing to undo — the admin simply retries. Persisting first and
+        // emailing second would strand a staff account whose password nobody
+        // knows (only a reset would recover it), and this has no mail outbox to
+        // retry from: "created" has to mean "the password was delivered".
+        try
+        {
+            await emailSender.SendAsync(
+                staff.Email,
+                "Your Parkwo staff account",
+                StaffEmailTemplates.Welcome(staff.FullName, staff.Email, password),
+                cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            return Result<CreateStaffResponse>.Failure(
+                $"The password email could not be sent, so no staff account was created. {ex.Message}",
+                502);
+        }
+
         context.Staffs.Add(staff);
         await context.SaveChangesAsync(cancellationToken);
-
-        await emailSender.SendAsync(
-            staff.Email,
-            "Your Parkwo staff account",
-            StaffEmailTemplates.Welcome(staff.FullName, staff.Email, password),
-            cancellationToken);
 
         return Result<CreateStaffResponse>.Success(
             new CreateStaffResponse(
