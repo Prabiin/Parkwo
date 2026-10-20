@@ -430,39 +430,98 @@ public static class DependencyInjection
         services.AddScoped<IPasswordHasher, PasswordHasher>();
         services.AddScoped<IOtpSender, ConsoleOtpSender>();
 
-        // Email delivery, config-gated the way Khalti is: with Email:Host and
-        // Email:From set the deployment sends real SMTP mail; with neither it
-        // falls back to the console sender, which only logs the message. The
-        // half-configured case is a mistake rather than a fallback and is
-        // rejected at startup — otherwise a server that had only been handed
-        // Email__Host would drop generated passwords back into the logs while
-        // looking configured, which is the silent failure this gate exists to
-        // make impossible.
+        // Email delivery, config-gated the way Khalti is. Email:Provider picks
+        // the transport — "Resend" for the HTTP API, "Smtp" for a relay — and
+        // with none set the console sender only logs the message. The
+        // half-configured cases are mistakes rather than fallbacks and are
+        // rejected at startup: a server handed an API key but no provider, or a
+        // provider but no From, would either drop generated passwords back into
+        // the logs while looking configured, or fail every send at the first
+        // request. Both are the silent failure this gate exists to make
+        // impossible, and both are cheap to catch here.
         var emailSettings = configuration.GetSection(EmailSettings.SectionName).Get<EmailSettings>()
                             ?? new EmailSettings();
 
-        var emailHasHost = !string.IsNullOrWhiteSpace(emailSettings.Host);
-        var emailHasFrom = !string.IsNullOrWhiteSpace(emailSettings.From);
+        var provider = emailSettings.Provider.Trim();
 
-        if (emailHasHost != emailHasFrom)
+        // No provider but SMTP fields set is the pre-existing shape: the
+        // original gate keyed off Email:Host alone, so treating a bare Host as
+        // "Smtp" keeps an already-deployed configuration working rather than
+        // silently demoting it to console logs.
+        if (provider.Length == 0 && !string.IsNullOrWhiteSpace(emailSettings.Host))
         {
-            throw new InvalidOperationException(
-                "Email settings are incomplete: set both Email:Host and Email:From to deliver mail, " +
-                "or neither to fall back to the console sender.");
+            provider = EmailProvider.Smtp;
         }
 
-        if (emailHasHost)
+        if (provider.Length == 0)
         {
+            // A From address with no provider is a half-finished setup, not a
+            // deployment that deliberately chose logging.
+            if (!string.IsNullOrWhiteSpace(emailSettings.From))
+            {
+                throw new InvalidOperationException(
+                    "Email settings are incomplete: Email:From is set but Email:Provider is not. " +
+                    "Set Email:Provider to 'Resend' or 'Smtp', or clear the Email section to use the console sender.");
+            }
+
+            services.AddScoped<IEmailSender, ConsoleEmailSender>();
+        }
+        else if (EmailProvider.IsResend(provider))
+        {
+            RequireSetting(emailSettings.From, "Email:From");
+            RequireSetting(emailSettings.ApiKey, "Email:ApiKey");
+
+            services.AddSingleton(emailSettings);
+            services.AddScoped<IEmailSender, ResendEmailSender>();
+        }
+        else if (EmailProvider.IsSmtp(provider))
+        {
+            RequireSetting(emailSettings.From, "Email:From");
+            RequireSetting(emailSettings.Host, "Email:Host");
+
             services.AddSingleton(emailSettings);
             services.AddScoped<IEmailSender, SmtpEmailSender>();
         }
         else
         {
-            services.AddScoped<IEmailSender, ConsoleEmailSender>();
+            throw new InvalidOperationException(
+                $"Email:Provider '{provider}' is not recognised. Use 'Resend' or 'Smtp', " +
+                "or clear the Email section to fall back to the console sender.");
         }
 
         services.AddScoped<ICurrentUserService, CurrentUserService>();
         services.AddScoped<IFileStorage, MinioFileStorage>();
         services.AddScoped<IImageUrlResolver, MinioImageUrlResolver>();
     }
+
+    /// <summary>
+    /// Rejects a blank setting that the chosen provider cannot work without.
+    /// Only reached once a provider is selected, so it is the difference
+    /// between a clear startup error and a first send that fails with
+    /// something unhelpful — or, for From, a message rejected by the provider
+    /// after the staff row was already created.
+    /// </summary>
+    private static void RequireSetting(string value, string name)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            throw new InvalidOperationException(
+                $"Email settings are incomplete: {name} is required for the configured provider.");
+    }
+}
+
+/// <summary>
+/// The recognised <see cref="EmailSettings.Provider"/> values, compared
+/// case-insensitively so an operator writing <c>resend</c> is not punished for
+/// it. Kept beside the gate so the accepted names live in one place.
+/// </summary>
+internal static class EmailProvider
+{
+    public const string Resend = "Resend";
+    public const string Smtp = "Smtp";
+
+    public static bool IsResend(string provider)
+        => string.Equals(provider, Resend, StringComparison.OrdinalIgnoreCase);
+
+    public static bool IsSmtp(string provider)
+        => string.Equals(provider, Smtp, StringComparison.OrdinalIgnoreCase);
 }
