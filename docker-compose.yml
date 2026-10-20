@@ -119,6 +119,19 @@ services:
       # prepaid return handler that moves a finished booking.
       - Khalti__OverstayReturnUrl=${KHALTI_OVERSTAY_RETURN_URL:-http://localhost:8080/payments/khalti/overstay/return}
       - Khalti__WebsiteUrl=${KHALTI_WEBSITE_URL:-http://localhost:8080}
+      # Staff password email. Left empty by default, which selects the console
+      # sender: the generated password is logged instead of posted, so an
+      # unconfigured box keeps working for development and stays visibly
+      # undelivered. Set SMTP_HOST and SMTP_FROM (both — half the pair is a
+      # startup error, not a fallback) plus credentials to deliver for real.
+      - Email__Host=${SMTP_HOST:-}
+      - Email__Port=${SMTP_PORT:-587}
+      - Email__UserName=${SMTP_USERNAME:-}
+      - Email__Password=${SMTP_PASSWORD:-}
+      - Email__From=${SMTP_FROM:-}
+      - Email__FromName=${SMTP_FROM_NAME:-Parkwo}
+      - Email__EnableSsl=${SMTP_ENABLE_SSL:-true}
+      - Email__TimeoutSeconds=${SMTP_TIMEOUT_SECONDS:-15}
       - Elastic__Url=http://elasticsearch:9200
     ports:
       - "8080:8080"

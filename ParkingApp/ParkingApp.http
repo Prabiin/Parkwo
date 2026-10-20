@@ -305,6 +305,43 @@ Authorization: Bearer paste-backoffice-token-here
 GET {{ParkingApp_HostAddress}}/backoffice/facilities/paste-facility-id-here
 Authorization: Bearer paste-backoffice-token-here
 
+### BackOffice: create a staff member (emails a generated password; the account is created either way)
+### The response's passwordEmailSent=false means the mail did not go out - press Resend Invite below.
+POST {{ParkingApp_HostAddress}}/backoffice/staff
+Content-Type: application/json
+Authorization: Bearer paste-backoffice-token-here
+
+{
+  "fullName": "Ram Bahadur",
+  "phoneNumber": "9800000000",
+  "email": "ram@example.com",
+  "dateOfBirth": "1998-06-15",
+  "gender": 1,
+  "deviceName": "Redmi Note 12",
+  "deviceBrand": "Xiaomi",
+  "facilityId": "paste-facility-id-here"
+}
+
+### BackOffice: staff list (optional ?facilityId= &search= &status=all|active|inactive)
+### mustChangePassword=true on a row = the invite is still outstanding, so the UI shows Resend Invite.
+### It flips to false on the first login, once the staff member sets their own password.
+GET {{ParkingApp_HostAddress}}/backoffice/staff?status=all
+Authorization: Bearer paste-backoffice-token-here
+
+### BackOffice: staff detail (mustChangePassword drives the Resend Invite button)
+GET {{ParkingApp_HostAddress}}/backoffice/staff/paste-staff-id-here
+Authorization: Bearer paste-backoffice-token-here
+
+### BackOffice: Resend Invite - the email never arrived
+### Generates a NEW password (the original is only stored as a hash, so it cannot be re-sent) and emails it.
+### 409 once the staff member has set their own password - use the reset below instead.
+PUT {{ParkingApp_HostAddress}}/backoffice/staff/paste-staff-id-here/resend-invite
+Authorization: Bearer paste-backoffice-token-here
+
+### BackOffice: reset a password (staff member lost it; rotates + re-forces the change)
+PUT {{ParkingApp_HostAddress}}/backoffice/staff/paste-staff-id-here/password
+Authorization: Bearer paste-backoffice-token-here
+
 ### Upload facility images (optional, MinIO-backed; more images = faster compliance review)
 # NOTE: set Content-Type: multipart/form-data with file fields named "files" (REST Client sends files via $file variables in .http files)
 POST {{ParkingApp_HostAddress}}/facilities/paste-facility-id-here/images

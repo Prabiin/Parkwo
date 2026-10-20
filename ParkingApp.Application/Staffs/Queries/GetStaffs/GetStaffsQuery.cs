@@ -48,7 +48,13 @@ public sealed record StaffListItem(
     string FacilityName,
     bool IsActive,
     DateTimeOffset? LastLoginAtUtc,
-    DateTimeOffset CreatedAtUtc);
+    DateTimeOffset CreatedAtUtc,
+    /// <summary>
+    /// True while the account is still on a Parkwo-generated password, i.e. the
+    /// staff member has never signed in and set their own. Drives the BackOffice
+    /// "resend invite" action, which is only offered while this is true.
+    /// </summary>
+    bool MustChangePassword);
 
 public sealed class GetStaffsQueryHandler(IApplicationDbContext context)
     : IRequestResultHandler<GetStaffsQuery, GetStaffsResponse>
@@ -99,7 +105,8 @@ public sealed class GetStaffsQueryHandler(IApplicationDbContext context)
                 FacilityName = s.Facility != null ? s.Facility.Name : string.Empty,
                 s.IsActive,
                 s.LastLoginAtUtc,
-                s.CreatedAtUtc
+                s.CreatedAtUtc,
+                s.MustChangePassword
             })
             .ToListAsync(cancellationToken);
 
@@ -118,7 +125,8 @@ public sealed class GetStaffsQueryHandler(IApplicationDbContext context)
                 s.FacilityName,
                 s.IsActive,
                 s.LastLoginAtUtc,
-                s.CreatedAtUtc))
+                s.CreatedAtUtc,
+                s.MustChangePassword))
             .ToList();
 
         return Result<GetStaffsResponse>.Success(new GetStaffsResponse(items));

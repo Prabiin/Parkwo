@@ -4,6 +4,7 @@ using ParkingApp.Application.Common.Cqrs;
 using ParkingApp.Application.Staffs.Commands.Create;
 using ParkingApp.Application.Staffs.Commands.Delete;
 using ParkingApp.Application.Staffs.Commands.ResetPassword;
+using ParkingApp.Application.Staffs.Commands.ResendInvite;
 using ParkingApp.Application.Staffs.Commands.SetActive;
 using ParkingApp.Application.Staffs.Commands.Update;
 using ParkingApp.Application.Staffs.Queries.GetStaffById;
@@ -31,6 +32,7 @@ public class BackOfficeStaffsApi : BackOfficeGroup
         group.MapGet("staff/{id}", Detail).RequireAuthorization(BackOfficePolicy);
         group.MapPut(Update, "staff/{id}", "").RequireAuthorization(BackOfficePolicy);
         group.MapPut(ResetPassword, "staff/{id}/password", "").RequireAuthorization(BackOfficePolicy);
+        group.MapPut(ResendInvite, "staff/{id}/resend-invite", "").RequireAuthorization(BackOfficePolicy);
         group.MapPut(SetActive, "staff/{id}/active", "").RequireAuthorization(BackOfficePolicy);
         group.MapDelete(Delete, "staff/{id}", "").RequireAuthorization(BackOfficePolicy);
     }
@@ -68,6 +70,18 @@ public class BackOfficeStaffsApi : BackOfficeGroup
         Guid id, CancellationToken cancellationToken)
         => await ExecuteCommand<ResetStaffPasswordCommand, Unit>(sender,
             new ResetStaffPasswordCommand(id), serviceProvider, cancellationToken);
+
+    /// <summary>
+    /// "Resend invite" — a distinct route from the reset above even though both
+    /// rotate the password. They mean different things to the operator (one is
+    /// "they never got it", the other "they lost it"), the client shows them at
+    /// different moments, and keeping them separate means the response can be
+    /// shaped for its own button without a flag deciding which behaviour ran.
+    /// </summary>
+    private static async Task<IResult> ResendInvite(ISender sender, IServiceProvider serviceProvider,
+        Guid id, CancellationToken cancellationToken)
+        => await ExecuteCommand<ResendStaffInviteCommand, Unit>(sender,
+            new ResendStaffInviteCommand(id), serviceProvider, cancellationToken);
 
     private static async Task<IResult> SetActive(ISender sender, IServiceProvider serviceProvider,
         Guid id, SetStaffActiveRequest request, CancellationToken cancellationToken)
