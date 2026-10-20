@@ -307,6 +307,7 @@ Authorization: Bearer paste-backoffice-token-here
 
 ### BackOffice: create a staff member (emails a generated password; the account is created either way)
 ### The response's passwordEmailSent=false means the mail did not go out - press Resend Invite below.
+### On Render this must be backed by Email__Provider=Resend (SMTP on 25/465/587 is blocked there).
 POST {{ParkingApp_HostAddress}}/backoffice/staff
 Content-Type: application/json
 Authorization: Bearer paste-backoffice-token-here
