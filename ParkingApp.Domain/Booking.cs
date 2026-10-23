@@ -62,7 +62,14 @@ public class Booking : AuditableEntity
 
     public decimal TotalAmountNpr { get; private set; }
 
-    /// <summary>Platform cut. Kept on the booking so settlement never has to re-derive it.</summary>
+    /// <summary>
+    /// Parkwo's cut of the rate, and the rest owed to the facility owner.
+    /// Internal settlement figures only. The rate the rider is quoted already
+    /// includes the payment gateway's cost, so neither number belongs in a
+    /// rider-facing response — exposing them invites the reader to add a fee to
+    /// a total that is already all-in. Kept on the row so settlement never has
+    /// to re-derive them.
+    /// </summary>
     public decimal PlatformFeeNpr { get; private set; }
 
     public decimal ProviderAmountNpr { get; private set; }

@@ -42,8 +42,6 @@ public sealed class GetBookingSummaryQueryHandler(
                 b.PricePerHourNpr,
                 b.BillableHours,
                 b.TotalAmountNpr,
-                b.PlatformFeeNpr,
-                b.ProviderAmountNpr,
                 b.VehicleType,
                 FacilityName = b.Facility != null ? b.Facility.Name : "",
                 VehicleName = b.Vehicle != null ? b.Vehicle.Name : "",
@@ -76,8 +74,6 @@ public sealed class GetBookingSummaryQueryHandler(
                 booking.PricePerHourNpr,
                 booking.BillableHours,
                 booking.TotalAmountNpr,
-                booking.PlatformFeeNpr,
-                booking.ProviderAmountNpr,
                 "NPR",
                 LocalTime.Format(booking.HoldExpiresAtUtc)));
     }

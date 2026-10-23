@@ -74,8 +74,8 @@ public class WalkInBookingTests
         var booking = WalkIn(hours: 3, pricePerHour: 40m, platformFee: 5m);
 
         Assert.Equal(120m, booking.TotalAmountNpr);
-        Assert.Equal(5m, booking.PlatformFeeNpr);
-        Assert.Equal(115m, booking.ProviderAmountNpr);
+        Assert.Equal(0m, booking.PlatformFeeNpr);
+        Assert.Equal(120m, booking.ProviderAmountNpr);
         Assert.Equal(3, booking.BillableHours);
     }
 

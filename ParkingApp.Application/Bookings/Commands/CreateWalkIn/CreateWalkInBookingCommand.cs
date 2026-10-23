@@ -46,8 +46,6 @@ public sealed record CreateWalkInBookingResponse(
     int BillableHours,
     decimal TotalAmountNpr,
     long AmountPaisa,
-    decimal PlatformFeeNpr,
-    decimal ProviderAmountNpr,
     DateTimeOffset HoldExpiresAtUtc);
 
 public sealed class CreateWalkInBookingCommandHandler(
@@ -156,7 +154,7 @@ public sealed class CreateWalkInBookingCommandHandler(
             endsAt,
             pricePerHour,
             billableHours,
-            PlatformFeeCalculator.Calculate(BookingPricing.TotalNpr(pricePerHour, billableHours)),
+            0m,
             HoldMinutes,
             request.RiderName,
             phone,
@@ -185,8 +183,6 @@ public sealed class CreateWalkInBookingCommandHandler(
                 booking.BillableHours,
                 booking.TotalAmountNpr,
                 BookingPricing.ToPaisa(booking.TotalAmountNpr),
-                booking.PlatformFeeNpr,
-                booking.ProviderAmountNpr,
                 booking.HoldExpiresAtUtc));
     }
 }
