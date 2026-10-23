@@ -18,7 +18,7 @@ public class WalkInBookingTests
     private static Booking WalkIn(
         int hours = 2,
         decimal pricePerHour = 40m,
-        decimal platformFee = 5m,
+        decimal platformFee = 0m,
         string plate = "BA 3 JA 1234")
         => Booking.CreateWalkIn(
             Facility,
@@ -27,7 +27,7 @@ public class WalkInBookingTests
             Start.AddHours(hours),
             pricePerHour,
             hours,
-            platformFee,
+            0m,
             10,
             "Ram Bahadur",
             "9800000000",
