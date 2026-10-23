@@ -4,6 +4,13 @@ A peer-to-peer parking marketplace API where users find parking spaces and land 
 
 ## Change Log
 
+### 2026-10-23 — Acknowledging a walk-in payment is the entry
+
+- **A walk-in no longer scans in.** The rider is standing at the barrier with the staff member who took the money, so `POST /walkins/{id}/verify-payment` now admits the vehicle: it records `EnteredAtUtc` against that staff member and starts the measured stay. Scanning the photographed pass on the way in was a second gate action that could only fail — a photo that would not read, a phone with no camera — at the one moment the rider had already parked.
+- **The paid window is re-anchored to the acknowledgement.** New `Booking.ActivateWalkIn` sets the entry timestamp and moves `EndsAtUtc` to entry + the hours the rider bought, so "two hours" is two hours of parking rather than two hours counted from when the desk started typing. The exit prices any overstay from the same anchor.
+- **The photographed QR is an exit pass.** `GET /walkins/{id}/pass` refuses a walk-in whose payment is settled but not yet acknowledged (`409`), because acknowledgement is what records entry; issuing it earlier would hand over a token the gate would read as an *entry*. App riders are unchanged — they still scan in and out.
+- No migration (no schema change). Build + tests pass (342, +3).
+
 ### 2026-10-20 — Email delivery moves to an HTTP API (Render blocks SMTP)
 
 - **SMTP does not work on Render, and no setting fixes it.** Render drops outbound traffic to ports **25, 465 and 587** on every plan, as an anti-spam policy with no opt-out. The failure is a silent packet drop rather than a rejection, so `SmtpClient` hangs in the TCP handshake until the timeout fires and reports `SmtpException: The operation has timed out` with a stack trace that never reaches TLS or authentication — visibly a hung relay or a bad credential, actually the platform refusing to carry the traffic. HTTPS on 443 is not blocked.
@@ -312,8 +319,8 @@ Gate staff are a **first-class identity**, not an app user: a `Staff` row create
 The walk-in desk is one flow on the same staff app: a rider arrives at a barrier without the app. Gate staff open a booking **for them** — no sign-up, no synthetic account. The booking is a real reservation (same hold, same availability gate, same pass, same overstay math as an app booking); only its owner columns are empty, with the rider's name/phone/plate kept as unverified snapshots.
 
 1. Open: `POST /walkins` (vehicle type, hours, rider name, phone **and plate** — all required) → an unpaid `PendingPayment` hold via the shared SERIALIZABLE availability gate.
-2. Pay: `POST /walkins/{id}/pay` returns a gateway pay-URL the staff device shows as a dynamic QR; the rider scans it with any phone. If the webhook is slow, `POST /walkins/{id}/verify-payment` settles it on the staff member's visual confirmation (audited with who/when) and confirms the booking.
-3. Pass: `GET /walkins/{id}/pass` gives the staff device the **same signed pass** an app rider gets; the rider photographs it. `POST /gate/entry-exit` scans it in exactly like an app pass.
+2. Pay: `POST /walkins/{id}/pay` returns a gateway pay-URL the staff device shows as a dynamic QR; the rider scans it with any phone. If the webhook is slow, `POST /walkins/{id}/verify-payment` settles it on the staff member's visual confirmation (audited with who/when), **admits the vehicle and starts the paid clock** — the rider is already at the barrier, so the acknowledgement *is* the entry.
+3. Pass: `GET /walkins/{id}/pass` gives the staff device the **same signed pass** an app rider gets, issued **after** entry is recorded, so it is an **exit** pass only; the rider photographs it and shows it on the way out.
 4. Out — QR works: scan it as usual. QR fails (blurry, cracked, dead phone): `GET /walkins/lookup?facilityId=&phone=` searches **today's** walk-ins at this facility under that number and returns the full creation snapshot; staff match the plate, then `POST /walkins/{id}/exit` closes the stay with no scan at all. Either way the overstay snapshot comes from the same `Complete()`.
 
 ### Hat 5 — Staff password email, and why booking/OTP were never emailed
@@ -996,8 +1003,8 @@ Use the `ParkingApp.http` file or Postman:
 
 **Walk-in desk flow** (staff device, app-user token for a provider owner / org Monitor-Admin-Owner; every call is facility-scoped):
 1. Open a hold: `POST /walkins` `{ facilityId, vehicleType: 1, hours: 2, riderName: "Ram Bahadur", phoneNumber: "9800000000", plateNumber: "BA 3 JA 1234" }` → a `PendingPayment` booking with the snapshotted amount. No account is created.
-2. Take payment: `POST /walkins/{bookingId}/pay` `{ facilityId, gateway: 1 }` → `payload` is the gateway pay-URL; render it as a QR for the rider to scan. If the callback lags: `POST /walkins/{bookingId}/verify-payment` `{ facilityId }` (records who confirmed).
-3. Issue the pass: `GET /walkins/{bookingId}/pass` → `passToken`; show it to the rider to photograph. Entry/exit then use `POST /gate/entry-exit` unchanged.
+2. Take payment: `POST /walkins/{bookingId}/pay` `{ facilityId, gateway: 1 }` → `payload` is the gateway pay-URL; render it as a QR for the rider to scan. If the callback lags: `POST /walkins/{bookingId}/verify-payment` `{ facilityId }` — this records who confirmed, admits the vehicle, and fixes the entry timestamp the stay is measured from. There is no separate entry scan.
+3. Issue the exit pass, **after** step 2: `GET /walkins/{bookingId}/pass` → `passToken`; show it to the rider to photograph and keep for the way out. It is refused while the booking is merely `Confirmed`, because entry has not been recorded yet.
 4. Exit without a readable QR: `GET /walkins/lookup?facilityId=<id>&phone=9800000000` → returns today's Active walk-in(s) at that facility under the number, each with the full creation snapshot. Match the `plateNumber` against the vehicle, then `POST /walkins/{bookingId}/exit` `{ facilityId }`; the response carries the overstay snapshot. No scan needed.
 5. Settle an overstay: `POST /walkins/{bookingId}/overstay-pay` `{ facilityId, gateway: 1 }` for the QR, then `POST /walkins/{bookingId}/verify-overstay` `{ facilityId }` if the callback lags.
 6. Staff board: `GET /walkins?facilityId=<id>` (all), `?status=1` (unpaid holds), `?status=3` (still parked).

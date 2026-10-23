@@ -17,8 +17,6 @@ public record GetBookingByIdResponse(
     decimal PricePerHourNpr,
     int BillableHours,
     decimal TotalAmountNpr,
-    decimal PlatformFeeNpr,
-    decimal ProviderAmountNpr,
     DateTimeOffset HoldExpiresAtUtc,
     DateTimeOffset? ConfirmedAtUtc,
     DateTimeOffset? CancelledAtUtc,

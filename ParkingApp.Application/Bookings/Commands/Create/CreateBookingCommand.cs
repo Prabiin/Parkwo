@@ -172,7 +172,7 @@ public sealed class CreateBookingCommandHandler(
             request.EndsAtUtc,
             pricePerHour,
             billableHours,
-            PlatformFeeCalculator.Calculate(BookingPricing.TotalNpr(pricePerHour, billableHours)),
+            0m,
             HoldMinutes);
 
         context.Bookings.Add(booking);
@@ -196,8 +196,6 @@ public sealed class CreateBookingCommandHandler(
                 booking.BillableHours,
                 booking.TotalAmountNpr,
                 BookingPricing.ToPaisa(booking.TotalAmountNpr),
-                booking.PlatformFeeNpr,
-                booking.ProviderAmountNpr,
                 booking.HoldExpiresAtUtc));
     }
 }

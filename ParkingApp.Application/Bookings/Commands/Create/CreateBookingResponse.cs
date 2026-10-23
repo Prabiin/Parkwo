@@ -19,6 +19,4 @@ public record CreateBookingResponse(
     int BillableHours,
     decimal TotalAmountNpr,
     long AmountPaisa,
-    decimal PlatformFeeNpr,
-    decimal ProviderAmountNpr,
     DateTimeOffset HoldExpiresAtUtc);

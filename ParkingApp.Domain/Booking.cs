@@ -62,7 +62,14 @@ public class Booking : AuditableEntity
 
     public decimal TotalAmountNpr { get; private set; }
 
-    /// <summary>Platform cut. Kept on the booking so settlement never has to re-derive it.</summary>
+    /// <summary>
+    /// Parkwo's cut of the rate, and the rest owed to the facility owner.
+    /// Internal settlement figures only. The rate the rider is quoted already
+    /// includes the payment gateway's cost, so neither number belongs in a
+    /// rider-facing response — exposing them invites the reader to add a fee to
+    /// a total that is already all-in. Kept on the row so settlement never has
+    /// to re-derive them.
+    /// </summary>
     public decimal PlatformFeeNpr { get; private set; }
 
     public decimal ProviderAmountNpr { get; private set; }
@@ -273,6 +280,21 @@ public class Booking : AuditableEntity
         Status = BookingStatusEnum.Active;
         EnteredAtUtc = enteredAtUtc;
         EnteredByStaffId = scannedByStaffId;
+        UpdatedAtUtc = DateTimeOffset.UtcNow;
+    }
+
+    /// <summary>
+    /// Admits a walk-in at the moment its payment is acknowledged. A walk-in is
+    /// already standing at the barrier with the staff member who took the money,
+    /// so there is no second scan to wait for: acknowledging the payment is the
+    /// entry. The paid window is re-anchored here so "two hours" means two hours
+    /// of parking, not two hours counted from when the desk started typing. The
+    /// pass issued afterwards is therefore an exit token, not an entry one.
+    /// </summary>
+    public void ActivateWalkIn(DateTimeOffset enteredAtUtc, Guid admittedByStaffId)
+    {
+        Activate(enteredAtUtc, admittedByStaffId);
+        EndsAtUtc = enteredAtUtc.AddHours(BillableHours);
         UpdatedAtUtc = DateTimeOffset.UtcNow;
     }
 
