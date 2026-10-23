@@ -13,8 +13,9 @@ namespace ParkingApp.Application.Bookings.Queries.GetWalkInPass;
 /// would get — same <see cref="ParkingPassService"/>, same token, same gate
 /// verification. Ownership is the only difference: a walk-in has no rider
 /// account to be checked against, so the caller is authorised as facility staff
-/// instead. The rider photographs the QR and shows it at entry and exit; the
-/// photograph is a copy of a legitimate pass, not a weaker one.
+/// instead. The rider photographs the QR and shows it on the way out; entry has
+/// already happened, because acknowledging the payment at the desk admitted the
+/// vehicle. The photograph is a copy of a legitimate pass, not a weaker one.
 /// </summary>
 public sealed record GetWalkInPassQuery(Guid BookingId)
     : IRequestResult<GetWalkInPassQuery, GetBookingPassResponse>;
@@ -70,6 +71,15 @@ public sealed class GetWalkInPassQueryHandler(
         if (booking.Status == BookingStatusEnum.PendingPayment)
             return Result<GetBookingPassResponse>.Failure(
                 "Confirm the walk-in payment before issuing a gate pass.", 409);
+
+        // Acknowledging the payment is the entry, so by the time a pass is issued
+        // the vehicle is already parked and this token can only ever be used to
+        // leave. A pass issued while the booking is still merely Confirmed would
+        // be an entry token instead, which is exactly the confusion this flow
+        // removes — refuse rather than hand over a QR that does the wrong thing.
+        if (booking.Status == BookingStatusEnum.Confirmed)
+            return Result<GetBookingPassResponse>.Failure(
+                "Acknowledge the walk-in payment first — that is what records entry. Then issue the exit pass.", 409);
 
         if (booking.Status is BookingStatusEnum.Cancelled
             or BookingStatusEnum.Expired

@@ -133,6 +133,58 @@ public class WalkInBookingTests
     }
 
     [Fact]
+    public void Acknowledging_The_Payment_Is_The_Entry_And_Starts_The_Paid_Clock()
+    {
+        // The rider is at the barrier with the staff member who took the money,
+        // so there is no second scan: the acknowledgement admits the vehicle.
+        var booking = WalkIn(hours: 2);
+        booking.Confirm();
+
+        var admitted = Start.AddMinutes(7);
+        booking.ActivateWalkIn(admitted, Staff);
+
+        Assert.Equal(BookingStatusEnum.Active, booking.Status);
+        Assert.Equal(admitted, booking.EnteredAtUtc);
+        Assert.Equal(Staff, booking.EnteredByStaffId);
+
+        // Two hours bought means two hours of parking, not two hours counted
+        // from when the desk started typing.
+        Assert.Equal(admitted.AddHours(2), booking.EndsAtUtc);
+    }
+
+    [Fact]
+    public void A_Walk_In_Admitted_By_Acknowledgement_Exits_Without_An_Entry_Scan()
+    {
+        var booking = WalkIn(hours: 2);
+        booking.Confirm();
+
+        var admitted = Start.AddMinutes(7);
+        booking.ActivateWalkIn(admitted, Staff);
+
+        // The photographed QR is only ever used here, on the way out.
+        booking.Complete(admitted.AddMinutes(90), Staff);
+
+        Assert.Equal(BookingStatusEnum.Completed, booking.Status);
+        Assert.Equal(90, booking.ActualStayMinutes);
+        Assert.Equal(0, booking.OverstayMinutes);
+    }
+
+    [Fact]
+    public void A_Walk_In_Overstay_Is_Measured_From_The_Acknowledged_Entry()
+    {
+        var booking = WalkIn(hours: 2);
+        booking.Confirm();
+
+        var admitted = Start.AddMinutes(7);
+        booking.ActivateWalkIn(admitted, Staff);
+
+        booking.Complete(admitted.AddHours(2).AddMinutes(20), Staff);
+
+        Assert.Equal(20, booking.OverstayMinutes);
+        Assert.Equal(admitted.AddHours(2).AddMinutes(20), booking.ExitedAtUtc);
+    }
+
+    [Fact]
     public void A_Walk_In_Payment_Is_Not_Tied_To_A_Rider_Account()
     {
         var payment = Payment.Create(Guid.NewGuid(), null, PaymentGatewayEnum.Khalti, 8_000);

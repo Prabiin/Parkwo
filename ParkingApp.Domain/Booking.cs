@@ -277,6 +277,21 @@ public class Booking : AuditableEntity
     }
 
     /// <summary>
+    /// Admits a walk-in at the moment its payment is acknowledged. A walk-in is
+    /// already standing at the barrier with the staff member who took the money,
+    /// so there is no second scan to wait for: acknowledging the payment is the
+    /// entry. The paid window is re-anchored here so "two hours" means two hours
+    /// of parking, not two hours counted from when the desk started typing. The
+    /// pass issued afterwards is therefore an exit token, not an entry one.
+    /// </summary>
+    public void ActivateWalkIn(DateTimeOffset enteredAtUtc, Guid admittedByStaffId)
+    {
+        Activate(enteredAtUtc, admittedByStaffId);
+        EndsAtUtc = enteredAtUtc.AddHours(BillableHours);
+        UpdatedAtUtc = DateTimeOffset.UtcNow;
+    }
+
+    /// <summary>
     /// Gate exit scan. Ends the measured stay and hands the space back. Called
     /// only after an entry scan, so <see cref="EnteredAtUtc"/> is always set and
     /// the stay length is always measurable.
