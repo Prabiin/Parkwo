@@ -24,7 +24,7 @@ public class StaffApi : EndpointGroupBase
     {
         var group = app.MapGroup("staff");
 
-        group.MapPost(Login, "auth/login", "");
+        group.MapPost(Login, "auth/login", "").AllowAnonymous();
         group.MapPost(RefreshToken, "auth/refresh-token", "");
         group.MapPost(Logout, "auth/logout", "");
         group.MapPost(ChangePassword, "auth/change-password", "")
