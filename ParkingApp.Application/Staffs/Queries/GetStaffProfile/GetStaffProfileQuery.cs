@@ -44,7 +44,7 @@ public sealed class GetStaffProfileQueryHandler(
 
         var staff = await context.Staffs
             .AsNoTracking()
-            .Where(s => s.Id == staffId.Value && !s.IsDeleted)
+            .Where(s => s.Id == staffId.Value && !s.IsDeleted && !s.MustChangePassword)
             .Select(s => new
             {
                 s.Id,

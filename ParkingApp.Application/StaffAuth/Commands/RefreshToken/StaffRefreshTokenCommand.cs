@@ -41,6 +41,12 @@ public sealed class StaffRefreshTokenCommandHandler(
         if (existing is null)
             return Result<StaffRefreshTokenResponse>.Failure("Invalid refresh token.", 401);
 
+        var staff = existing.Staff;
+        if (staff.MustChangePassword)
+        {
+            return Result<StaffRefreshTokenResponse>.Failure("You must change your password before continuing.", 403);
+        }
+
         if (!existing.IsActive)
         {
             if (existing.IsRevoked)
@@ -52,8 +58,6 @@ public sealed class StaffRefreshTokenCommandHandler(
             return Result<StaffRefreshTokenResponse>.Failure(
                 "Refresh token is no longer valid. Please login again.", 401);
         }
-
-        var staff = existing.Staff;
 
         if (staff.IsDeleted || !staff.IsActive)
             return Result<StaffRefreshTokenResponse>.Failure("Your account is no longer active.", 403);
