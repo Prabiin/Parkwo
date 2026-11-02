@@ -344,85 +344,6 @@ namespace ParkingApp.Infrastructure.Persistence.Migrations
                     b.HasIndex("MenuActionId");
 
                     b.ToTable("BackOfficeRoleMenuActions", (string)null);
-
-                    b.HasData(
-                        new
-                        {
-                            RoleId = new Guid("f1e2d3c4-b5a6-4f9e-8d7c-6b5a4f3e2d1c"),
-                            MenuActionId = new Guid("e5f9a7b6-6f8b-4d9c-5e6a-3f8c7d9e0a1b"),
-                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            Id = new Guid("1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d")
-                        },
-                        new
-                        {
-                            RoleId = new Guid("f1e2d3c4-b5a6-4f9e-8d7c-6b5a4f3e2d1c"),
-                            MenuActionId = new Guid("f6a8b7c5-5e9c-4a8d-4f7b-2e9d8c7f6a1c"),
-                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            Id = new Guid("2b3c4d5e-6f7a-4b8c-9d0e-1f2a3b4c5d6e")
-                        },
-                        new
-                        {
-                            RoleId = new Guid("f1e2d3c4-b5a6-4f9e-8d7c-6b5a4f3e2d1c"),
-                            MenuActionId = new Guid("a7b9c8d6-4d8e-4f7a-3e8c-1d8f7c6b5a9d"),
-                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            Id = new Guid("3c4d5e6f-7a8b-4c9d-0e1f-2a3b4c5d6e7f")
-                        },
-                        new
-                        {
-                            RoleId = new Guid("f1e2d3c4-b5a6-4f9e-8d7c-6b5a4f3e2d1c"),
-                            MenuActionId = new Guid("b8c9d7e5-3c7f-4e8b-2d9a-0c9e8d7f6b4c"),
-                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            Id = new Guid("4d5e6f7a-8b9c-4d0e-1f2a-3b4c5d6e7f8a")
-                        },
-                        new
-                        {
-                            RoleId = new Guid("f1e2d3c4-b5a6-4f9e-8d7c-6b5a4f3e2d1c"),
-                            MenuActionId = new Guid("c9d8e7f4-2b6e-4d9c-1c8b-9f8e7d6c5b3a"),
-                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            Id = new Guid("5e6f7a8b-9c0d-4e1f-2a3b-4c5d6e7f8a9b")
-                        },
-                        new
-                        {
-                            RoleId = new Guid("f1e2d3c4-b5a6-4f9e-8d7c-6b5a4f3e2d1c"),
-                            MenuActionId = new Guid("d8e7f6a3-1a5d-4c8e-0b9c-8e7f6d5c4b2f"),
-                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            Id = new Guid("6f7a8b9c-0d1e-4f2a-3b4c-5d6e7f8a9b0c")
-                        },
-                        new
-                        {
-                            RoleId = new Guid("f1e2d3c4-b5a6-4f9e-8d7c-6b5a4f3e2d1c"),
-                            MenuActionId = new Guid("e7f6a5b2-0f4c-4b9d-9a8f-7e6d5c4b3a1e"),
-                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            Id = new Guid("7a8b9c0d-1e2f-4a3b-4c5d-6e7f8a9b0c1d")
-                        },
-                        new
-                        {
-                            RoleId = new Guid("f1e2d3c4-b5a6-4f9e-8d7c-6b5a4f3e2d1c"),
-                            MenuActionId = new Guid("f6a5b4c1-9e3b-4a8c-8f7e-6d5c4b3a2f0d"),
-                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            Id = new Guid("8b9c0d1e-2f3a-4b4c-5d6e-7f8a9b0c1d2e")
-                        },
-                        new
-                        {
-                            RoleId = new Guid("f1e2d3c4-b5a6-4f9e-8d7c-6b5a4f3e2d1c"),
-                            MenuActionId = new Guid("a5b4c3d2-8d2a-4f7b-7e6d-5c4b3a2f1e9c"),
-                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            Id = new Guid("9c0d1e2f-3a4b-4c5d-6e7f-8a9b0c1d2e3f")
-                        },
-                        new
-                        {
-                            RoleId = new Guid("f1e2d3c4-b5a6-4f9e-8d7c-6b5a4f3e2d1c"),
-                            MenuActionId = new Guid("b4c3d2e1-7c1f-4e8a-6d5c-4b3a2f1e0d8b"),
-                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            Id = new Guid("0d1e2f3a-4b5c-4d6e-7f8a-9b0c1d2e3f4a")
-                        },
-                        new
-                        {
-                            RoleId = new Guid("f1e2d3c4-b5a6-4f9e-8d7c-6b5a4f3e2d1c"),
-                            MenuActionId = new Guid("c3d2e1f0-6b0e-4d9f-5c4b-3a2f1e0d9c7a"),
-                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            Id = new Guid("1e2f3a4b-5c6d-4e7f-8a9b-0c1d2e3f4a5b")
-                        });
                 });
 
             modelBuilder.Entity("ParkingApp.Domain.BackOffice.Role.BackOfficeUserRole", b =>
@@ -523,12 +444,16 @@ namespace ParkingApp.Infrastructure.Persistence.Migrations
                     b.HasData(
                         new
                         {
-                            Id = new Guid("00000000-0000-0000-0000-000000000001"),
+                            Id = new Guid("3f2504e0-4f89-11d3-9a0c-0305e82c3301"),
                             CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedBy = (Guid?)null,
                             Email = "superadmin@gmail.com",
                             FullName = "Super Admin",
                             IsActive = true,
+                            LastLoginAtUtc = (DateTimeOffset?)null,
                             PasswordHash = "100000.EBESExQVFhcYGRobHB0eHw==.u3Fyc5ZjygvMHMkQlV122zvEFBsQzs5gNbr5qrTujjk=",
+                            UpdatedAtUtc = (DateTimeOffset?)null,
+                            UpdatedBy = (Guid?)null,
                             UserName = "SuperAdmin"
                         });
                 });
