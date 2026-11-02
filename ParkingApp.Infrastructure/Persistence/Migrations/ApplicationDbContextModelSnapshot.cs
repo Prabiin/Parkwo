@@ -446,14 +446,10 @@ namespace ParkingApp.Infrastructure.Persistence.Migrations
                         {
                             Id = new Guid("3f2504e0-4f89-11d3-9a0c-0305e82c3301"),
                             CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            CreatedBy = (Guid?)null,
                             Email = "superadmin@gmail.com",
                             FullName = "Super Admin",
                             IsActive = true,
-                            LastLoginAtUtc = (DateTimeOffset?)null,
                             PasswordHash = "100000.EBESExQVFhcYGRobHB0eHw==.u3Fyc5ZjygvMHMkQlV122zvEFBsQzs5gNbr5qrTujjk=",
-                            UpdatedAtUtc = (DateTimeOffset?)null,
-                            UpdatedBy = (Guid?)null,
                             UserName = "SuperAdmin"
                         });
                 });
