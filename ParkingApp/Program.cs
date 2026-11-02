@@ -34,6 +34,9 @@ builder.Host.UseSerilog();
 // Add services to the container.
 builder.Services.AddInfrastructure(builder.Configuration, builder.Environment);
 
+// Auto-sync SuperAdmin permissions on startup (links SuperAdmin to all menu actions)
+builder.Services.AddHostedService<ParkingApp.Api.Services.SuperAdminPermissionSync>();
+
 // Rate limiting reads the RateLimitingSettings singleton that AddInfrastructure
 // already bound and adjusted for the current environment.
 builder.Services.AddOtpRateLimiting();

@@ -65,14 +65,19 @@ public sealed class KhaltiPaymentGateway(
         };
 
         if (!string.IsNullOrWhiteSpace(customerName)
-            || !string.IsNullOrWhiteSpace(customerPhone))
+            || !string.IsNullOrWhiteSpace(customerPhone)
+            || !string.IsNullOrWhiteSpace(customerEmail))
         {
-            payload["customer_info"] = new Dictionary<string, object?>
+            var customerInfo = new Dictionary<string, object?>
             {
                 ["name"] = customerName,
-                ["phone"] = customerPhone,
-                ["email"] = customerEmail
+                ["phone"] = customerPhone
             };
+
+            if (!string.IsNullOrWhiteSpace(customerEmail))
+                customerInfo["email"] = customerEmail;
+
+            payload["customer_info"] = customerInfo;
         }
 
         using var request = new HttpRequestMessage(HttpMethod.Post, "epayment/initiate/")

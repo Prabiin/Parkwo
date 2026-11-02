@@ -1,9 +1,14 @@
 using Microsoft.EntityFrameworkCore;
 using ParkingApp.Application.Auth.Interfaces;
+using ParkingApp.Application.BackOffice.Commands.Login;
 using ParkingApp.Application.Common;
 using ParkingApp.Application.Common.Cqrs;
 using ParkingApp.Application.Common.Interfaces;
 using ParkingApp.Application.Configuration;
+using ParkingApp.Application.Common.Constants;
+using ParkingApp.Domain;
+using ParkingApp.Domain.BackOffice.Menu;
+using ParkingApp.Domain.BackOffice.Role;
 
 namespace ParkingApp.Application.BackOffice.Commands.Login;
 
@@ -26,6 +31,10 @@ public sealed class BackOfficeLoginCommandHandler(
         var normalized = request.UserNameOrEmail.Trim();
 
         var user = await context.BackOfficeUsers
+            .Include(u => u.UserRoles)
+                .ThenInclude(ur => ur.Role)
+                    .ThenInclude(r => r.RoleMenuActions)
+                        .ThenInclude(rma => rma.MenuAction)
             .FirstOrDefaultAsync(
                 u => u.UserName == normalized || u.Email == normalized,
                 cancellationToken);
@@ -43,7 +52,10 @@ public sealed class BackOfficeLoginCommandHandler(
         user.UpdatedAtUtc = DateTimeOffset.UtcNow;
         await context.SaveChangesAsync(cancellationToken);
 
-        var accessToken = tokenService.GenerateAccessToken(user);
+        // Build menu tree and permissions from user's roles
+        var (menus, permissions, isSuperAdmin) = await BuildMenuTreeAndPermissionsAsync(user, cancellationToken);
+
+        var accessToken = tokenService.GenerateAccessToken(user, permissions, isSuperAdmin);
         var expiresAtUtc = DateTimeOffset.UtcNow
             .AddMinutes(jwtSettings.AccessTokenExpirationMinutes);
 
@@ -53,6 +65,116 @@ public sealed class BackOfficeLoginCommandHandler(
                 expiresAtUtc,
                 user.FullName,
                 user.UserName,
-                user.Email));
+                user.Email,
+                menus,
+                permissions));
+    }
+
+    private async Task<(IReadOnlyList<BackOfficeMenuDto> menus, IReadOnlyList<string> permissions, bool isSuperAdmin)>
+        BuildMenuTreeAndPermissionsAsync(BackOfficeUser user, CancellationToken ct)
+    {
+        var roleMenuActions = user.UserRoles?
+            .Where(ur => ur.Role?.IsSystem != false || ur.Role?.Name == BackOfficeConstants.SuperAdminRoleName)
+            .SelectMany(ur => ur.Role?.RoleMenuActions ?? Enumerable.Empty<BackOfficeRoleMenuAction>())
+            .Where(rma => rma.MenuAction?.IsActive == true)
+            .ToList() ?? new List<BackOfficeRoleMenuAction>();
+
+        // Check if user has SuperAdmin role
+        var isSuperAdmin = user.UserRoles?
+            .Any(ur => ur.Role?.Name == BackOfficeConstants.SuperAdminRoleName) == true;
+
+        // Build flat permissions list
+        var permissions = roleMenuActions
+            .Select(rma => $"{rma.MenuAction!.MenuKey}:{rma.MenuAction.ActionKey}")
+            .Distinct()
+            .OrderBy(p => p)
+            .ToList();
+
+        // Get all menu keys user has actions for
+        var permittedMenuKeys = roleMenuActions
+            .Where(rma => rma.MenuAction != null)
+            .Select(rma => rma.MenuAction!.MenuKey)
+            .Distinct()
+            .ToHashSet();
+
+        if (!permittedMenuKeys.Any())
+            return ([], permissions, isSuperAdmin);
+
+        // Query all menus (including parents) that the user has access to
+        // User has access to a menu if they have actions on it OR on any of its descendants
+        var allMenus = await context.BackOfficeMenus
+            .OrderBy(m => m.SortOrder)
+            .ToListAsync(ct);
+
+        var menuLookup = allMenus.ToDictionary(m => m.Key);
+
+        // Find all menus in the hierarchy that should be visible
+        // A menu is visible if:
+        // 1. User has direct actions on it (permittedMenuKeys contains its Key)
+        // 2. OR it's an ancestor of a menu the user has actions on
+        var visibleMenuKeys = new HashSet<string>(permittedMenuKeys);
+
+        // Add all ancestors of permitted menus
+        foreach (var key in permittedMenuKeys)
+        {
+            if (menuLookup.TryGetValue(key, out var menu))
+            {
+                var current = menu;
+                while (current.ParentMenuId.HasValue)
+                {
+                    var parent = allMenus.FirstOrDefault(m => m.Id == current.ParentMenuId.Value);
+                    if (parent == null) break;
+                    visibleMenuKeys.Add(parent.Key);
+                    current = parent;
+                }
+            }
+        }
+
+        // Filter to only visible menus
+        var visibleMenus = allMenus
+            .Where(m => visibleMenuKeys.Contains(m.Key))
+            .ToList();
+
+        // Build children lookup
+        var childrenLookup = visibleMenus
+            .Where(m => m.ParentMenuId.HasValue && visibleMenuKeys.Contains(
+                allMenus.FirstOrDefault(p => p.Id == m.ParentMenuId.Value)?.Key ?? ""))
+            .GroupBy(m => m.ParentMenuId!.Value)
+            .ToDictionary(g => g.Key, g => g.OrderBy(c => c.SortOrder).ToList());
+
+        // Build actions lookup
+        var actionsLookup = roleMenuActions
+            .Where(rma => rma.MenuAction != null && visibleMenuKeys.Contains(rma.MenuAction!.MenuKey))
+            .GroupBy(rma => rma.MenuAction!.MenuKey)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Select(rma => rma.MenuAction!.ActionKey).Distinct().OrderBy(a => a).ToList());
+
+        // Build tree recursively - roots are menus with no parent or parent not visible
+        var rootMenus = visibleMenus
+            .Where(m => !m.ParentMenuId.HasValue ||
+                       !visibleMenuKeys.Contains(
+                           allMenus.FirstOrDefault(p => p.Id == m.ParentMenuId.Value)?.Key ?? ""))
+            .OrderBy(m => m.SortOrder)
+            .ToList();
+
+        var menuDtos = rootMenus.Select(MapToDto).ToList();
+
+        return (menuDtos, permissions, isSuperAdmin);
+
+        BackOfficeMenuDto MapToDto(BackOfficeMenu m)
+        {
+            var children = childrenLookup.GetValueOrDefault(m.Id, [])
+                .Select(MapToDto)
+                .ToList();
+
+            return new BackOfficeMenuDto(
+                Key: m.Key,
+                Title: m.Title,
+                Route: m.Route,
+                Icon: m.Icon,
+                Children: children,
+                Actions: actionsLookup.GetValueOrDefault(m.Key, []));
+        }
     }
 }

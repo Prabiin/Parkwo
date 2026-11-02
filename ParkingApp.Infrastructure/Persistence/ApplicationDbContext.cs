@@ -2,6 +2,8 @@
 using Microsoft.EntityFrameworkCore.Storage;
 using ParkingApp.Application.Common.Interfaces;
 using ParkingApp.Domain;
+using ParkingApp.Domain.BackOffice.Menu;
+using ParkingApp.Domain.BackOffice.Role;
 
 namespace ParkingApp.Infrastructure.Persistence;
 
@@ -32,6 +34,13 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<Booking> Bookings => Set<Booking>();
     public DbSet<Payment> Payments => Set<Payment>();
     public DbSet<OverstayPayment> OverstayPayments => Set<OverstayPayment>();
+
+    // BackOffice RBAC
+    public DbSet<BackOfficeMenu> BackOfficeMenus => Set<BackOfficeMenu>();
+    public DbSet<BackOfficeMenuAction> BackOfficeMenuActions => Set<BackOfficeMenuAction>();
+    public DbSet<BackOfficeRole> BackOfficeRoles => Set<BackOfficeRole>();
+    public DbSet<BackOfficeUserRole> BackOfficeUserRoles => Set<BackOfficeUserRole>();
+    public DbSet<BackOfficeRoleMenuAction> BackOfficeRoleMenuActions => Set<BackOfficeRoleMenuAction>();
 
     public async Task<IDbContextTransaction> BeginSerializableTransactionAsync(
         CancellationToken cancellationToken = default)

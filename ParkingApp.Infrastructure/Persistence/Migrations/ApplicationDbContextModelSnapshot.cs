@@ -24,6 +24,446 @@ namespace ParkingApp.Infrastructure.Persistence.Migrations
             NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "postgis");
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("ParkingApp.Domain.BackOffice.Menu.BackOfficeMenu", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Icon")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<Guid?>("ParentMenuId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Route")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTimeOffset?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Key")
+                        .IsUnique();
+
+                    b.HasIndex("ParentMenuId");
+
+                    b.ToTable("BackOfficeMenus", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("a1f5c3e2-8b4d-4f9a-9c2e-7d6b5a4c3e1f"),
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Icon = "dashboard",
+                            Key = "Dashboard",
+                            Route = "/dashboard",
+                            SortOrder = 1,
+                            Title = "Dashboard"
+                        },
+                        new
+                        {
+                            Id = new Guid("b2e6d4f3-9c5e-4a8b-8d3f-6c7a5b4e2d1f"),
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Icon = "person",
+                            Key = "AccessControl",
+                            SortOrder = 2,
+                            Title = "Access Control"
+                        },
+                        new
+                        {
+                            Id = new Guid("c3d7e5f4-8d6f-4b9c-7e4a-5b8c6d7e4f3a"),
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Icon = "badge",
+                            Key = "Role",
+                            ParentMenuId = new Guid("b2e6d4f3-9c5e-4a8b-8d3f-6c7a5b4e2d1f"),
+                            Route = "/access-control/role",
+                            SortOrder = 1,
+                            Title = "Role Management"
+                        },
+                        new
+                        {
+                            Id = new Guid("d4e8f6a5-7e7a-4c8d-6f5b-4a9d7c8e5f2b"),
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Icon = "group",
+                            Key = "User",
+                            ParentMenuId = new Guid("b2e6d4f3-9c5e-4a8b-8d3f-6c7a5b4e2d1f"),
+                            Route = "/access-control/user",
+                            SortOrder = 2,
+                            Title = "User Management"
+                        });
+                });
+
+            modelBuilder.Entity("ParkingApp.Domain.BackOffice.Menu.BackOfficeMenuAction", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ActionKey")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
+                    b.Property<string>("MenuKey")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTimeOffset?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MenuKey", "ActionKey")
+                        .IsUnique();
+
+                    b.ToTable("BackOfficeMenuActions", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("e5f9a7b6-6f8b-4d9c-5e6a-3f8c7d9e0a1b"),
+                            ActionKey = "View",
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DisplayName = "View Dashboard",
+                            IsActive = true,
+                            MenuKey = "Dashboard"
+                        },
+                        new
+                        {
+                            Id = new Guid("f6a8b7c5-5e9c-4a8d-4f7b-2e9d8c7f6a1c"),
+                            ActionKey = "List",
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DisplayName = "List Roles",
+                            IsActive = true,
+                            MenuKey = "Role"
+                        },
+                        new
+                        {
+                            Id = new Guid("a7b9c8d6-4d8e-4f7a-3e8c-1d8f7c6b5a9d"),
+                            ActionKey = "Add",
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DisplayName = "Add Role",
+                            IsActive = true,
+                            MenuKey = "Role"
+                        },
+                        new
+                        {
+                            Id = new Guid("b8c9d7e5-3c7f-4e8b-2d9a-0c9e8d7f6b4c"),
+                            ActionKey = "Edit",
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DisplayName = "Edit Role",
+                            IsActive = true,
+                            MenuKey = "Role"
+                        },
+                        new
+                        {
+                            Id = new Guid("c9d8e7f4-2b6e-4d9c-1c8b-9f8e7d6c5b3a"),
+                            ActionKey = "Delete",
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DisplayName = "Delete Role",
+                            IsActive = true,
+                            MenuKey = "Role"
+                        },
+                        new
+                        {
+                            Id = new Guid("d8e7f6a3-1a5d-4c8e-0b9c-8e7f6d5c4b2f"),
+                            ActionKey = "View",
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DisplayName = "View Role Details",
+                            IsActive = true,
+                            MenuKey = "Role"
+                        },
+                        new
+                        {
+                            Id = new Guid("e7f6a5b2-0f4c-4b9d-9a8f-7e6d5c4b3a1e"),
+                            ActionKey = "List",
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DisplayName = "List Users",
+                            IsActive = true,
+                            MenuKey = "User"
+                        },
+                        new
+                        {
+                            Id = new Guid("f6a5b4c1-9e3b-4a8c-8f7e-6d5c4b3a2f0d"),
+                            ActionKey = "Add",
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DisplayName = "Add User",
+                            IsActive = true,
+                            MenuKey = "User"
+                        },
+                        new
+                        {
+                            Id = new Guid("a5b4c3d2-8d2a-4f7b-7e6d-5c4b3a2f1e9c"),
+                            ActionKey = "Edit",
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DisplayName = "Edit User",
+                            IsActive = true,
+                            MenuKey = "User"
+                        },
+                        new
+                        {
+                            Id = new Guid("b4c3d2e1-7c1f-4e8a-6d5c-4b3a2f1e0d8b"),
+                            ActionKey = "Delete",
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DisplayName = "Delete User",
+                            IsActive = true,
+                            MenuKey = "User"
+                        },
+                        new
+                        {
+                            Id = new Guid("c3d2e1f0-6b0e-4d9f-5c4b-3a2f1e0d9c7a"),
+                            ActionKey = "View",
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DisplayName = "View User Details",
+                            IsActive = true,
+                            MenuKey = "User"
+                        });
+                });
+
+            modelBuilder.Entity("ParkingApp.Domain.BackOffice.Role.BackOfficeRole", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<bool>("IsSystem")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTimeOffset?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("BackOfficeRoles", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("f1e2d3c4-b5a6-4f9e-8d7c-6b5a4f3e2d1c"),
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Description = "Full access to all BackOffice features",
+                            IsSystem = true,
+                            Name = "SuperAdmin"
+                        });
+                });
+
+            modelBuilder.Entity("ParkingApp.Domain.BackOffice.Role.BackOfficeRoleMenuAction", b =>
+                {
+                    b.Property<Guid>("RoleId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("MenuActionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("RoleId", "MenuActionId");
+
+                    b.HasIndex("MenuActionId");
+
+                    b.ToTable("BackOfficeRoleMenuActions", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            RoleId = new Guid("f1e2d3c4-b5a6-4f9e-8d7c-6b5a4f3e2d1c"),
+                            MenuActionId = new Guid("e5f9a7b6-6f8b-4d9c-5e6a-3f8c7d9e0a1b"),
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Id = new Guid("1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d")
+                        },
+                        new
+                        {
+                            RoleId = new Guid("f1e2d3c4-b5a6-4f9e-8d7c-6b5a4f3e2d1c"),
+                            MenuActionId = new Guid("f6a8b7c5-5e9c-4a8d-4f7b-2e9d8c7f6a1c"),
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Id = new Guid("2b3c4d5e-6f7a-4b8c-9d0e-1f2a3b4c5d6e")
+                        },
+                        new
+                        {
+                            RoleId = new Guid("f1e2d3c4-b5a6-4f9e-8d7c-6b5a4f3e2d1c"),
+                            MenuActionId = new Guid("a7b9c8d6-4d8e-4f7a-3e8c-1d8f7c6b5a9d"),
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Id = new Guid("3c4d5e6f-7a8b-4c9d-0e1f-2a3b4c5d6e7f")
+                        },
+                        new
+                        {
+                            RoleId = new Guid("f1e2d3c4-b5a6-4f9e-8d7c-6b5a4f3e2d1c"),
+                            MenuActionId = new Guid("b8c9d7e5-3c7f-4e8b-2d9a-0c9e8d7f6b4c"),
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Id = new Guid("4d5e6f7a-8b9c-4d0e-1f2a-3b4c5d6e7f8a")
+                        },
+                        new
+                        {
+                            RoleId = new Guid("f1e2d3c4-b5a6-4f9e-8d7c-6b5a4f3e2d1c"),
+                            MenuActionId = new Guid("c9d8e7f4-2b6e-4d9c-1c8b-9f8e7d6c5b3a"),
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Id = new Guid("5e6f7a8b-9c0d-4e1f-2a3b-4c5d6e7f8a9b")
+                        },
+                        new
+                        {
+                            RoleId = new Guid("f1e2d3c4-b5a6-4f9e-8d7c-6b5a4f3e2d1c"),
+                            MenuActionId = new Guid("d8e7f6a3-1a5d-4c8e-0b9c-8e7f6d5c4b2f"),
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Id = new Guid("6f7a8b9c-0d1e-4f2a-3b4c-5d6e7f8a9b0c")
+                        },
+                        new
+                        {
+                            RoleId = new Guid("f1e2d3c4-b5a6-4f9e-8d7c-6b5a4f3e2d1c"),
+                            MenuActionId = new Guid("e7f6a5b2-0f4c-4b9d-9a8f-7e6d5c4b3a1e"),
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Id = new Guid("7a8b9c0d-1e2f-4a3b-4c5d-6e7f8a9b0c1d")
+                        },
+                        new
+                        {
+                            RoleId = new Guid("f1e2d3c4-b5a6-4f9e-8d7c-6b5a4f3e2d1c"),
+                            MenuActionId = new Guid("f6a5b4c1-9e3b-4a8c-8f7e-6d5c4b3a2f0d"),
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Id = new Guid("8b9c0d1e-2f3a-4b4c-5d6e-7f8a9b0c1d2e")
+                        },
+                        new
+                        {
+                            RoleId = new Guid("f1e2d3c4-b5a6-4f9e-8d7c-6b5a4f3e2d1c"),
+                            MenuActionId = new Guid("a5b4c3d2-8d2a-4f7b-7e6d-5c4b3a2f1e9c"),
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Id = new Guid("9c0d1e2f-3a4b-4c5d-6e7f-8a9b0c1d2e3f")
+                        },
+                        new
+                        {
+                            RoleId = new Guid("f1e2d3c4-b5a6-4f9e-8d7c-6b5a4f3e2d1c"),
+                            MenuActionId = new Guid("b4c3d2e1-7c1f-4e8a-6d5c-4b3a2f1e0d8b"),
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Id = new Guid("0d1e2f3a-4b5c-4d6e-7f8a-9b0c1d2e3f4a")
+                        },
+                        new
+                        {
+                            RoleId = new Guid("f1e2d3c4-b5a6-4f9e-8d7c-6b5a4f3e2d1c"),
+                            MenuActionId = new Guid("c3d2e1f0-6b0e-4d9f-5c4b-3a2f1e0d9c7a"),
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Id = new Guid("1e2f3a4b-5c6d-4e7f-8a9b-0c1d2e3f4a5b")
+                        });
+                });
+
+            modelBuilder.Entity("ParkingApp.Domain.BackOffice.Role.BackOfficeUserRole", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("RoleId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("UserId", "RoleId");
+
+                    b.HasIndex("RoleId");
+
+                    b.ToTable("BackOfficeUserRoles", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            UserId = new Guid("3f2504e0-4f89-11d3-9a0c-0305e82c3301"),
+                            RoleId = new Guid("f1e2d3c4-b5a6-4f9e-8d7c-6b5a4f3e2d1c"),
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Id = new Guid("a2b3c4d5-e6f7-4a8b-9c0d-1e2f3a4b5c6d")
+                        });
+                });
+
             modelBuilder.Entity("ParkingApp.Domain.BackOfficeUser", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1249,6 +1689,66 @@ namespace ParkingApp.Infrastructure.Persistence.Migrations
                     b.ToTable("Vehicles", (string)null);
                 });
 
+            modelBuilder.Entity("ParkingApp.Domain.BackOffice.Menu.BackOfficeMenu", b =>
+                {
+                    b.HasOne("ParkingApp.Domain.BackOffice.Menu.BackOfficeMenu", "ParentMenu")
+                        .WithMany("Children")
+                        .HasForeignKey("ParentMenuId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("ParentMenu");
+                });
+
+            modelBuilder.Entity("ParkingApp.Domain.BackOffice.Menu.BackOfficeMenuAction", b =>
+                {
+                    b.HasOne("ParkingApp.Domain.BackOffice.Menu.BackOfficeMenu", "Menu")
+                        .WithMany("Actions")
+                        .HasForeignKey("MenuKey")
+                        .HasPrincipalKey("Key")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Menu");
+                });
+
+            modelBuilder.Entity("ParkingApp.Domain.BackOffice.Role.BackOfficeRoleMenuAction", b =>
+                {
+                    b.HasOne("ParkingApp.Domain.BackOffice.Menu.BackOfficeMenuAction", "MenuAction")
+                        .WithMany("RoleMenuActions")
+                        .HasForeignKey("MenuActionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ParkingApp.Domain.BackOffice.Role.BackOfficeRole", "Role")
+                        .WithMany("RoleMenuActions")
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("MenuAction");
+
+                    b.Navigation("Role");
+                });
+
+            modelBuilder.Entity("ParkingApp.Domain.BackOffice.Role.BackOfficeUserRole", b =>
+                {
+                    b.HasOne("ParkingApp.Domain.BackOffice.Role.BackOfficeRole", "Role")
+                        .WithMany("UserRoles")
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ParkingApp.Domain.BackOfficeUser", "User")
+                        .WithMany("UserRoles")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Role");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("ParkingApp.Domain.Booking", b =>
                 {
                     b.HasOne("ParkingApp.Domain.Staff", "EnteredByStaff")
@@ -1483,6 +1983,30 @@ namespace ParkingApp.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("ParkingApp.Domain.BackOffice.Menu.BackOfficeMenu", b =>
+                {
+                    b.Navigation("Actions");
+
+                    b.Navigation("Children");
+                });
+
+            modelBuilder.Entity("ParkingApp.Domain.BackOffice.Menu.BackOfficeMenuAction", b =>
+                {
+                    b.Navigation("RoleMenuActions");
+                });
+
+            modelBuilder.Entity("ParkingApp.Domain.BackOffice.Role.BackOfficeRole", b =>
+                {
+                    b.Navigation("RoleMenuActions");
+
+                    b.Navigation("UserRoles");
+                });
+
+            modelBuilder.Entity("ParkingApp.Domain.BackOfficeUser", b =>
+                {
+                    b.Navigation("UserRoles");
                 });
 
             modelBuilder.Entity("ParkingApp.Domain.FreeParkingFacility", b =>

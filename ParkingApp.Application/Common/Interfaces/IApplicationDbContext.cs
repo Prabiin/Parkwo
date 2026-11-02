@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using ParkingApp.Domain;
+using ParkingApp.Domain.BackOffice.Menu;
+using ParkingApp.Domain.BackOffice.Role;
 
 namespace ParkingApp.Application.Common.Interfaces;
 
@@ -25,6 +27,13 @@ public interface IApplicationDbContext
     DbSet<Booking> Bookings { get; }
     DbSet<Payment> Payments { get; }
     DbSet<OverstayPayment> OverstayPayments { get; }
+
+    // BackOffice RBAC
+    DbSet<BackOfficeMenu> BackOfficeMenus { get; }
+    DbSet<BackOfficeMenuAction> BackOfficeMenuActions { get; }
+    DbSet<BackOfficeRole> BackOfficeRoles { get; }
+    DbSet<BackOfficeUserRole> BackOfficeUserRoles { get; }
+    DbSet<BackOfficeRoleMenuAction> BackOfficeRoleMenuActions { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 
