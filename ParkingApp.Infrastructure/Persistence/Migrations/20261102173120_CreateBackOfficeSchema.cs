@@ -11,6 +11,24 @@ namespace ParkingApp.Infrastructure.Persistence.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            // Clean up only the NEW BackOffice tables that may exist from failed/partial deployments
+            // DO NOT drop BackOfficeUsers - it already exists from migration 20260919100539_AddBackOfficeApprovalAndSeed
+            migrationBuilder.Sql(@"
+                DROP TABLE IF EXISTS ""BackOfficeRoleMenuActions"" CASCADE;
+                DROP TABLE IF EXISTS ""BackOfficeUserRoles"" CASCADE;
+                DROP TABLE IF EXISTS ""BackOfficeMenuActions"" CASCADE;
+                DROP TABLE IF EXISTS ""BackOfficeRoles"" CASCADE;
+                DROP TABLE IF EXISTS ""BackOfficeMenus"" CASCADE;
+            ");
+
+            // Update the SuperAdmin user ID from old placeholder (00000000-0000-0000-0000-000000000001)
+            // to the new proper UUID (3f2504e0-4f89-11d3-9a0c-0305e82c3301) that the code expects
+            migrationBuilder.Sql(@"
+                UPDATE ""BackOfficeUsers""
+                SET ""Id"" = '3f2504e0-4f89-11d3-9a0c-0305e82c3301'
+                WHERE ""UserName"" = 'SuperAdmin' AND ""Id"" = '00000000-0000-0000-0000-000000000001';
+            ");
+
             migrationBuilder.CreateTable(
                 name: "BackOfficeMenus",
                 columns: table => new
@@ -56,27 +74,7 @@ namespace ParkingApp.Infrastructure.Persistence.Migrations
                     table.PrimaryKey("PK_BackOfficeRoles", x => x.Id);
                 });
 
-            migrationBuilder.CreateTable(
-                name: "BackOfficeUsers",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    UserName = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
-                    FullName = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
-                    Email = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: false),
-                    PasswordHash = table.Column<string>(type: "character varying(512)", maxLength: 512, nullable: false),
-                    IsActive = table.Column<bool>(type: "boolean", nullable: false, defaultValue: true),
-                    LastLoginAtUtc = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    CreatedAtUtc = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    CreatedBy = table.Column<Guid>(type: "uuid", nullable: true),
-                    UpdatedAtUtc = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    UpdatedBy = table.Column<Guid>(type: "uuid", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_BackOfficeUsers", x => x.Id);
-                });
-
+            
             migrationBuilder.CreateTable(
                 name: "BackOfficeMenuActions",
                 columns: table => new
@@ -179,18 +177,6 @@ namespace ParkingApp.Infrastructure.Persistence.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_BackOfficeUsers_UserName",
-                table: "BackOfficeUsers",
-                column: "UserName",
-                unique: true);
-
-            migrationBuilder.CreateIndex(
-                name: "IX_BackOfficeUsers_Email",
-                table: "BackOfficeUsers",
-                column: "Email",
-                unique: true);
-
-            migrationBuilder.CreateIndex(
                 name: "IX_BackOfficeUserRoles_RoleId",
                 table: "BackOfficeUserRoles",
                 column: "RoleId");
@@ -258,13 +244,8 @@ namespace ParkingApp.Infrastructure.Persistence.Migrations
                     { actionUserViewId, "View", seedTime, null, "View User Details", true, "User", null, null }
                 });
 
-            // Seed data - SuperAdmin User
+            // Seed data - SuperAdmin User (already exists from migration 20260919100539, ID updated above)
             var superAdminUserId = new Guid("3f2504e0-4f89-11d3-9a0c-0305e82c3301");
-
-            migrationBuilder.InsertData(
-                table: "BackOfficeUsers",
-                columns: new[] { "Id", "CreatedAtUtc", "CreatedBy", "Email", "FullName", "IsActive", "LastLoginAtUtc", "PasswordHash", "UpdatedAtUtc", "UpdatedBy", "UserName" },
-                values: new object[] { superAdminUserId, seedTime, null, "superadmin@gmail.com", "Super Admin", true, null, "100000.EBESExQVFhcYGRobHB0eHw==.u3Fyc5ZjygvMHMkQlV122zvEFBsQzs5gNbr5qrTujjk=", null, null, "SuperAdmin" });
 
             // Seed data - User Roles (SuperAdmin user -> SuperAdmin role)
             var userRoleId = new Guid("a2b3c4d5-e6f7-4a8b-9c0d-1e2f3a4b5c6d");
@@ -290,9 +271,7 @@ namespace ParkingApp.Infrastructure.Persistence.Migrations
             migrationBuilder.DropTable(
                 name: "BackOfficeMenuActions");
 
-            migrationBuilder.DropTable(
-                name: "BackOfficeUsers");
-
+            // NOTE: BackOfficeUsers is NOT dropped here - it was created in migration 20260919100539_AddBackOfficeApprovalAndSeed
             migrationBuilder.DropTable(
                 name: "BackOfficeRoles");
 
