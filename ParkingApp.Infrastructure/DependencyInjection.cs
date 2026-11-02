@@ -43,6 +43,16 @@ using ParkingApp.Application.BackOffice.Queries.GetParkingFacilityDetail;
 using BackOfficeProviders = ParkingApp.Application.BackOffice.Queries.GetParkingProviders;
 using ParkingApp.Application.BackOffice.Queries.GetLicenses;
 using ParkingApp.Application.BackOffice.Queries.GetRiders;
+using ParkingApp.Application.BackOffice.Queries.GetRoles;
+using ParkingApp.Application.BackOffice.Queries.GetRoleById;
+using ParkingApp.Application.BackOffice.Queries.GetUsers;
+using ParkingApp.Application.BackOffice.Queries.GetUserById;
+using ParkingApp.Application.BackOffice.Commands.CreateRole;
+using ParkingApp.Application.BackOffice.Commands.UpdateRole;
+using ParkingApp.Application.BackOffice.Commands.DeleteRole;
+using ParkingApp.Application.BackOffice.Commands.CreateUser;
+using ParkingApp.Application.BackOffice.Commands.UpdateUser;
+using ParkingApp.Application.BackOffice.Commands.DeleteUser;
 using ParkingApp.Application.Common;
 using ParkingApp.Application.Common.Cqrs;
 using ParkingApp.Application.Common.Helpers;
@@ -335,6 +345,20 @@ public static class DependencyInjection
         services.AddScoped<IRequestResultHandler<UpdateDrivingLicenseApprovalCommand, Unit>, UpdateDrivingLicenseApprovalCommandHandler>();
         services.AddScoped<IRequestResultHandler<GetLicensesQuery, GetLicensesResponse>, GetLicensesQueryHandler>();
 
+        // BackOffice Role Management
+        services.AddScoped<IRequestResultHandler<GetRolesQuery, GetRolesResponse>, GetRolesQueryHandler>();
+        services.AddScoped<IRequestResultHandler<GetRoleByIdQuery, GetRoleByIdResponse>, GetRoleByIdQueryHandler>();
+        services.AddScoped<IRequestResultHandler<CreateRoleCommand, CreateRoleResponse>, CreateRoleCommandHandler>();
+        services.AddScoped<IRequestResultHandler<UpdateRoleCommand, Unit>, UpdateRoleCommandHandler>();
+        services.AddScoped<IRequestResultHandler<DeleteRoleCommand, Unit>, DeleteRoleCommandHandler>();
+
+        // BackOffice User Management
+        services.AddScoped<IRequestResultHandler<GetUsersQuery, GetUsersResponse>, GetUsersQueryHandler>();
+        services.AddScoped<IRequestResultHandler<GetUserByIdQuery, GetUserByIdResponse>, GetUserByIdQueryHandler>();
+        services.AddScoped<IRequestResultHandler<CreateUserCommand, CreateUserResponse>, CreateUserCommandHandler>();
+        services.AddScoped<IRequestResultHandler<UpdateUserCommand, Unit>, UpdateUserCommandHandler>();
+        services.AddScoped<IRequestResultHandler<DeleteUserCommand, Unit>, DeleteUserCommandHandler>();
+
         services.AddScoped<IRequestResultHandler<CreateDrivingLicenseCommand, Guid>, CreateDrivingLicenseCommandHandler>();
         services.AddScoped<IRequestResultHandler<GetDrivingLicenseQuery, DrivingLicenseResponse?>, GetDrivingLicenseQueryHandler>();
 
@@ -413,6 +437,19 @@ public static class DependencyInjection
         services.AddScoped<IValidator<UpdateParkingFacilityApprovalCommand>, UpdateParkingFacilityApprovalCommandValidator>();
         services.AddScoped<IValidator<UpdateDrivingLicenseApprovalCommand>, UpdateDrivingLicenseApprovalCommandValidator>();
         services.AddScoped<IValidator<GetLicensesQuery>, GetLicensesQueryValidator>();
+
+        // BackOffice Role Management Validators
+        services.AddScoped<IValidator<GetRolesQuery>, GetRolesQueryValidator>();
+        services.AddScoped<IValidator<CreateRoleCommand>, CreateRoleCommandValidator>();
+        services.AddScoped<IValidator<UpdateRoleCommand>, UpdateRoleCommandValidator>();
+        services.AddScoped<IValidator<DeleteRoleCommand>, DeleteRoleCommandValidator>();
+
+        // BackOffice User Management Validators
+        services.AddScoped<IValidator<GetUsersQuery>, GetUsersQueryValidator>();
+        services.AddScoped<IValidator<CreateUserCommand>, CreateUserCommandValidator>();
+        services.AddScoped<IValidator<UpdateUserCommand>, UpdateUserCommandValidator>();
+        services.AddScoped<IValidator<DeleteUserCommand>, DeleteUserCommandValidator>();
+
         services.AddScoped<IValidator<CreateDrivingLicenseCommand>, CreateDrivingLicenseCommandValidator>();
         services.AddScoped<IValidator<CreateBookingCommand>, CreateBookingCommandValidator>();
         services.AddScoped<IValidator<CreateWalkInBookingCommand>, CreateWalkInBookingCommandValidator>();
