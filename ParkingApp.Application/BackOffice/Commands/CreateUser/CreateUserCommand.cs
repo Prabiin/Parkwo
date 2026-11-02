@@ -13,7 +13,7 @@ public sealed record CreateUserCommand(
     string FullName,
     string Email,
     string Password,
-    IReadOnlyList<Guid> RoleIds)
+    Guid RoleId)
     : IRequestResult<CreateUserCommand, CreateUserResponse>;
 
 public sealed class CreateUserCommandValidator : AbstractValidator<CreateUserCommand>
@@ -37,8 +37,8 @@ public sealed class CreateUserCommandValidator : AbstractValidator<CreateUserCom
             .NotEmpty()
             .MinimumLength(8);
 
-        RuleFor(x => x.RoleIds)
-            .NotNull();
+        RuleFor(x => x.RoleId)
+            .NotEmpty();
     }
 }
 
@@ -68,18 +68,12 @@ public sealed class CreateUserCommandHandler(
         if (existingEmail is not null)
             return Result<CreateUserResponse>.Failure("Email already exists.", 400);
 
-        // Validate role IDs exist
-        if (request.RoleIds.Count > 0)
-        {
-            var validRoleIds = await context.BackOfficeRoles
-                .Where(r => request.RoleIds.Contains(r.Id))
-                .Select(r => r.Id)
-                .ToListAsync(cancellationToken);
+        // Validate role ID exists
+        var roleExists = await context.BackOfficeRoles
+            .AnyAsync(r => r.Id == request.RoleId, cancellationToken);
 
-            var invalidIds = request.RoleIds.Except(validRoleIds).ToList();
-            if (invalidIds.Count > 0)
-                return Result<CreateUserResponse>.Failure($"Invalid role IDs: {string.Join(", ", invalidIds)}", 400);
-        }
+        if (!roleExists)
+            return Result<CreateUserResponse>.Failure("Invalid role ID.", 400);
 
         var passwordHash = passwordHasher.Hash(request.Password);
 
@@ -93,16 +87,12 @@ public sealed class CreateUserCommandHandler(
             CreatedAtUtc = DateTimeOffset.UtcNow
         };
 
-        if (request.RoleIds.Count > 0)
+        // Assign single role (1:1)
+        user.UserRole = new BackOfficeUserRole
         {
-            user.UserRoles = request.RoleIds
-                .Select(id => new BackOfficeUserRole
-                {
-                    RoleId = id,
-                    CreatedAtUtc = DateTimeOffset.UtcNow
-                })
-                .ToList();
-        }
+            RoleId = request.RoleId,
+            CreatedAtUtc = DateTimeOffset.UtcNow
+        };
 
         context.BackOfficeUsers.Add(user);
         await context.SaveChangesAsync(cancellationToken);

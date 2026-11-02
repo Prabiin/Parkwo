@@ -351,9 +351,6 @@ namespace ParkingApp.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("RoleId")
-                        .HasColumnType("uuid");
-
                     b.Property<DateTimeOffset>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
@@ -363,26 +360,20 @@ namespace ParkingApp.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid>("RoleId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTimeOffset?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid?>("UpdatedBy")
                         .HasColumnType("uuid");
 
-                    b.HasKey("UserId", "RoleId");
+                    b.HasKey("UserId");
 
                     b.HasIndex("RoleId");
 
                     b.ToTable("BackOfficeUserRoles", (string)null);
-
-                    b.HasData(
-                        new
-                        {
-                            UserId = new Guid("3f2504e0-4f89-11d3-9a0c-0305e82c3301"),
-                            RoleId = new Guid("f1e2d3c4-b5a6-4f9e-8d7c-6b5a4f3e2d1c"),
-                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
-                            Id = new Guid("a2b3c4d5-e6f7-4a8b-9c0d-1e2f3a4b5c6d")
-                        });
                 });
 
             modelBuilder.Entity("ParkingApp.Domain.BackOfficeUser", b =>
@@ -1660,8 +1651,8 @@ namespace ParkingApp.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.HasOne("ParkingApp.Domain.BackOfficeUser", "User")
-                        .WithMany("UserRoles")
-                        .HasForeignKey("UserId")
+                        .WithOne("UserRole")
+                        .HasForeignKey("ParkingApp.Domain.BackOffice.Role.BackOfficeUserRole", "UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -1927,7 +1918,7 @@ namespace ParkingApp.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("ParkingApp.Domain.BackOfficeUser", b =>
                 {
-                    b.Navigation("UserRoles");
+                    b.Navigation("UserRole");
                 });
 
             modelBuilder.Entity("ParkingApp.Domain.FreeParkingFacility", b =>

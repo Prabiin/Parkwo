@@ -13,7 +13,7 @@ public class BackOfficeUser : AuditableEntity
     public DateTimeOffset? LastLoginAtUtc { get; set; }
 
     /// <summary>
-    /// Roles assigned to this user.
+    /// Single role assigned to this user (1:1).
     /// </summary>
-    public ICollection<BackOfficeUserRole> UserRoles { get; set; } = new List<BackOfficeUserRole>();
+    public BackOfficeUserRole? UserRole { get; set; }
 }

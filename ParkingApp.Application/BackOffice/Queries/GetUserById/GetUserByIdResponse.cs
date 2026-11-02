@@ -14,4 +14,4 @@ public record GetUserByIdResponse(
     DateTimeOffset? LastLoginAtUtc,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset? UpdatedAtUtc,
-    IReadOnlyList<UserRoleResponse> Roles);
+    UserRoleResponse? Role);

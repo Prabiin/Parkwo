@@ -31,7 +31,7 @@ public sealed class BackOfficeLoginCommandHandler(
         var normalized = request.UserNameOrEmail.Trim();
 
         var user = await context.BackOfficeUsers
-            .Include(u => u.UserRoles)
+            .Include(u => u.UserRole)
                 .ThenInclude(ur => ur.Role)
                     .ThenInclude(r => r.RoleMenuActions)
                         .ThenInclude(rma => rma.MenuAction)
@@ -52,7 +52,7 @@ public sealed class BackOfficeLoginCommandHandler(
         user.UpdatedAtUtc = DateTimeOffset.UtcNow;
         await context.SaveChangesAsync(cancellationToken);
 
-        // Build menu tree and permissions from user's roles
+        // Build menu tree and permissions from user's role
         var (menus, permissions, isSuperAdmin) = await BuildMenuTreeAndPermissionsAsync(user, cancellationToken);
 
         var accessToken = tokenService.GenerateAccessToken(user, permissions, isSuperAdmin);
@@ -73,15 +73,14 @@ public sealed class BackOfficeLoginCommandHandler(
     private async Task<(IReadOnlyList<BackOfficeMenuDto> menus, IReadOnlyList<string> permissions, bool isSuperAdmin)>
         BuildMenuTreeAndPermissionsAsync(BackOfficeUser user, CancellationToken ct)
     {
-        var roleMenuActions = user.UserRoles?
-            .Where(ur => ur.Role?.IsSystem != false || ur.Role?.Name == BackOfficeConstants.SuperAdminRoleName)
-            .SelectMany(ur => ur.Role?.RoleMenuActions ?? Enumerable.Empty<BackOfficeRoleMenuAction>())
+        // Get role menu actions from user's single role (1:1)
+        var role = user.UserRole?.Role;
+        var roleMenuActions = role?.RoleMenuActions?
             .Where(rma => rma.MenuAction?.IsActive == true)
             .ToList() ?? new List<BackOfficeRoleMenuAction>();
 
         // Check if user has SuperAdmin role
-        var isSuperAdmin = user.UserRoles?
-            .Any(ur => ur.Role?.Name == BackOfficeConstants.SuperAdminRoleName) == true;
+        var isSuperAdmin = role?.Name == BackOfficeConstants.SuperAdminRoleName;
 
         // Build flat permissions list
         var permissions = roleMenuActions

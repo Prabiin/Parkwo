@@ -13,7 +13,7 @@ public sealed record UpdateUserCommand(
     string? FullName,
     string? Email,
     bool? IsActive,
-    IReadOnlyList<Guid>? RoleIds)
+    Guid? RoleId)
     : IRequestResult<UpdateUserCommand, Unit>;
 
 public sealed class UpdateUserCommandValidator : AbstractValidator<UpdateUserCommand>
@@ -36,9 +36,9 @@ public sealed class UpdateUserCommandValidator : AbstractValidator<UpdateUserCom
             .EmailAddress()
             .When(x => !string.IsNullOrWhiteSpace(x.Email));
 
-        RuleFor(x => x.RoleIds)
-            .NotNull()
-            .When(x => x.RoleIds != null);
+        RuleFor(x => x.RoleId)
+            .NotEmpty()
+            .When(x => x.RoleId.HasValue);
     }
 }
 
@@ -50,7 +50,7 @@ public sealed class UpdateUserCommandHandler(IApplicationDbContext context)
         CancellationToken cancellationToken = default)
     {
         var user = await context.BackOfficeUsers
-            .Include(u => u.UserRoles)
+            .Include(u => u.UserRole)
             .FirstOrDefaultAsync(u => u.Id == request.UserId, cancellationToken);
 
         if (user is null)
@@ -94,34 +94,27 @@ public sealed class UpdateUserCommandHandler(IApplicationDbContext context)
             user.IsActive = request.IsActive.Value;
         }
 
-        // Update roles if provided
-        if (request.RoleIds != null)
+        // Update role if provided (1:1)
+        if (request.RoleId.HasValue)
         {
-            // Validate role IDs exist
-            if (request.RoleIds.Count > 0)
-            {
-                var validRoleIds = await context.BackOfficeRoles
-                    .Where(r => request.RoleIds.Contains(r.Id))
-                    .Select(r => r.Id)
-                    .ToListAsync(cancellationToken);
+            // Validate role ID exists
+            var roleExists = await context.BackOfficeRoles
+                .AnyAsync(r => r.Id == request.RoleId.Value, cancellationToken);
 
-                var invalidIds = request.RoleIds.Except(validRoleIds).ToList();
-                if (invalidIds.Count > 0)
-                    return Result<Unit>.Failure($"Invalid role IDs: {string.Join(", ", invalidIds)}", 400);
-            }
+            if (!roleExists)
+                return Result<Unit>.Failure("Invalid role ID.", 400);
 
-            // Replace roles
-            user.UserRoles.Clear();
-            if (request.RoleIds.Count > 0)
+            if (user.UserRole is null)
             {
-                foreach (var roleId in request.RoleIds)
+                user.UserRole = new BackOfficeUserRole
                 {
-                    user.UserRoles.Add(new BackOfficeUserRole
-                    {
-                        RoleId = roleId,
-                        CreatedAtUtc = DateTimeOffset.UtcNow
-                    });
-                }
+                    RoleId = request.RoleId.Value,
+                    CreatedAtUtc = DateTimeOffset.UtcNow
+                };
+            }
+            else
+            {
+                user.UserRole.RoleId = request.RoleId.Value;
             }
         }
 

@@ -18,21 +18,21 @@ public sealed class GetUserByIdQueryHandler(IApplicationDbContext context)
     {
         var user = await context.BackOfficeUsers
             .AsNoTracking()
-            .Include(u => u.UserRoles)
+            .Include(u => u.UserRole)
                 .ThenInclude(ur => ur.Role)
             .FirstOrDefaultAsync(u => u.Id == request.UserId, cancellationToken);
 
         if (user is null)
             return Result<GetUserByIdResponse>.Failure("User not found.", 404);
 
-        var roles = user.UserRoles
-            .Where(ur => ur.Role != null)
-            .Select(ur => new UserRoleResponse(
-                ur.Role!.Id,
-                ur.Role.Name,
-                ur.Role.IsSystem))
-            .OrderBy(r => r.Name)
-            .ToList();
+        UserRoleResponse? role = null;
+        if (user.UserRole?.Role != null)
+        {
+            role = new UserRoleResponse(
+                user.UserRole.Role.Id,
+                user.UserRole.Role.Name,
+                user.UserRole.Role.IsSystem);
+        }
 
         return Result<GetUserByIdResponse>.Success(
             new GetUserByIdResponse(
@@ -44,6 +44,6 @@ public sealed class GetUserByIdQueryHandler(IApplicationDbContext context)
                 user.LastLoginAtUtc,
                 user.CreatedAtUtc,
                 user.UpdatedAtUtc,
-                roles));
+                role));
     }
 }
