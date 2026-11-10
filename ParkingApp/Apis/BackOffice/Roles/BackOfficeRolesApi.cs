@@ -2,6 +2,7 @@ using ParkingApp.Application.BackOffice.Commands.CreateRole;
 using ParkingApp.Application.BackOffice.Commands.DeleteRole;
 using ParkingApp.Application.BackOffice.Commands.UpdateRole;
 using ParkingApp.Application.BackOffice.Queries.GetRoleById;
+using ParkingApp.Application.BackOffice.Queries.GetRoleInit;
 using ParkingApp.Application.BackOffice.Queries.GetRoles;
 using ParkingApp.Application.Common;
 using ParkingApp.Application.Common.Cqrs;
@@ -15,6 +16,7 @@ public class BackOfficeRolesApi : BackOfficeGroup
         var group = app.MapGroup("backoffice/roles").RequireAuthorization(BackOfficePolicy);
 
         group.MapGet("", GetRoles);
+        group.MapGet("init", GetRoleInit);
         group.MapGet("{roleId:guid}", GetRoleById);
         group.MapPost("", CreateRole);
         group.MapPut("{roleId:guid}", UpdateRole);
@@ -30,6 +32,13 @@ public class BackOfficeRolesApi : BackOfficeGroup
         CancellationToken cancellationToken = default)
         => await ExecuteQuery<GetRolesQuery, GetRolesResponse>(sender,
             new GetRolesQuery(searchTerm, page, pageSize), serviceProvider, cancellationToken);
+
+    private static async Task<IResult> GetRoleInit(
+        ISender sender,
+        IServiceProvider serviceProvider,
+        CancellationToken cancellationToken = default)
+        => await ExecuteQuery<GetRoleInitQuery, GetRoleInitResponse>(sender,
+            new GetRoleInitQuery(), serviceProvider, cancellationToken);
 
     private static async Task<IResult> GetRoleById(
         ISender sender,

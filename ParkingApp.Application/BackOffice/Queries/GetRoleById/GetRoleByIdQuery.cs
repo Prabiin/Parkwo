@@ -20,21 +20,39 @@ public sealed class GetRoleByIdQueryHandler(IApplicationDbContext context)
         var role = await context.BackOfficeRoles
             .AsNoTracking()
             .Include(r => r.RoleMenuActions)
-                .ThenInclude(rma => rma.MenuAction)
             .Include(r => r.UserRoles)
             .FirstOrDefaultAsync(r => r.Id == request.RoleId, cancellationToken);
 
         if (role is null)
             return Result<GetRoleByIdResponse>.Failure("Role not found.", 404);
 
-        var permissions = role.RoleMenuActions
-            .Where(rma => rma.MenuAction != null)
-            .Select(rma => new RolePermissionResponse(
-                rma.MenuAction!.MenuKey,
-                rma.MenuAction.ActionKey,
-                rma.MenuAction.DisplayName))
-            .OrderBy(p => p.MenuKey)
-            .ThenBy(p => p.ActionKey)
+        var assignedActionIds = role.RoleMenuActions
+            .Select(rma => rma.MenuActionId)
+            .ToHashSet();
+
+        // Return the full permission catalog so the client can render every
+        // action as a checkbox, with the ones already on this role pre-checked.
+        var actions = await context.BackOfficeMenuActions
+            .AsNoTracking()
+            .Where(a => a.IsActive)
+            .OrderBy(a => a.MenuKey)
+            .ThenBy(a => a.ActionKey)
+            .Select(a => new
+            {
+                a.Id,
+                a.MenuKey,
+                a.ActionKey,
+                a.DisplayName
+            })
+            .ToListAsync(cancellationToken);
+
+        var permissions = actions
+            .Select(a => new RolePermissionResponse(
+                a.Id,
+                a.MenuKey,
+                a.ActionKey,
+                a.DisplayName,
+                assignedActionIds.Contains(a.Id)))
             .ToList();
 
         var userCount = role.UserRoles.Count;
