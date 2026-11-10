@@ -11,6 +11,12 @@ public abstract class BackOfficeGroup : EndpointGroupBase
 {
     public const string BackOfficePolicy = "BackOfficeOnly";
 
+    /// <summary>
+    /// Any live BackOffice token, even one still on its generated password.
+    /// Used by login-adjacent routes such as change-password.
+    /// </summary>
+    public const string BackOfficeAuthenticatedPolicy = "BackOfficeAuthenticated";
+
     protected static bool TryParseVehicleType(string? value, out VehicleTypeEnum? vehicleType)
     {
         if (string.IsNullOrWhiteSpace(value))

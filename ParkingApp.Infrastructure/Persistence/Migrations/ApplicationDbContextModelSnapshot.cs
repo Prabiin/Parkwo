@@ -406,6 +406,11 @@ namespace ParkingApp.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset?>("LastLoginAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<bool>("MustChangePassword")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
                     b.Property<string>("PasswordHash")
                         .IsRequired()
                         .HasMaxLength(512)
@@ -440,6 +445,7 @@ namespace ParkingApp.Infrastructure.Persistence.Migrations
                             Email = "superadmin@gmail.com",
                             FullName = "Super Admin",
                             IsActive = true,
+                            MustChangePassword = false,
                             PasswordHash = "100000.EBESExQVFhcYGRobHB0eHw==.u3Fyc5ZjygvMHMkQlV122zvEFBsQzs5gNbr5qrTujjk=",
                             UserName = "SuperAdmin"
                         });

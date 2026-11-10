@@ -1,5 +1,7 @@
+using ParkingApp.Api.Infrastructure;
 using ParkingApp.Application.BackOffice.Commands.CreateUser;
 using ParkingApp.Application.BackOffice.Commands.DeleteUser;
+using ParkingApp.Application.BackOffice.Commands.ResendInvite;
 using ParkingApp.Application.BackOffice.Commands.UpdateUser;
 using ParkingApp.Application.BackOffice.Queries.GetUserById;
 using ParkingApp.Application.BackOffice.Queries.GetUsers;
@@ -18,6 +20,7 @@ public class BackOfficeUsersApi : BackOfficeGroup
         group.MapGet("{userId:guid}", GetUserById);
         group.MapPost("", CreateUser);
         group.MapPut("{userId:guid}", UpdateUser);
+        group.MapPut(ResendInvite, "{userId:guid}/resend-invite", "");
         group.MapDelete("{userId:guid}", DeleteUser);
     }
 
@@ -56,6 +59,14 @@ public class BackOfficeUsersApi : BackOfficeGroup
         CancellationToken cancellationToken = default)
         => await ExecuteCommand<UpdateUserCommand, Unit>(sender,
             request with { UserId = userId }, serviceProvider, cancellationToken);
+
+    private static async Task<IResult> ResendInvite(
+        ISender sender,
+        IServiceProvider serviceProvider,
+        Guid userId,
+        CancellationToken cancellationToken = default)
+        => await ExecuteCommand<ResendUserInviteCommand, Unit>(sender,
+            new ResendUserInviteCommand(userId), serviceProvider, cancellationToken);
 
     private static async Task<IResult> DeleteUser(
         ISender sender,

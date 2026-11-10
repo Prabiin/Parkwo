@@ -66,6 +66,7 @@ public sealed class BackOfficeLoginCommandHandler(
                 user.FullName,
                 user.UserName,
                 user.Email,
+                user.MustChangePassword,
                 menus,
                 permissions));
     }

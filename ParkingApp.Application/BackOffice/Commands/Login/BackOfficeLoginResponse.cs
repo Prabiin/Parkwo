@@ -11,6 +11,7 @@ public record BackOfficeLoginResponse(
     string FullName,
     string UserName,
     string Email,
+    bool MustChangePassword,
     IReadOnlyList<BackOfficeMenuDto> Menus,
     IReadOnlyList<string> Permissions);
 

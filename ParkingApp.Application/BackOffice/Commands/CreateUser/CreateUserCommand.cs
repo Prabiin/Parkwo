@@ -1,18 +1,27 @@
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using ParkingApp.Application.BackOffice;
 using ParkingApp.Application.Common;
 using ParkingApp.Application.Common.Cqrs;
+using ParkingApp.Application.Common.Helpers;
 using ParkingApp.Application.Common.Interfaces;
 using ParkingApp.Domain;
 using ParkingApp.Domain.BackOffice.Role;
 
 namespace ParkingApp.Application.BackOffice.Commands.CreateUser;
 
+/// <summary>
+/// BackOffice creates an admin console account. The password is generated and
+/// emailed to the user's address; <see cref="BackOfficeUser.MustChangePassword"/>
+/// is left true, so the generated secret only ever opens the change-password
+/// screen. The account is created whether or not the email goes out — a failed
+/// send is recovered by resending the invite, which issues a fresh password.
+/// </summary>
 public sealed record CreateUserCommand(
     string UserName,
     string FullName,
     string Email,
-    string Password,
     Guid RoleId)
     : IRequestResult<CreateUserCommand, CreateUserResponse>;
 
@@ -33,10 +42,6 @@ public sealed class CreateUserCommandValidator : AbstractValidator<CreateUserCom
             .MaximumLength(500)
             .EmailAddress();
 
-        RuleFor(x => x.Password)
-            .NotEmpty()
-            .MinimumLength(8);
-
         RuleFor(x => x.RoleId)
             .NotEmpty();
     }
@@ -44,7 +49,10 @@ public sealed class CreateUserCommandValidator : AbstractValidator<CreateUserCom
 
 public sealed class CreateUserCommandHandler(
     IApplicationDbContext context,
-    IPasswordHasher passwordHasher)
+    IPasswordHasher passwordHasher,
+    IEmailSender emailSender,
+    ILogger<CreateUserCommandHandler> logger,
+    ICurrentUserService currentUser)
     : IRequestResultHandler<CreateUserCommand, CreateUserResponse>
 {
     public async Task<Result<CreateUserResponse>> Handle(
@@ -75,16 +83,18 @@ public sealed class CreateUserCommandHandler(
         if (!roleExists)
             return Result<CreateUserResponse>.Failure("Invalid role ID.", 400);
 
-        var passwordHash = passwordHasher.Hash(request.Password);
+        var password = PasswordGenerator.Generate();
 
         var user = new BackOfficeUser
         {
             UserName = normalizedUserName,
             FullName = request.FullName.Trim(),
             Email = normalizedEmail,
-            PasswordHash = passwordHash,
+            PasswordHash = passwordHasher.Hash(password),
+            MustChangePassword = true,
             IsActive = true,
-            CreatedAtUtc = DateTimeOffset.UtcNow
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+            CreatedBy = currentUser.UserId
         };
 
         // Assign single role (1:1)
@@ -94,10 +104,30 @@ public sealed class CreateUserCommandHandler(
             CreatedAtUtc = DateTimeOffset.UtcNow
         };
 
+        // Persist first, then try to deliver. An undelivered password is NOT a
+        // reason to throw the account away: the row is what the resend action
+        // acts on, and recreating the same person would be refused as a
+        // duplicate email. A failed send is recovered by resending the invite,
+        // which issues a fresh password (only the hash is stored, so the lost
+        // one cannot be recalled).
         context.BackOfficeUsers.Add(user);
         await context.SaveChangesAsync(cancellationToken);
 
+        var deliveryStatus = await BackOfficeUserPasswordDelivery.SendAsync(
+            emailSender,
+            logger,
+            user,
+            "Your Parkwo admin account",
+            BackOfficeUserEmailTemplates.Welcome(user.FullName, user.UserName, user.Email, password),
+            cancellationToken);
+
         return Result<CreateUserResponse>.Success(
-            new CreateUserResponse(user.Id, user.UserName));
+            new CreateUserResponse(
+                user.Id,
+                user.UserName,
+                user.FullName,
+                user.Email,
+                user.MustChangePassword,
+                !BackOfficeUserPasswordDelivery.IsFailed(deliveryStatus)));
     }
 }

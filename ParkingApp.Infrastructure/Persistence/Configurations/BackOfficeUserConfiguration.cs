@@ -32,6 +32,10 @@ public class BackOfficeUserConfiguration : IEntityTypeConfiguration<BackOfficeUs
             .IsRequired()
             .HasMaxLength(512);
 
+        builder.Property(x => x.MustChangePassword)
+            .IsRequired()
+            .HasDefaultValue(false);
+
         builder.Property(x => x.IsActive)
             .HasDefaultValue(true);
 
@@ -58,6 +62,7 @@ public class BackOfficeUserConfiguration : IEntityTypeConfiguration<BackOfficeUs
                 Email = "superadmin@gmail.com",
                 // PBKDF2 hash of "P@ssw0rd" (iterations.salt.hash)
                 PasswordHash = "100000.EBESExQVFhcYGRobHB0eHw==.u3Fyc5ZjygvMHMkQlV122zvEFBsQzs5gNbr5qrTujjk=",
+                MustChangePassword = false,
                 IsActive = true,
                 CreatedAtUtc = SeedTime,
                 UpdatedAtUtc = null,

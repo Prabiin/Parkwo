@@ -47,6 +47,7 @@ public sealed class GetUsersQueryHandler(IApplicationDbContext context)
                 u.FullName,
                 u.Email,
                 u.IsActive,
+                u.MustChangePassword,
                 u.LastLoginAtUtc,
                 u.CreatedAtUtc,
                 u.UpdatedAtUtc))

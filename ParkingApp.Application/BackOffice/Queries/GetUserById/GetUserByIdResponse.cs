@@ -11,6 +11,7 @@ public record GetUserByIdResponse(
     string FullName,
     string Email,
     bool IsActive,
+    bool MustChangePassword,
     DateTimeOffset? LastLoginAtUtc,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset? UpdatedAtUtc,

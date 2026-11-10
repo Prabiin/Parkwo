@@ -41,6 +41,7 @@ public sealed class GetUserByIdQueryHandler(IApplicationDbContext context)
                 user.FullName,
                 user.Email,
                 user.IsActive,
+                user.MustChangePassword,
                 user.LastLoginAtUtc,
                 user.CreatedAtUtc,
                 user.UpdatedAtUtc,

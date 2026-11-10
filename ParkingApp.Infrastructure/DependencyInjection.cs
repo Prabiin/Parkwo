@@ -177,7 +177,18 @@ public static class DependencyInjection
 
         services.AddAuthorization(options =>
         {
+            // BackOfficeOnly is the full console policy: a BackOffice token
+            // whose user has already replaced the generated password.
             options.AddPolicy("BackOfficeOnly", policy =>
+            {
+                policy.RequireAuthenticatedUser()
+                    .RequireClaim(ClaimTypes.Role, "BackOffice");
+                policy.AddRequirements(new BackOfficePasswordChangedRequirement());
+            });
+
+            // The narrow admin policy for login-adjacent routes: any live
+            // BackOffice token, including one still on its generated password.
+            options.AddPolicy("BackOfficeAuthenticated", policy =>
                 policy.RequireAuthenticatedUser()
                     .RequireClaim(ClaimTypes.Role, "BackOffice"));
 
@@ -208,6 +219,7 @@ public static class DependencyInjection
 
         services.AddScoped<IAuthorizationHandler, ProfileCompleteAuthorizationHandler>();
         services.AddScoped<IAuthorizationHandler, StaffPasswordChangedAuthorizationHandler>();
+        services.AddScoped<IAuthorizationHandler, BackOfficePasswordChangedAuthorizationHandler>();
 
         services.AddHttpContextAccessor();
 
