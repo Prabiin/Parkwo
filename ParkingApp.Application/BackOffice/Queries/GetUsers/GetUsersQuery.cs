@@ -46,6 +46,9 @@ public sealed class GetUsersQueryHandler(IApplicationDbContext context)
                 u.UserName,
                 u.FullName,
                 u.Email,
+                u.UserRole != null && u.UserRole.Role != null
+                    ? u.UserRole.Role.Name
+                    : null,
                 u.IsActive,
                 u.MustChangePassword,
                 u.LastLoginAtUtc,

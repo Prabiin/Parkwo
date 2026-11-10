@@ -17,7 +17,10 @@ public class BackOfficeAuthApi : BackOfficeGroup
         group.MapPost(Login, "auth/login", "");
         // Deliberately the narrow policy: a user still on the generated password
         // must be able to change it before any other console route opens.
-        group.MapPost(ChangePassword, "auth/change-password", "")
+        // Pattern-first so this policy lands on this endpoint only: the
+        // handler-first MapPost helper returns the group, and chaining
+        // RequireAuthorization there would also protect auth/login.
+        group.MapPost("auth/change-password", ChangePassword)
             .RequireAuthorization(BackOfficeAuthenticatedPolicy);
         group.MapGet("init", Init).RequireAuthorization(BackOfficePolicy);
         // Future: auth/logout.

@@ -5,6 +5,7 @@ public record UserItemResponse(
     string UserName,
     string FullName,
     string Email,
+    string? RoleName,
     bool IsActive,
     /// <summary>
     /// True while the account is still on a Parkwo-generated password, i.e. the

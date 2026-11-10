@@ -24,12 +24,15 @@ public class StaffApi : EndpointGroupBase
     {
         var group = app.MapGroup("staff");
 
-        group.MapPost(Login, "auth/login", "").AllowAnonymous();
+        // Pattern-first where a policy is attached: the handler-first helpers
+        // return the group, so chaining there would apply the policy to every
+        // staff route (including login) instead of just the one endpoint.
+        group.MapPost("auth/login", Login).AllowAnonymous();
         group.MapPost(RefreshToken, "auth/refresh-token", "");
         group.MapPost(Logout, "auth/logout", "");
-        group.MapPost(ChangePassword, "auth/change-password", "")
+        group.MapPost("auth/change-password", ChangePassword)
             .RequireAuthorization(StaffPolicy);
-        group.MapGet(Profile, "profile", "")
+        group.MapGet("profile", Profile)
             .RequireAuthorization(StaffPolicy);
     }
 
