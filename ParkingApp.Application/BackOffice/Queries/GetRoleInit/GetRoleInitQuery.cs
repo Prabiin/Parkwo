@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using ParkingApp.Application.Common;
+using ParkingApp.Application.Common.Constants;
 using ParkingApp.Application.Common.Cqrs;
 using ParkingApp.Application.Common.Interfaces;
 
@@ -9,6 +10,7 @@ namespace ParkingApp.Application.BackOffice.Queries.GetRoleInit;
 /// Permission catalog for the role form: every active menu with its active
 /// actions. The client renders each menu as an expandable group and each action
 /// as a checkbox whose value is the action id posted back as PermissionIds.
+/// Dashboard is pre-selected because every role gets it by default.
 /// </summary>
 public sealed record GetRoleInitQuery
     : IRequestResult<GetRoleInitQuery, GetRoleInitResponse>;
@@ -42,7 +44,11 @@ public sealed class GetRoleInitQueryHandler(IApplicationDbContext context)
                 g.Key.MenuKey,
                 g.Key.MenuTitle,
                 g.OrderBy(a => a.DisplayName)
-                    .Select(a => new RoleActionOption(a.Id, a.ActionKey, a.DisplayName))
+                    .Select(a => new RoleActionOption(
+                        a.Id,
+                        a.ActionKey,
+                        a.DisplayName,
+                        a.MenuKey == BackOfficeConstants.DefaultPermissionMenuKey))
                     .ToList()))
             .ToList();
 

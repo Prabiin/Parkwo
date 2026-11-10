@@ -1,12 +1,5 @@
 namespace ParkingApp.Application.BackOffice.Queries.GetRoleById;
 
-public record RolePermissionResponse(
-    Guid Id,
-    string MenuKey,
-    string ActionKey,
-    string DisplayName,
-    bool IsAssigned);
-
 public record GetRoleByIdResponse(
     Guid Id,
     string Name,
@@ -14,5 +7,5 @@ public record GetRoleByIdResponse(
     bool IsSystem,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset? UpdatedAtUtc,
-    IReadOnlyList<RolePermissionResponse> Permissions,
+    IReadOnlyList<RoleMenuOption> Menus,
     int UserCount);

@@ -58,6 +58,11 @@ public class BookingConfiguration : IEntityTypeConfiguration<Booking>
         builder.Property(x => x.WalkInPlateNumber)
             .HasMaxLength(30);
 
+        builder.Property(x => x.IsDeleted)
+            .IsRequired();
+
+        builder.Property(x => x.DeletedAtUtc);
+
         builder.Property(x => x.PassNonce)
             .IsRequired();
 

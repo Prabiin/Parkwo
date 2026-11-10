@@ -36,7 +36,7 @@ public sealed class GetWalkInPassQueryHandler(
 
         var booking = await context.Bookings
             .AsNoTracking()
-            .Where(b => b.Id == request.BookingId)
+            .Where(b => b.Id == request.BookingId && !b.IsDeleted)
             .Select(b => new
             {
                 b.Id,

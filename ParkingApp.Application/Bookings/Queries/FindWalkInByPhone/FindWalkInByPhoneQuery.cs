@@ -55,6 +55,7 @@ public sealed class FindWalkInByPhoneQueryHandler(
             .AsNoTracking()
             .Where(b => b.FacilityId == request.FacilityId
                         && b.IsWalkInBooking
+                        && !b.IsDeleted
                         && b.Status == BookingStatusEnum.Active
                         && b.WalkInPhoneNumber == phone
                         && b.CreatedAtUtc >= dayStart

@@ -213,6 +213,21 @@ public class WalkInBookingTests
     }
 
     [Fact]
+    public void Marking_A_Walk_In_Deleted_Keeps_The_Row_And_Records_When()
+    {
+        // Soft delete: the row survives for history, it just leaves the board.
+        var booking = WalkIn();
+        var deletedAt = Start.AddMinutes(5);
+
+        booking.MarkDeleted(deletedAt);
+
+        Assert.True(booking.IsDeleted);
+        Assert.Equal(deletedAt, booking.DeletedAtUtc);
+        Assert.NotNull(booking.UpdatedAtUtc);
+        Assert.Equal(BookingStatusEnum.PendingPayment, booking.Status);
+    }
+
+    [Fact]
     public void A_Walk_In_Overstay_Payment_Is_Not_Tied_To_A_Rider_Account()
     {
         var payment = OverstayPayment.Create(Guid.NewGuid(), null, PaymentGatewayEnum.Khalti, 4_000);

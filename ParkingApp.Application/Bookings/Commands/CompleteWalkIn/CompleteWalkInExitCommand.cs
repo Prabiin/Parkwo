@@ -71,7 +71,7 @@ public sealed class CompleteWalkInExitCommandHandler(
 
         var booking = await context.Bookings
             .Include(b => b.Vehicle)
-            .FirstOrDefaultAsync(b => b.Id == request.BookingId, cancellationToken);
+            .FirstOrDefaultAsync(b => b.Id == request.BookingId && !b.IsDeleted, cancellationToken);
 
         if (booking is null)
         {

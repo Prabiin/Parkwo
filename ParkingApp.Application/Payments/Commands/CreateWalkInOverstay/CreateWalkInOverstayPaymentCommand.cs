@@ -41,7 +41,7 @@ public sealed class CreateWalkInOverstayPaymentCommandHandler(
                 "You are not authorised to take payments at this facility.", 403);
 
         var booking = await context.Bookings
-            .FirstOrDefaultAsync(b => b.Id == request.BookingId, cancellationToken);
+            .FirstOrDefaultAsync(b => b.Id == request.BookingId && !b.IsDeleted, cancellationToken);
 
         if (booking is null)
             return Result<CreateOverstayPaymentResponse>.Failure("Booking not found.", 404);

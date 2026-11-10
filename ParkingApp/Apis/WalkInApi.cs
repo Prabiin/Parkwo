@@ -1,10 +1,12 @@
 using ParkingApp.Api.Infrastructure;
 using ParkingApp.Application.Bookings.Commands.CompleteWalkIn;
 using ParkingApp.Application.Bookings.Commands.CreateWalkIn;
+using ParkingApp.Application.Bookings.Commands.DeleteWalkIn;
 using ParkingApp.Application.Bookings.Queries.FindWalkInByPhone;
 using ParkingApp.Application.Bookings.Queries.GetBookingPass;
 using ParkingApp.Application.Bookings.Queries.GetWalkInPass;
 using ParkingApp.Application.Bookings.Queries.GetWalkIns;
+using ParkingApp.Application.Common;
 using ParkingApp.Application.Common.Cqrs;
 using ParkingApp.Application.Payments.Commands.Create;
 using ParkingApp.Application.Payments.Commands.CreateOverstay;
@@ -41,6 +43,9 @@ public class WalkInApi : EndpointGroupBase
             // The "rider paid, webhook is slow" override.
             .MapPost(VerifyPayment, "{bookingId}/verify-payment", "")
             .MapPost(CompleteExit, "{bookingId}/exit", "")
+            // Cleans a mistaken or finished walk-in off the board without
+            // destroying its row or payment history.
+            .MapDelete(Delete, "{bookingId}", "")
             // After an overstayed exit: restarted settlement on the staff device.
             .MapPost(InitiateOverstayPayment, "{bookingId}/overstay-pay", "")
             .MapPost(VerifyOverstayPayment, "{bookingId}/verify-overstay", "")
@@ -94,6 +99,11 @@ public class WalkInApi : EndpointGroupBase
         Guid bookingId, CompleteWalkInExitCommand request, CancellationToken cancellationToken)
         => await ExecuteCommand<CompleteWalkInExitCommand, CompleteWalkInExitResponse>(sender,
             request with { BookingId = bookingId }, serviceProvider, cancellationToken);
+
+    private static async Task<IResult> Delete(ISender sender, IServiceProvider serviceProvider,
+        Guid bookingId, Guid facilityId, CancellationToken cancellationToken)
+        => await ExecuteCommand<DeleteWalkInCommand, Unit>(sender,
+            new DeleteWalkInCommand(bookingId, facilityId), serviceProvider, cancellationToken);
 
     private static async Task<IResult> InitiateOverstayPayment(ISender sender, IServiceProvider serviceProvider,
         Guid bookingId, CreateWalkInOverstayPaymentCommand request, CancellationToken cancellationToken)

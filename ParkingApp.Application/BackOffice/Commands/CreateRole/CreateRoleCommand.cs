@@ -1,6 +1,7 @@
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using ParkingApp.Application.Common;
+using ParkingApp.Application.Common.Constants;
 using ParkingApp.Application.Common.Cqrs;
 using ParkingApp.Application.Common.Interfaces;
 using ParkingApp.Domain.BackOffice.Role;
@@ -59,6 +60,17 @@ public sealed class CreateRoleCommandHandler(IApplicationDbContext context)
                 return Result<CreateRoleResponse>.Failure($"Invalid permission IDs: {string.Join(", ", invalidIds)}", 400);
         }
 
+        // Dashboard is mandatory (the landing page) even when the client sends
+        // no permissions, so always include its active actions.
+        var defaultActionIds = await context.BackOfficeMenuActions
+            .Where(a => a.IsActive && a.MenuKey == BackOfficeConstants.DefaultPermissionMenuKey)
+            .Select(a => a.Id)
+            .ToListAsync(cancellationToken);
+
+        var permissionIds = request.PermissionIds
+            .Union(defaultActionIds)
+            .ToList();
+
         var role = new BackOfficeRole
         {
             Name = normalizedName,
@@ -67,16 +79,13 @@ public sealed class CreateRoleCommandHandler(IApplicationDbContext context)
             CreatedAtUtc = DateTimeOffset.UtcNow
         };
 
-        if (request.PermissionIds.Count > 0)
-        {
-            role.RoleMenuActions = request.PermissionIds
-                .Select(id => new BackOfficeRoleMenuAction
-                {
-                    MenuActionId = id,
-                    CreatedAtUtc = DateTimeOffset.UtcNow
-                })
-                .ToList();
-        }
+        role.RoleMenuActions = permissionIds
+            .Select(id => new BackOfficeRoleMenuAction
+            {
+                MenuActionId = id,
+                CreatedAtUtc = DateTimeOffset.UtcNow
+            })
+            .ToList();
 
         context.BackOfficeRoles.Add(role);
         await context.SaveChangesAsync(cancellationToken);

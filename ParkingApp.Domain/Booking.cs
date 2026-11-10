@@ -87,6 +87,16 @@ public class Booking : AuditableEntity
     public string? CancellationReason { get; private set; }
 
     /// <summary>
+    /// Soft-delete flag. A deleted walk-in disappears from the gate board and
+    /// every walk-in lookup, but the row — and any payment history hanging off
+    /// it — stays in the database. Only stays that no longer occupy a space may
+    /// be deleted, so this never rewrites a live occupancy or an exit.
+    /// </summary>
+    public bool IsDeleted { get; private set; }
+
+    public DateTimeOffset? DeletedAtUtc { get; private set; }
+
+    /// <summary>
     /// Random per-booking secret mixed into the gate pass signature. Rotating it
     /// invalidates every QR ever issued for this booking, so a screenshot that
     /// leaked can be cut off without touching the booking's identity.
@@ -365,6 +375,19 @@ public class Booking : AuditableEntity
         Status = BookingStatusEnum.Cancelled;
         CancelledAtUtc = DateTimeOffset.UtcNow;
         CancellationReason = string.IsNullOrWhiteSpace(reason) ? null : reason.Trim();
+        UpdatedAtUtc = DateTimeOffset.UtcNow;
+    }
+
+    /// <summary>
+    /// Soft-deletes the row. Callers are responsible for establishing that the
+    /// stay no longer occupies a space — a parked vehicle must be scanned out
+    /// first, because the exit scan is what measures the stay and prices any
+    /// overstay.
+    /// </summary>
+    public void MarkDeleted(DateTimeOffset deletedAtUtc)
+    {
+        IsDeleted = true;
+        DeletedAtUtc = deletedAtUtc;
         UpdatedAtUtc = DateTimeOffset.UtcNow;
     }
 

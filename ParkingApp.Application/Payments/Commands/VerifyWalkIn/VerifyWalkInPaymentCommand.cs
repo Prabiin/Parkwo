@@ -55,7 +55,7 @@ public sealed class VerifyWalkInPaymentCommandHandler(
         var now = DateTimeOffset.UtcNow;
 
         var booking = await context.Bookings
-            .FirstOrDefaultAsync(b => b.Id == request.BookingId, cancellationToken);
+            .FirstOrDefaultAsync(b => b.Id == request.BookingId && !b.IsDeleted, cancellationToken);
 
         if (booking is null)
             return Result<VerifyWalkInPaymentResponse>.Failure("Booking not found.", 404);

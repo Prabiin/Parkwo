@@ -44,7 +44,7 @@ public sealed class VerifyWalkInOverstayPaymentCommandHandler(
                 "You are not authorised to verify payments at this facility.", 403);
 
         var booking = await context.Bookings
-            .FirstOrDefaultAsync(b => b.Id == request.BookingId, cancellationToken);
+            .FirstOrDefaultAsync(b => b.Id == request.BookingId && !b.IsDeleted, cancellationToken);
 
         if (booking is null)
             return Result<VerifyWalkInOverstayPaymentResponse>.Failure("Booking not found.", 404);

@@ -1,6 +1,7 @@
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using ParkingApp.Application.Common;
+using ParkingApp.Application.Common.Constants;
 using ParkingApp.Application.Common.Cqrs;
 using ParkingApp.Application.Common.Interfaces;
 using ParkingApp.Domain.BackOffice.Menu;
@@ -88,18 +89,26 @@ public sealed class UpdateRoleCommandHandler(IApplicationDbContext context)
                     return Result<Unit>.Failure($"Invalid permission IDs: {string.Join(", ", invalidIds)}", 400);
             }
 
+            // Dashboard is mandatory (the landing page), so keep it even if the
+            // client submits a set that omits it.
+            var defaultActionIds = await context.BackOfficeMenuActions
+                .Where(a => a.IsActive && a.MenuKey == BackOfficeConstants.DefaultPermissionMenuKey)
+                .Select(a => a.Id)
+                .ToListAsync(cancellationToken);
+
+            var permissionIds = request.PermissionIds
+                .Union(defaultActionIds)
+                .ToList();
+
             // Replace permissions
             role.RoleMenuActions.Clear();
-            if (request.PermissionIds.Count > 0)
+            foreach (var permissionId in permissionIds)
             {
-                foreach (var permissionId in request.PermissionIds)
+                role.RoleMenuActions.Add(new BackOfficeRoleMenuAction
                 {
-                    role.RoleMenuActions.Add(new BackOfficeRoleMenuAction
-                    {
-                        MenuActionId = permissionId,
-                        CreatedAtUtc = DateTimeOffset.UtcNow
-                    });
-                }
+                    MenuActionId = permissionId,
+                    CreatedAtUtc = DateTimeOffset.UtcNow
+                });
             }
         }
 

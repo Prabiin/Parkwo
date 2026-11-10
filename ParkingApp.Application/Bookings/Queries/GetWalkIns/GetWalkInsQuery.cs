@@ -66,7 +66,9 @@ public sealed class GetWalkInsQueryHandler(
 
         var query = context.Bookings
             .AsNoTracking()
-            .Where(b => b.FacilityId == request.FacilityId && b.IsWalkInBooking);
+            .Where(b => b.FacilityId == request.FacilityId
+                        && b.IsWalkInBooking
+                        && !b.IsDeleted);
 
         if (request.Status is { } status)
             query = query.Where(b => b.Status == status);

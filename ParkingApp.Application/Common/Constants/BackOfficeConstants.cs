@@ -26,4 +26,10 @@ public static class BackOfficeConstants
     /// SuperAdmin role name.
     /// </summary>
     public const string SuperAdminRoleName = "SuperAdmin";
+
+    /// <summary>
+    /// Menu key whose actions are granted to every role by default. Every role
+    /// needs its landing page even when it has no other permissions.
+    /// </summary>
+    public const string DefaultPermissionMenuKey = "Dashboard";
 }

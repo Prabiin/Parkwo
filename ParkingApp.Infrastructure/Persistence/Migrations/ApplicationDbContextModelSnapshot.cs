@@ -473,6 +473,9 @@ namespace ParkingApp.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("uuid");
 
+                    b.Property<DateTimeOffset?>("DeletedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateTimeOffset>("EndsAtUtc")
                         .HasColumnType("timestamp with time zone");
 
@@ -499,6 +502,9 @@ namespace ParkingApp.Infrastructure.Persistence.Migrations
 
                     b.Property<DateTimeOffset>("HoldExpiresAtUtc")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
 
                     b.Property<bool>("IsWalkInBooking")
                         .HasColumnType("boolean");
