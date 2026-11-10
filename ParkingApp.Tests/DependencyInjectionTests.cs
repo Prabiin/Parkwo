@@ -11,14 +11,15 @@ using ParkingApp.Infrastructure.Auth;
 namespace ParkingApp.Tests;
 
 /// <summary>
-/// Guards on <c>AddInfrastructure</c>. Handlers and validators are wired up by
-/// hand there, so adding a new query or command without its registration
-/// compiles and the unit tests stay green — the app still boots — while the
-/// endpoint dies at runtime with "No service for type
+/// Guards on <c>AddInfrastructure</c>. Handlers and validators are discovered
+/// by scanning the Application assembly, so this locks down that the scan
+/// actually registers every implementation. If the scan misses one (for
+/// example because it is non-public or lives outside the expected assembly) the
+/// app still boots, but the endpoint dies at runtime with "No service for type
 /// 'IRequestResultHandler`2[...]' has been registered" (a 500). The same file
 /// picks infrastructure implementations by configuration, so the selection is
-/// locked here too rather than only inspected by eye. If a test fails, add or
-/// fix the registration in <c>DependencyInjection</c>.
+/// locked here too rather than only inspected by eye. If a test fails, fix the
+/// discovered type or the scan in <c>DependencyInjection</c>.
 /// </summary>
 public class DependencyInjectionTests
 {
