@@ -220,6 +220,7 @@ public static class DependencyInjection
         services.AddScoped<IAuthorizationHandler, ProfileCompleteAuthorizationHandler>();
         services.AddScoped<IAuthorizationHandler, StaffPasswordChangedAuthorizationHandler>();
         services.AddScoped<IAuthorizationHandler, BackOfficePasswordChangedAuthorizationHandler>();
+        services.AddScoped<IAuthorizationHandler, BackOfficePermissionAuthorizationHandler>();
 
         services.AddHttpContextAccessor();
 

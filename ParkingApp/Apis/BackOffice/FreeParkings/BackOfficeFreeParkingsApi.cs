@@ -24,13 +24,23 @@ public class BackOfficeFreeParkingsApi : BackOfficeGroup
     {
         var group = app.MapGroup("backoffice");
 
-        group.MapPost(Create, "free-parkings", "", disableAntiforgery: true)
-            .RequireAuthorization(BackOfficePolicy);
-        group.MapGet("free-parkings", List).RequireAuthorization(BackOfficePolicy);
-        group.MapGet("free-parkings/{id}", Detail).RequireAuthorization(BackOfficePolicy);
-        group.MapPut(Update, "free-parkings/{id}", "", disableAntiforgery: true)
-            .RequireAuthorization(BackOfficePolicy);
-        group.MapDelete("free-parkings/{id}", Delete).RequireAuthorization(BackOfficePolicy);
+        group.MapPost("free-parkings", Create)
+            .DisableAntiforgery()
+            .RequireAuthorization(BackOfficePolicy)
+            .RequireBackOfficePermission("FreeParkings", "Add");
+        group.MapGet("free-parkings", List)
+            .RequireAuthorization(BackOfficePolicy)
+            .RequireBackOfficePermission("FreeParkings", "List");
+        group.MapGet("free-parkings/{id}", Detail)
+            .RequireAuthorization(BackOfficePolicy)
+            .RequireBackOfficePermission("FreeParkings", "View");
+        group.MapPut("free-parkings/{id}", Update)
+            .DisableAntiforgery()
+            .RequireAuthorization(BackOfficePolicy)
+            .RequireBackOfficePermission("FreeParkings", "Edit");
+        group.MapDelete("free-parkings/{id}", Delete)
+            .RequireAuthorization(BackOfficePolicy)
+            .RequireBackOfficePermission("FreeParkings", "Delete");
     }
 
     private static async Task<IResult> Create([FromForm] CreateFreeParkingRequest request,

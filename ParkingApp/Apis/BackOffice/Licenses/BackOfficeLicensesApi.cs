@@ -1,3 +1,4 @@
+using ParkingApp.Api.Infrastructure;
 using ParkingApp.Application.BackOffice.Commands.UpdateApproval;
 using ParkingApp.Application.BackOffice.Queries.GetLicenses;
 using ParkingApp.Application.Common;
@@ -11,8 +12,12 @@ public class BackOfficeLicensesApi : BackOfficeGroup
     {
         var group = app.MapGroup("backoffice");
 
-        group.MapGet("licenses", Licenses).RequireAuthorization(BackOfficePolicy);
-        group.MapPut("licenses/{licenseId}/approval", UpdateDrivingLicenseApproval).RequireAuthorization(BackOfficePolicy);
+        group.MapGet("licenses", Licenses)
+            .RequireAuthorization(BackOfficePolicy)
+            .RequireBackOfficePermission("Licenses", "List");
+        group.MapPut("licenses/{licenseId}/approval", UpdateDrivingLicenseApproval)
+            .RequireAuthorization(BackOfficePolicy)
+            .RequireBackOfficePermission("Licenses", "Edit");
     }
 
     private static async Task<IResult> Licenses(ISender sender, IServiceProvider serviceProvider,

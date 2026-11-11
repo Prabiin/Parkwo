@@ -1,3 +1,4 @@
+using ParkingApp.Api.Infrastructure;
 using ParkingApp.Application.BackOffice.Queries.GetRiders;
 using ParkingApp.Application.Common.Cqrs;
 
@@ -9,7 +10,9 @@ public class BackOfficeRidersApi : BackOfficeGroup
     {
         var group = app.MapGroup("backoffice");
 
-        group.MapGet("riders", Riders).RequireAuthorization(BackOfficePolicy);
+        group.MapGet("riders", Riders)
+            .RequireAuthorization(BackOfficePolicy)
+            .RequireBackOfficePermission("Riders", "List");
     }
 
     private static async Task<IResult> Riders(ISender sender, IServiceProvider serviceProvider,

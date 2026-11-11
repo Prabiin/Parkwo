@@ -1,3 +1,4 @@
+using ParkingApp.Api.Infrastructure;
 using ParkingApp.Application.BackOffice.Commands.CreateRole;
 using ParkingApp.Application.BackOffice.Commands.DeleteRole;
 using ParkingApp.Application.BackOffice.Commands.UpdateRole;
@@ -15,12 +16,20 @@ public class BackOfficeRolesApi : BackOfficeGroup
     {
         var group = app.MapGroup("backoffice/roles").RequireAuthorization(BackOfficePolicy);
 
-        group.MapGet("", GetRoles);
-        group.MapGet("init", GetRoleInit);
-        group.MapGet("{roleId:guid}", GetRoleById);
-        group.MapPost("", CreateRole);
-        group.MapPut("{roleId:guid}", UpdateRole);
-        group.MapDelete("{roleId:guid}", DeleteRole);
+        group.MapGet("", GetRoles)
+            .RequireBackOfficePermission("Role", "List");
+        // The init endpoint returns the permission catalog the role form is
+        // built from, so it rides along with the list permission.
+        group.MapGet("init", GetRoleInit)
+            .RequireBackOfficePermission("Role", "List");
+        group.MapGet("{roleId:guid}", GetRoleById)
+            .RequireBackOfficePermission("Role", "View");
+        group.MapPost("", CreateRole)
+            .RequireBackOfficePermission("Role", "Add");
+        group.MapPut("{roleId:guid}", UpdateRole)
+            .RequireBackOfficePermission("Role", "Edit");
+        group.MapDelete("{roleId:guid}", DeleteRole)
+            .RequireBackOfficePermission("Role", "Delete");
     }
 
     private static async Task<IResult> GetRoles(

@@ -16,12 +16,20 @@ public class BackOfficeUsersApi : BackOfficeGroup
     {
         var group = app.MapGroup("backoffice/users").RequireAuthorization(BackOfficePolicy);
 
-        group.MapGet("", GetUsers);
-        group.MapGet("{userId:guid}", GetUserById);
-        group.MapPost("", CreateUser);
-        group.MapPut("{userId:guid}", UpdateUser);
-        group.MapPut(ResendInvite, "{userId:guid}/resend-invite", "");
-        group.MapDelete("{userId:guid}", DeleteUser);
+        group.MapGet("", GetUsers)
+            .RequireBackOfficePermission("User", "List");
+        group.MapGet("{userId:guid}", GetUserById)
+            .RequireBackOfficePermission("User", "View");
+        group.MapPost("", CreateUser)
+            .RequireBackOfficePermission("User", "Add");
+        group.MapPut("{userId:guid}", UpdateUser)
+            .RequireBackOfficePermission("User", "Edit");
+        // Resending the invite rotates the credential, so it is an edit of the
+        // account rather than a separate permission.
+        group.MapPut("{userId:guid}/resend-invite", ResendInvite)
+            .RequireBackOfficePermission("User", "Edit");
+        group.MapDelete("{userId:guid}", DeleteUser)
+            .RequireBackOfficePermission("User", "Delete");
     }
 
     private static async Task<IResult> GetUsers(

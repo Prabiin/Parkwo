@@ -116,6 +116,88 @@ namespace ParkingApp.Infrastructure.Persistence.Migrations
                             Route = "/access-control/user",
                             SortOrder = 2,
                             Title = "User Management"
+                        },
+                        new
+                        {
+                            Id = new Guid("e7c39a86-6d5f-4b1e-8a92-3f4b5c6d7e8a"),
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Icon = "staff",
+                            Key = "StaffManagement",
+                            Route = "/staff",
+                            SortOrder = 3,
+                            Title = "Staff Management"
+                        },
+                        new
+                        {
+                            Id = new Guid("f8d4ab97-7e60-4c2f-9ba3-4a5c6d7e8f9b"),
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Icon = "building",
+                            Key = "PaidParkings",
+                            SortOrder = 4,
+                            Title = "Paid Parkings"
+                        },
+                        new
+                        {
+                            Id = new Guid("09e5bca8-8f71-4d30-acb4-5b6d7e8f9a0c"),
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Icon = "motorcycle",
+                            Key = "RidersManagement",
+                            SortOrder = 5,
+                            Title = "Riders Management"
+                        },
+                        new
+                        {
+                            Id = new Guid("1af6cdb9-9082-4e41-bdc5-6c7e8f9a0b1d"),
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Icon = "parking",
+                            Key = "FreeParkings",
+                            Route = "/free-parkings",
+                            SortOrder = 6,
+                            Title = "Free Parkings"
+                        },
+                        new
+                        {
+                            Id = new Guid("2b07deca-a193-4f52-ced6-7d8f9a0b1c2e"),
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Icon = "building",
+                            Key = "Facilities",
+                            ParentMenuId = new Guid("f8d4ab97-7e60-4c2f-9ba3-4a5c6d7e8f9b"),
+                            Route = "/paid-parkings/facilities",
+                            SortOrder = 1,
+                            Title = "Paid Parking Facility"
+                        },
+                        new
+                        {
+                            Id = new Guid("3c18efdb-b2a4-4063-dfe7-8e9a0b1c2d3f"),
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Icon = "users",
+                            Key = "Providers",
+                            ParentMenuId = new Guid("f8d4ab97-7e60-4c2f-9ba3-4a5c6d7e8f9b"),
+                            Route = "/paid-parkings/providers",
+                            SortOrder = 2,
+                            Title = "Parking Facility Providers"
+                        },
+                        new
+                        {
+                            Id = new Guid("4d29f0ec-c3b5-4174-e0f8-9fab1c2d3e40"),
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Icon = "file",
+                            Key = "Licenses",
+                            ParentMenuId = new Guid("09e5bca8-8f71-4d30-acb4-5b6d7e8f9a0c"),
+                            Route = "/riders/licenses",
+                            SortOrder = 1,
+                            Title = "Licenses"
+                        },
+                        new
+                        {
+                            Id = new Guid("5e3a01fd-d4c6-4285-f109-ab0c1d2e3f51"),
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Icon = "motorcycle",
+                            Key = "Riders",
+                            ParentMenuId = new Guid("09e5bca8-8f71-4d30-acb4-5b6d7e8f9a0c"),
+                            Route = "/riders/riders",
+                            SortOrder = 2,
+                            Title = "Riders"
                         });
                 });
 
@@ -263,6 +345,366 @@ namespace ParkingApp.Infrastructure.Persistence.Migrations
                             DisplayName = "View User Details",
                             IsActive = true,
                             MenuKey = "User"
+                        },
+                        new
+                        {
+                            Id = new Guid("2a7f4c91-8b3d-4e6a-9f52-1c7d0e4b8a63"),
+                            ActionKey = "List",
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DisplayName = "List Staff",
+                            IsActive = true,
+                            MenuKey = "StaffManagement"
+                        },
+                        new
+                        {
+                            Id = new Guid("3b8e5da2-9c4e-4f7b-a063-2d8e1f5c9b74"),
+                            ActionKey = "View",
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DisplayName = "View Staff Details",
+                            IsActive = true,
+                            MenuKey = "StaffManagement"
+                        },
+                        new
+                        {
+                            Id = new Guid("4c9f6eb3-ad5f-408c-b174-3e9f206ad85c"),
+                            ActionKey = "Add",
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DisplayName = "Add Staff",
+                            IsActive = true,
+                            MenuKey = "StaffManagement"
+                        },
+                        new
+                        {
+                            Id = new Guid("5da07fc4-be60-419d-c285-4fa0317be96d"),
+                            ActionKey = "Edit",
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DisplayName = "Edit Staff",
+                            IsActive = true,
+                            MenuKey = "StaffManagement"
+                        },
+                        new
+                        {
+                            Id = new Guid("6eb180d5-cf71-42ae-d396-50b1428cf9a7"),
+                            ActionKey = "Delete",
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DisplayName = "Delete Staff",
+                            IsActive = true,
+                            MenuKey = "StaffManagement"
+                        },
+                        new
+                        {
+                            Id = new Guid("7fc291e6-d082-43bf-e4a7-61c2539d0ab8"),
+                            ActionKey = "List",
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DisplayName = "List Paid Parkings",
+                            IsActive = true,
+                            MenuKey = "PaidParkings"
+                        },
+                        new
+                        {
+                            Id = new Guid("80d3a2f7-e193-44c0-f5b8-72d364ae1bc9"),
+                            ActionKey = "View",
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DisplayName = "View Paid Parkings",
+                            IsActive = true,
+                            MenuKey = "PaidParkings"
+                        },
+                        new
+                        {
+                            Id = new Guid("91e4b308-f2a4-45d1-06c9-83e475bf2cda"),
+                            ActionKey = "Add",
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DisplayName = "Add Paid Parking",
+                            IsActive = true,
+                            MenuKey = "PaidParkings"
+                        },
+                        new
+                        {
+                            Id = new Guid("a2f5c419-03b5-46e2-17da-94f586c03deb"),
+                            ActionKey = "Edit",
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DisplayName = "Edit Paid Parking",
+                            IsActive = true,
+                            MenuKey = "PaidParkings"
+                        },
+                        new
+                        {
+                            Id = new Guid("b306d52a-14c6-47f3-28eb-a50697d14efc"),
+                            ActionKey = "Delete",
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DisplayName = "Delete Paid Parking",
+                            IsActive = true,
+                            MenuKey = "PaidParkings"
+                        },
+                        new
+                        {
+                            Id = new Guid("c417e63b-25d7-4804-39fc-b617a8e25f0d"),
+                            ActionKey = "List",
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DisplayName = "List Parking Facilities",
+                            IsActive = true,
+                            MenuKey = "Facilities"
+                        },
+                        new
+                        {
+                            Id = new Guid("d528f74c-36e8-4915-4a0d-c728b9f3601e"),
+                            ActionKey = "View",
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DisplayName = "View Parking Facility Details",
+                            IsActive = true,
+                            MenuKey = "Facilities"
+                        },
+                        new
+                        {
+                            Id = new Guid("e639a85d-47f9-4a26-5b1e-d839ca04712f"),
+                            ActionKey = "Add",
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DisplayName = "Add Parking Facility",
+                            IsActive = true,
+                            MenuKey = "Facilities"
+                        },
+                        new
+                        {
+                            Id = new Guid("f74ab96e-580a-4b37-6c2f-e94adb158230"),
+                            ActionKey = "Edit",
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DisplayName = "Edit Parking Facility",
+                            IsActive = true,
+                            MenuKey = "Facilities"
+                        },
+                        new
+                        {
+                            Id = new Guid("085bca7f-691b-4c48-7d30-fa5bec269341"),
+                            ActionKey = "Delete",
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DisplayName = "Delete Parking Facility",
+                            IsActive = true,
+                            MenuKey = "Facilities"
+                        },
+                        new
+                        {
+                            Id = new Guid("196cdb80-7a2c-4d59-8e41-0b6cfd37a452"),
+                            ActionKey = "List",
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DisplayName = "List Parking Providers",
+                            IsActive = true,
+                            MenuKey = "Providers"
+                        },
+                        new
+                        {
+                            Id = new Guid("2a7dec91-8b3d-4e6a-9f52-1c7d0e48b563"),
+                            ActionKey = "View",
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DisplayName = "View Parking Provider Details",
+                            IsActive = true,
+                            MenuKey = "Providers"
+                        },
+                        new
+                        {
+                            Id = new Guid("3b8efda2-9c4e-4f7b-a063-2d8e1f59c674"),
+                            ActionKey = "Add",
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DisplayName = "Add Parking Provider",
+                            IsActive = true,
+                            MenuKey = "Providers"
+                        },
+                        new
+                        {
+                            Id = new Guid("4c9f0eb3-ad5f-408c-b174-3e9f206ad785"),
+                            ActionKey = "Edit",
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DisplayName = "Edit Parking Provider",
+                            IsActive = true,
+                            MenuKey = "Providers"
+                        },
+                        new
+                        {
+                            Id = new Guid("5da01fc4-be60-419d-c285-4fa0317be896"),
+                            ActionKey = "Delete",
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DisplayName = "Delete Parking Provider",
+                            IsActive = true,
+                            MenuKey = "Providers"
+                        },
+                        new
+                        {
+                            Id = new Guid("6eb12fd6-d082-43bf-e4a7-61c2539d0a97"),
+                            ActionKey = "List",
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DisplayName = "List Riders Management",
+                            IsActive = true,
+                            MenuKey = "RidersManagement"
+                        },
+                        new
+                        {
+                            Id = new Guid("7fc230e7-e193-44c0-f5b8-72d364ae1ba8"),
+                            ActionKey = "View",
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DisplayName = "View Riders Management",
+                            IsActive = true,
+                            MenuKey = "RidersManagement"
+                        },
+                        new
+                        {
+                            Id = new Guid("80d341f8-f2a4-45d1-06c9-83e475bf2cb9"),
+                            ActionKey = "Add",
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DisplayName = "Add Riders Management",
+                            IsActive = true,
+                            MenuKey = "RidersManagement"
+                        },
+                        new
+                        {
+                            Id = new Guid("91e45209-03b5-46e2-17da-94f586c03dca"),
+                            ActionKey = "Edit",
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DisplayName = "Edit Riders Management",
+                            IsActive = true,
+                            MenuKey = "RidersManagement"
+                        },
+                        new
+                        {
+                            Id = new Guid("a2f5631a-14c6-47f3-28eb-a50697d14edb"),
+                            ActionKey = "Delete",
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DisplayName = "Delete Riders Management",
+                            IsActive = true,
+                            MenuKey = "RidersManagement"
+                        },
+                        new
+                        {
+                            Id = new Guid("b306742b-25d7-4804-39fc-b617a8e25f0c"),
+                            ActionKey = "List",
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DisplayName = "List Licenses",
+                            IsActive = true,
+                            MenuKey = "Licenses"
+                        },
+                        new
+                        {
+                            Id = new Guid("c417853c-36e8-4915-4a0d-c728b9f3601d"),
+                            ActionKey = "View",
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DisplayName = "View License Details",
+                            IsActive = true,
+                            MenuKey = "Licenses"
+                        },
+                        new
+                        {
+                            Id = new Guid("d528964d-47f9-4a26-5b1e-d839ca04712e"),
+                            ActionKey = "Add",
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DisplayName = "Add License",
+                            IsActive = true,
+                            MenuKey = "Licenses"
+                        },
+                        new
+                        {
+                            Id = new Guid("e639a75e-580a-4b37-6c2f-e94adb15823f"),
+                            ActionKey = "Edit",
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DisplayName = "Edit License",
+                            IsActive = true,
+                            MenuKey = "Licenses"
+                        },
+                        new
+                        {
+                            Id = new Guid("f74ab86f-691b-4c48-7d30-fa5bec269340"),
+                            ActionKey = "Delete",
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DisplayName = "Delete License",
+                            IsActive = true,
+                            MenuKey = "Licenses"
+                        },
+                        new
+                        {
+                            Id = new Guid("085bc970-7a2c-4d59-8e41-0b6cfd37a451"),
+                            ActionKey = "List",
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DisplayName = "List Riders",
+                            IsActive = true,
+                            MenuKey = "Riders"
+                        },
+                        new
+                        {
+                            Id = new Guid("196cda81-8b3d-4e6a-9f52-1c7d0e48b562"),
+                            ActionKey = "View",
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DisplayName = "View Rider Details",
+                            IsActive = true,
+                            MenuKey = "Riders"
+                        },
+                        new
+                        {
+                            Id = new Guid("2a7deb92-9c4e-4f7b-a063-2d8e1f59c673"),
+                            ActionKey = "Add",
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DisplayName = "Add Rider",
+                            IsActive = true,
+                            MenuKey = "Riders"
+                        },
+                        new
+                        {
+                            Id = new Guid("3b8efca3-ad5f-408c-b174-3e9f206ad784"),
+                            ActionKey = "Edit",
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DisplayName = "Edit Rider",
+                            IsActive = true,
+                            MenuKey = "Riders"
+                        },
+                        new
+                        {
+                            Id = new Guid("4c9f0db4-be60-419d-c285-4fa0317be895"),
+                            ActionKey = "Delete",
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DisplayName = "Delete Rider",
+                            IsActive = true,
+                            MenuKey = "Riders"
+                        },
+                        new
+                        {
+                            Id = new Guid("5da01ec5-cf71-42ae-d396-50b1428cf9a6"),
+                            ActionKey = "List",
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DisplayName = "List Free Parkings",
+                            IsActive = true,
+                            MenuKey = "FreeParkings"
+                        },
+                        new
+                        {
+                            Id = new Guid("a2f5631b-25d7-4804-39fc-b617a8e25f0b"),
+                            ActionKey = "View",
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DisplayName = "View Free Parkings",
+                            IsActive = true,
+                            MenuKey = "FreeParkings"
+                        },
+                        new
+                        {
+                            Id = new Guid("b306742c-36e8-4915-4a0d-c728b9f3601c"),
+                            ActionKey = "Add",
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DisplayName = "Add Free Parking",
+                            IsActive = true,
+                            MenuKey = "FreeParkings"
+                        },
+                        new
+                        {
+                            Id = new Guid("c417853d-47f9-4a26-5b1e-d839ca04712d"),
+                            ActionKey = "Edit",
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DisplayName = "Edit Free Parking",
+                            IsActive = true,
+                            MenuKey = "FreeParkings"
+                        },
+                        new
+                        {
+                            Id = new Guid("d528964e-580a-4b37-6c2f-e94adb15823e"),
+                            ActionKey = "Delete",
+                            CreatedAtUtc = new DateTimeOffset(new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DisplayName = "Delete Free Parking",
+                            IsActive = true,
+                            MenuKey = "FreeParkings"
                         });
                 });
 

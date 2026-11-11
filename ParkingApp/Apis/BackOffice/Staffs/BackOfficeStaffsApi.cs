@@ -26,15 +26,35 @@ public class BackOfficeStaffsApi : BackOfficeGroup
     {
         var group = app.MapGroup("backoffice");
 
-        group.MapPost(Create, "staff", "").RequireAuthorization(BackOfficePolicy);
-        group.MapGet("staff", List).RequireAuthorization(BackOfficePolicy);
-        group.MapGet("staff/init", Init).RequireAuthorization(BackOfficePolicy);
-        group.MapGet("staff/{id}", Detail).RequireAuthorization(BackOfficePolicy);
-        group.MapPut(Update, "staff/{id}", "").RequireAuthorization(BackOfficePolicy);
-        group.MapPut(ResetPassword, "staff/{id}/password", "").RequireAuthorization(BackOfficePolicy);
-        group.MapPut(ResendInvite, "staff/{id}/resend-invite", "").RequireAuthorization(BackOfficePolicy);
-        group.MapPut(SetActive, "staff/{id}/active", "").RequireAuthorization(BackOfficePolicy);
-        group.MapDelete(Delete, "staff/{id}", "").RequireAuthorization(BackOfficePolicy);
+        group.MapPost("staff", Create)
+            .RequireAuthorization(BackOfficePolicy)
+            .RequireBackOfficePermission("StaffManagement", "Add");
+        group.MapGet("staff", List)
+            .RequireAuthorization(BackOfficePolicy)
+            .RequireBackOfficePermission("StaffManagement", "List");
+        group.MapGet("staff/init", Init)
+            .RequireAuthorization(BackOfficePolicy)
+            .RequireBackOfficePermission("StaffManagement", "List");
+        group.MapGet("staff/{id}", Detail)
+            .RequireAuthorization(BackOfficePolicy)
+            .RequireBackOfficePermission("StaffManagement", "View");
+        group.MapPut("staff/{id}", Update)
+            .RequireAuthorization(BackOfficePolicy)
+            .RequireBackOfficePermission("StaffManagement", "Edit");
+        // Reset, resend and activate all change the staff member's credential
+        // or state, so they ride on the edit permission.
+        group.MapPut("staff/{id}/password", ResetPassword)
+            .RequireAuthorization(BackOfficePolicy)
+            .RequireBackOfficePermission("StaffManagement", "Edit");
+        group.MapPut("staff/{id}/resend-invite", ResendInvite)
+            .RequireAuthorization(BackOfficePolicy)
+            .RequireBackOfficePermission("StaffManagement", "Edit");
+        group.MapPut("staff/{id}/active", SetActive)
+            .RequireAuthorization(BackOfficePolicy)
+            .RequireBackOfficePermission("StaffManagement", "Edit");
+        group.MapDelete("staff/{id}", Delete)
+            .RequireAuthorization(BackOfficePolicy)
+            .RequireBackOfficePermission("StaffManagement", "Delete");
     }
 
     private static async Task<IResult> Create(ISender sender, IServiceProvider serviceProvider,

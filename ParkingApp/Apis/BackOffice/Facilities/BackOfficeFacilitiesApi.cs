@@ -1,3 +1,4 @@
+using ParkingApp.Api.Infrastructure;
 using ParkingApp.Application.BackOffice.Commands.UpdateApproval;
 using ParkingApp.Application.BackOffice.Queries.GetParkingFacilities;
 using ParkingApp.Application.BackOffice.Queries.GetParkingFacilityDetail;
@@ -12,10 +13,18 @@ public class BackOfficeFacilitiesApi : BackOfficeGroup
     {
         var group = app.MapGroup("backoffice");
 
-        group.MapGet("facilities", Facilities).RequireAuthorization(BackOfficePolicy);
-        group.MapGet("facilities/{facilityId}", FacilityDetail).RequireAuthorization(BackOfficePolicy);
-        group.MapPut("facilities/{facilityId}/approval", UpdateParkingFacilityApproval).RequireAuthorization(BackOfficePolicy);
-        group.MapPut("facilities/{facilityId}/capacity-approval", UpdateFacilityCapacityApproval).RequireAuthorization(BackOfficePolicy);
+        group.MapGet("facilities", Facilities)
+            .RequireAuthorization(BackOfficePolicy)
+            .RequireBackOfficePermission("Facilities", "List");
+        group.MapGet("facilities/{facilityId}", FacilityDetail)
+            .RequireAuthorization(BackOfficePolicy)
+            .RequireBackOfficePermission("Facilities", "View");
+        group.MapPut("facilities/{facilityId}/approval", UpdateParkingFacilityApproval)
+            .RequireAuthorization(BackOfficePolicy)
+            .RequireBackOfficePermission("Facilities", "Edit");
+        group.MapPut("facilities/{facilityId}/capacity-approval", UpdateFacilityCapacityApproval)
+            .RequireAuthorization(BackOfficePolicy)
+            .RequireBackOfficePermission("Facilities", "Edit");
     }
 
     private static async Task<IResult> Facilities(ISender sender, IServiceProvider serviceProvider,
