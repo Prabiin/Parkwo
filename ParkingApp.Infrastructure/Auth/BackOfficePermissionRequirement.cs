@@ -53,7 +53,11 @@ public static class BackOfficePermissionQueries
     public static IQueryable<string> RoleNames(IApplicationDbContext dbContext, Guid userId)
         => dbContext.BackOfficeRoles
             .AsNoTracking()
-            .Where(r => r.UserRoles.Any(ur => ur.UserId == userId))
+            .Where(r => r.IsActive
+                        && !r.IsDeleted
+                        && r.UserRoles.Any(ur => ur.UserId == userId
+                                                && ur.User != null
+                                                && !ur.User.IsDeleted))
             .Select(r => r.Name);
 
     /// <summary>
@@ -65,7 +69,11 @@ public static class BackOfficePermissionQueries
         IApplicationDbContext dbContext, Guid userId, string menuKey)
         => dbContext.BackOfficeRoleMenuActions
             .AsNoTracking()
-            .Where(r => r.Role.UserRoles.Any(ur => ur.UserId == userId)
+            .Where(r => r.Role.IsActive
+                        && !r.Role.IsDeleted
+                        && r.Role.UserRoles.Any(ur => ur.UserId == userId
+                                                  && ur.User != null
+                                                  && !ur.User.IsDeleted)
                         && r.MenuAction != null
                         && r.MenuAction.IsActive
                         && r.MenuAction.MenuKey == menuKey)

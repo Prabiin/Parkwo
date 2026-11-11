@@ -13,7 +13,9 @@ public sealed record UpdateParkingFacilityApprovalCommand(
     string? RejectionReason)
     : IRequestResult<UpdateParkingFacilityApprovalCommand, Unit>;
 
-public sealed class UpdateParkingFacilityApprovalCommandHandler(IApplicationDbContext context)
+public sealed class UpdateParkingFacilityApprovalCommandHandler(
+    IApplicationDbContext context,
+    ICurrentUserService currentUser)
     : IRequestResultHandler<UpdateParkingFacilityApprovalCommand, Unit>
 {
     public async Task<Result<Unit>> Handle(
@@ -35,6 +37,7 @@ public sealed class UpdateParkingFacilityApprovalCommandHandler(IApplicationDbCo
             ? null
             : string.IsNullOrWhiteSpace(request.RejectionReason) ? null : request.RejectionReason.Trim();
         facility.UpdatedAtUtc = DateTimeOffset.UtcNow;
+        facility.UpdatedBy = currentUser.UserId;
 
         await context.SaveChangesAsync(cancellationToken);
 

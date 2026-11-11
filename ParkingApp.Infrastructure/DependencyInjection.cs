@@ -10,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Tokens;
 using ParkingApp.Application.Auth.Interfaces;
+using ParkingApp.Application.BackOffice.Audit;
 using ParkingApp.Application.Common.Cqrs;
 using ParkingApp.Application.Common.Helpers;
 using ParkingApp.Application.Common.Interfaces;
@@ -301,6 +302,7 @@ public static class DependencyInjection
         }
 
         services.AddScoped<ICurrentUserService, CurrentUserService>();
+        services.AddScoped<IBackOfficeAuditWriter, BackOfficeAuditWriter>();
         services.AddScoped<IFileStorage, MinioFileStorage>();
         services.AddScoped<IImageUrlResolver, MinioImageUrlResolver>();
     }

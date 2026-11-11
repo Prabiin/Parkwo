@@ -5,6 +5,8 @@ public record GetRoleByIdResponse(
     string Name,
     string? Description,
     bool IsSystem,
+    /// <summary>False means the role is paused; it can be switched back on.</summary>
+    bool IsActive,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset? UpdatedAtUtc,
     IReadOnlyList<RoleMenuOption> Menus,

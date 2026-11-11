@@ -16,7 +16,9 @@ public sealed record UpdateFacilityCapacityApprovalCommand(
     string? RejectionReason)
     : IRequestResult<UpdateFacilityCapacityApprovalCommand, Unit>;
 
-public sealed class UpdateFacilityCapacityApprovalCommandHandler(IApplicationDbContext context)
+public sealed class UpdateFacilityCapacityApprovalCommandHandler(
+    IApplicationDbContext context,
+    ICurrentUserService currentUser)
     : IRequestResultHandler<UpdateFacilityCapacityApprovalCommand, Unit>
 {
     public async Task<Result<Unit>> Handle(
@@ -57,6 +59,7 @@ public sealed class UpdateFacilityCapacityApprovalCommandHandler(IApplicationDbC
         }
 
         facility.UpdatedAtUtc = DateTimeOffset.UtcNow;
+        facility.UpdatedBy = currentUser.UserId;
 
         await context.SaveChangesAsync(cancellationToken);
 

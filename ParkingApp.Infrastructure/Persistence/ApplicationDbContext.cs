@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore.Storage;
 using ParkingApp.Application.Common.Interfaces;
 using ParkingApp.Domain;
+using ParkingApp.Domain.BackOffice.Audit;
 using ParkingApp.Domain.BackOffice.Menu;
 using ParkingApp.Domain.BackOffice.Role;
 
@@ -41,6 +42,7 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<BackOfficeRole> BackOfficeRoles => Set<BackOfficeRole>();
     public DbSet<BackOfficeUserRole> BackOfficeUserRoles => Set<BackOfficeUserRole>();
     public DbSet<BackOfficeRoleMenuAction> BackOfficeRoleMenuActions => Set<BackOfficeRoleMenuAction>();
+    public DbSet<BackOfficeAuditLog> BackOfficeAuditLogs => Set<BackOfficeAuditLog>();
 
     public async Task<IDbContextTransaction> BeginSerializableTransactionAsync(
         CancellationToken cancellationToken = default)

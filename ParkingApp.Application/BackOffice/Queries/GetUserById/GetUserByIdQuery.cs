@@ -20,7 +20,7 @@ public sealed class GetUserByIdQueryHandler(IApplicationDbContext context)
             .AsNoTracking()
             .Include(u => u.UserRole)
                 .ThenInclude(ur => ur.Role)
-            .FirstOrDefaultAsync(u => u.Id == request.UserId, cancellationToken);
+            .FirstOrDefaultAsync(u => !u.IsDeleted && u.Id == request.UserId, cancellationToken);
 
         if (user is null)
             return Result<GetUserByIdResponse>.Failure("User not found.", 404);

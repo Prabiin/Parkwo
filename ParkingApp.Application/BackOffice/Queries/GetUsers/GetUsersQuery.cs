@@ -20,7 +20,8 @@ public sealed class GetUsersQueryHandler(IApplicationDbContext context)
         GetUsersQuery request,
         CancellationToken cancellationToken = default)
     {
-        var query = context.BackOfficeUsers.AsNoTracking();
+        var query = context.BackOfficeUsers.AsNoTracking()
+            .Where(u => !u.IsDeleted);
 
         if (!string.IsNullOrWhiteSpace(request.SearchTerm))
         {

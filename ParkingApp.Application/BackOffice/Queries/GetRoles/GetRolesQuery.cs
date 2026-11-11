@@ -19,7 +19,10 @@ public sealed class GetRolesQueryHandler(IApplicationDbContext context)
         GetRolesQuery request,
         CancellationToken cancellationToken = default)
     {
-        var query = context.BackOfficeRoles.AsNoTracking();
+        // Deleted roles are gone from the console. Inactive ones are not: they
+        // still exist and can be switched back on, so they stay in the list.
+        var query = context.BackOfficeRoles.AsNoTracking()
+            .Where(r => !r.IsDeleted);
 
         if (!string.IsNullOrWhiteSpace(request.SearchTerm))
         {
@@ -39,6 +42,7 @@ public sealed class GetRolesQueryHandler(IApplicationDbContext context)
                 r.Name,
                 r.Description,
                 r.IsSystem,
+                r.IsActive,
                 r.CreatedAtUtc,
                 r.UpdatedAtUtc))
             .ToListAsync(cancellationToken);

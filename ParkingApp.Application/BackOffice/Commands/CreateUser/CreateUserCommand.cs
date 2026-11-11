@@ -2,6 +2,7 @@ using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using ParkingApp.Application.BackOffice;
+using ParkingApp.Application.BackOffice.Audit;
 using ParkingApp.Application.Common;
 using ParkingApp.Application.Common.Cqrs;
 using ParkingApp.Application.Common.Helpers;
@@ -52,7 +53,8 @@ public sealed class CreateUserCommandHandler(
     IPasswordHasher passwordHasher,
     IEmailSender emailSender,
     ILogger<CreateUserCommandHandler> logger,
-    ICurrentUserService currentUser)
+    ICurrentUserService currentUser,
+    IBackOfficeAuditWriter auditWriter)
     : IRequestResultHandler<CreateUserCommand, CreateUserResponse>
 {
     public async Task<Result<CreateUserResponse>> Handle(
@@ -64,24 +66,30 @@ public sealed class CreateUserCommandHandler(
 
         // Check if username already exists
         var existingUser = await context.BackOfficeUsers
-            .FirstOrDefaultAsync(u => u.UserName.ToLower() == normalizedUserName, cancellationToken);
+            .FirstOrDefaultAsync(u => !u.IsDeleted && u.UserName.ToLower() == normalizedUserName, cancellationToken);
 
         if (existingUser is not null)
             return Result<CreateUserResponse>.Failure("Username already exists.", 400);
 
         // Check if email already exists
         var existingEmail = await context.BackOfficeUsers
-            .FirstOrDefaultAsync(u => u.Email.ToLower() == normalizedEmail, cancellationToken);
+            .FirstOrDefaultAsync(u => !u.IsDeleted && u.Email.ToLower() == normalizedEmail, cancellationToken);
 
         if (existingEmail is not null)
             return Result<CreateUserResponse>.Failure("Email already exists.", 400);
 
-        // Validate role ID exists
-        var roleExists = await context.BackOfficeRoles
-            .AnyAsync(r => r.Id == request.RoleId, cancellationToken);
+        // Validate role ID exists and has not been deleted. An inactive role is
+        // still assignable — the administrator may be staging a user for a role
+        // that is temporarily paused — but a deleted role can never be used
+        // again, so assigning one would create an account that cannot sign in.
+        var role = await context.BackOfficeRoles
+            .FirstOrDefaultAsync(r => r.Id == request.RoleId, cancellationToken);
 
-        if (!roleExists)
+        if (role is null)
             return Result<CreateUserResponse>.Failure("Invalid role ID.", 400);
+
+        if (role.IsDeleted)
+            return Result<CreateUserResponse>.Failure("This role has been deleted and cannot be assigned.", 400);
 
         var password = PasswordGenerator.Generate();
 
@@ -111,6 +119,14 @@ public sealed class CreateUserCommandHandler(
         // which issues a fresh password (only the hash is stored, so the lost
         // one cannot be recalled).
         context.BackOfficeUsers.Add(user);
+
+        await auditWriter.RecordAsync(
+            "Create",
+            "BackOfficeUser",
+            user.Id,
+            $"Created BackOffice user '{user.UserName}' ({user.Email}).",
+            cancellationToken);
+
         await context.SaveChangesAsync(cancellationToken);
 
         var deliveryStatus = await BackOfficeUserPasswordDelivery.SendAsync(

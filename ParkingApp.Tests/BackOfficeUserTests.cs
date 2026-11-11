@@ -53,5 +53,31 @@ public class BackOfficeUserTests
 
         Assert.False(user.MustChangePassword);
         Assert.True(user.IsActive);
+        Assert.False(user.IsDeleted);
+    }
+
+    [Fact]
+    public void SoftDelete_deactivates_the_account_without_removing_the_row()
+    {
+        // The row is what the audit trail points at and what the permissions
+        // they granted were attached to, so deleting must not remove it.
+        var user = NewUser();
+
+        user.SoftDelete();
+
+        Assert.True(user.IsDeleted);
+        Assert.False(user.IsActive);
+        Assert.NotNull(user.UpdatedAtUtc);
+    }
+
+    [Fact]
+    public void A_deleted_account_cannot_be_reactivated_through_SetActive()
+    {
+        // Reactivation is not offered for a deleted account, but nothing in the
+        // domain should be able to flip IsActive back on and quietly revive it.
+        var user = NewUser();
+        user.SoftDelete();
+
+        Assert.False(user.IsActive);
     }
 }

@@ -1,6 +1,7 @@
 using ParkingApp.Api.Infrastructure;
 using ParkingApp.Application.BackOffice.Commands.CreateRole;
 using ParkingApp.Application.BackOffice.Commands.DeleteRole;
+using ParkingApp.Application.BackOffice.Commands.SetActive;
 using ParkingApp.Application.BackOffice.Commands.UpdateRole;
 using ParkingApp.Application.BackOffice.Queries.GetRoleById;
 using ParkingApp.Application.BackOffice.Queries.GetRoleInit;
@@ -27,6 +28,10 @@ public class BackOfficeRolesApi : BackOfficeGroup
         group.MapPost("", CreateRole)
             .RequireBackOfficePermission("Role", "Add");
         group.MapPut("{roleId:guid}", UpdateRole)
+            .RequireBackOfficePermission("Role", "Edit");
+        // Pausing and resuming a role is a reversible switch; deleting it is
+        // the final one. Both need the edit permission.
+        group.MapPut("{roleId:guid}/active", SetActive)
             .RequireBackOfficePermission("Role", "Edit");
         group.MapDelete("{roleId:guid}", DeleteRole)
             .RequireBackOfficePermission("Role", "Delete");
@@ -74,11 +79,26 @@ public class BackOfficeRolesApi : BackOfficeGroup
         => await ExecuteCommand<UpdateRoleCommand, Unit>(sender,
             request with { RoleId = roleId }, serviceProvider, cancellationToken);
 
+    private static async Task<IResult> SetActive(
+        ISender sender,
+        IServiceProvider serviceProvider,
+        Guid roleId,
+        SetRoleActiveRequest request,
+        CancellationToken cancellationToken)
+        => await ExecuteCommand<SetRoleActiveCommand, Unit>(sender,
+            new SetRoleActiveCommand(roleId, request.IsActive), serviceProvider, cancellationToken);
+
     private static async Task<IResult> DeleteRole(
         ISender sender,
         IServiceProvider serviceProvider,
         Guid roleId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
         => await ExecuteCommand<DeleteRoleCommand, Unit>(sender,
             new DeleteRoleCommand(roleId), serviceProvider, cancellationToken);
+}
+
+/// <summary>Wire shape of the pause/resume switch on a role.</summary>
+public sealed class SetRoleActiveRequest
+{
+    public bool IsActive { get; set; } = true;
 }

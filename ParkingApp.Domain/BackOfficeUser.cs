@@ -19,6 +19,16 @@ public class BackOfficeUser : AuditableEntity
     public bool MustChangePassword { get; set; }
 
     public bool IsActive { get; set; } = true;
+
+    /// <summary>
+    /// True once the account has been deleted. A BackOffice admin is soft
+    /// deleted rather than removed, because the rows that reference it — the
+    /// audit trail, the permissions they granted — are the reason the account
+    /// existed. A deleted admin cannot log in and no longer appears in the
+    /// user list, but the history stays.
+    /// </summary>
+    public bool IsDeleted { get; set; }
+
     public DateTimeOffset? LastLoginAtUtc { get; set; }
 
     /// <summary>
@@ -35,6 +45,18 @@ public class BackOfficeUser : AuditableEntity
     {
         PasswordHash = passwordHash;
         MustChangePassword = mustChangePassword;
+        UpdatedAtUtc = DateTimeOffset.UtcNow;
+    }
+
+    /// <summary>
+    /// Deletes the account without removing the row. Deactivating as well as
+    /// flagging means a deleted admin cannot log in even if a token from
+    /// before the deletion is still live.
+    /// </summary>
+    public void SoftDelete()
+    {
+        IsDeleted = true;
+        IsActive = false;
         UpdatedAtUtc = DateTimeOffset.UtcNow;
     }
 }

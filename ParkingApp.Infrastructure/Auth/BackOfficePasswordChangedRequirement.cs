@@ -35,7 +35,7 @@ public sealed class BackOfficePasswordChangedAuthorizationHandler(
             return;
 
         var user = await dbContext.BackOfficeUsers
-            .FirstOrDefaultAsync(u => u.Id == userId.Value);
+            .FirstOrDefaultAsync(u => !u.IsDeleted && u.Id == userId.Value);
 
         if (user is { MustChangePassword: false, IsActive: true })
             authorizationContext.Succeed(requirement);

@@ -28,6 +28,14 @@ public class CurrentUserService : ICurrentUserService
             StaffRoles.Staff,
             StringComparison.Ordinal);
 
+    /// <summary>
+    /// The caller's IP, taken from the connection. A proxy in front of the app
+    /// (Render, a load balancer) makes this the proxy's address unless the
+    /// forwarded headers are applied first — Program.cs does that.
+    /// </summary>
+    public string? IpAddress =>
+        _httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString();
+
     private bool TryGetSubject(out Guid id)
     {
         id = Guid.Empty;

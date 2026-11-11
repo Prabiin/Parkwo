@@ -30,13 +30,20 @@ public sealed class BackOfficeLoginCommandHandler(
     {
         var normalized = request.UserNameOrEmail.Trim();
 
+        // Compared case-insensitively. Accounts created through the console are
+        // stored lower-cased, but the seeded SuperAdmin keeps its mixed case,
+        // so normalising the input alone would lock the owner out. Matching
+        // on lower(...) covers both without changing how names are stored.
+        var lowered = normalized.ToLower();
+
         var user = await context.BackOfficeUsers
             .Include(u => u.UserRole)
                 .ThenInclude(ur => ur.Role)
                     .ThenInclude(r => r.RoleMenuActions)
                         .ThenInclude(rma => rma.MenuAction)
             .FirstOrDefaultAsync(
-                u => u.UserName == normalized || u.Email == normalized,
+                u => !u.IsDeleted
+                    && (u.UserName.ToLower() == lowered || u.Email.ToLower() == lowered),
                 cancellationToken);
 
         if (user is null)
@@ -47,6 +54,16 @@ public sealed class BackOfficeLoginCommandHandler(
 
         if (!passwordHasher.Verify(request.Password, user.PasswordHash))
             return Result<BackOfficeLoginResponse>.Failure("Invalid credentials.", 401);
+
+        // Checked after the password, so the reason a sign-in failed is only
+        // ever revealed to someone who already holds the credential.
+        var role = user.UserRole?.Role;
+
+        // One message for every role that is not usable. A deleted role is
+        // inactive as well, so a role that was paused and a role that was
+        // deleted both land here.
+        if (role is null || !role.IsActive)
+            return Result<BackOfficeLoginResponse>.Failure("Your role is not active.", 403);
 
         user.LastLoginAtUtc = DateTimeOffset.UtcNow;
         user.UpdatedAtUtc = DateTimeOffset.UtcNow;

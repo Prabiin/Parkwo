@@ -13,7 +13,9 @@ public sealed record UpdateOrganizationApprovalCommand(
     string? RejectionReason)
     : IRequestResult<UpdateOrganizationApprovalCommand, Unit>;
 
-public sealed class UpdateOrganizationApprovalCommandHandler(IApplicationDbContext context)
+public sealed class UpdateOrganizationApprovalCommandHandler(
+    IApplicationDbContext context,
+    ICurrentUserService currentUser)
     : IRequestResultHandler<UpdateOrganizationApprovalCommand, Unit>
 {
     public async Task<Result<Unit>> Handle(
@@ -35,6 +37,7 @@ public sealed class UpdateOrganizationApprovalCommandHandler(IApplicationDbConte
             ? null
             : string.IsNullOrWhiteSpace(request.RejectionReason) ? null : request.RejectionReason.Trim();
         organization.UpdatedAtUtc = DateTimeOffset.UtcNow;
+        organization.UpdatedBy = currentUser.UserId;
 
         await context.SaveChangesAsync(cancellationToken);
 

@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using ParkingApp.Application.BackOffice;
+using ParkingApp.Application.BackOffice.Audit;
 using ParkingApp.Application.Common;
 using ParkingApp.Application.Common.Cqrs;
 using ParkingApp.Application.Common.Helpers;
@@ -29,7 +30,8 @@ public sealed class ResendUserInviteCommandHandler(
     IPasswordHasher passwordHasher,
     IEmailSender emailSender,
     ILogger<ResendUserInviteCommandHandler> logger,
-    ICurrentUserService currentUser)
+    ICurrentUserService currentUser,
+    IBackOfficeAuditWriter auditWriter)
     : IRequestResultHandler<ResendUserInviteCommand, Unit>
 {
     public async Task<Result<Unit>> Handle(
@@ -37,7 +39,7 @@ public sealed class ResendUserInviteCommandHandler(
         CancellationToken cancellationToken = default)
     {
         var user = await context.BackOfficeUsers
-            .FirstOrDefaultAsync(u => u.Id == request.UserId, cancellationToken);
+            .FirstOrDefaultAsync(u => !u.IsDeleted && u.Id == request.UserId, cancellationToken);
 
         if (user is null)
             return Result<Unit>.Failure("User not found.", 404);
@@ -58,6 +60,13 @@ public sealed class ResendUserInviteCommandHandler(
         // again.
         user.SetPassword(passwordHasher.Hash(password), mustChangePassword: true);
         user.UpdatedBy = currentUser.UserId;
+
+        await auditWriter.RecordAsync(
+            "ResendInvite",
+            "BackOfficeUser",
+            user.Id,
+            $"Reissued the password for BackOffice user '{user.UserName}'.",
+            cancellationToken);
 
         await context.SaveChangesAsync(cancellationToken);
 

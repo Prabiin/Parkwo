@@ -1,5 +1,6 @@
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
+using ParkingApp.Application.BackOffice.Audit;
 using ParkingApp.Application.Common;
 using ParkingApp.Application.Common.Cqrs;
 using ParkingApp.Application.Common.Interfaces;
@@ -42,7 +43,10 @@ public sealed class UpdateUserCommandValidator : AbstractValidator<UpdateUserCom
     }
 }
 
-public sealed class UpdateUserCommandHandler(IApplicationDbContext context)
+public sealed class UpdateUserCommandHandler(
+    IApplicationDbContext context,
+    ICurrentUserService currentUser,
+    IBackOfficeAuditWriter auditWriter)
     : IRequestResultHandler<UpdateUserCommand, Unit>
 {
     public async Task<Result<Unit>> Handle(
@@ -51,7 +55,7 @@ public sealed class UpdateUserCommandHandler(IApplicationDbContext context)
     {
         var user = await context.BackOfficeUsers
             .Include(u => u.UserRole)
-            .FirstOrDefaultAsync(u => u.Id == request.UserId, cancellationToken);
+            .FirstOrDefaultAsync(u => !u.IsDeleted && u.Id == request.UserId, cancellationToken);
 
         if (user is null)
             return Result<Unit>.Failure("User not found.", 404);
@@ -61,7 +65,7 @@ public sealed class UpdateUserCommandHandler(IApplicationDbContext context)
         {
             var normalizedUserName = request.UserName.Trim().ToLower();
             var existingUser = await context.BackOfficeUsers
-                .FirstOrDefaultAsync(u => u.UserName.ToLower() == normalizedUserName && u.Id != request.UserId, cancellationToken);
+                .FirstOrDefaultAsync(u => !u.IsDeleted && u.UserName.ToLower() == normalizedUserName && u.Id != request.UserId, cancellationToken);
 
             if (existingUser is not null)
                 return Result<Unit>.Failure("Username already exists.", 400);
@@ -80,7 +84,7 @@ public sealed class UpdateUserCommandHandler(IApplicationDbContext context)
         {
             var normalizedEmail = request.Email.Trim().ToLower();
             var existingEmail = await context.BackOfficeUsers
-                .FirstOrDefaultAsync(u => u.Email.ToLower() == normalizedEmail && u.Id != request.UserId, cancellationToken);
+                .FirstOrDefaultAsync(u => !u.IsDeleted && u.Email.ToLower() == normalizedEmail && u.Id != request.UserId, cancellationToken);
 
             if (existingEmail is not null)
                 return Result<Unit>.Failure("Email already exists.", 400);
@@ -97,12 +101,16 @@ public sealed class UpdateUserCommandHandler(IApplicationDbContext context)
         // Update role if provided (1:1)
         if (request.RoleId.HasValue)
         {
-            // Validate role ID exists
-            var roleExists = await context.BackOfficeRoles
-                .AnyAsync(r => r.Id == request.RoleId.Value, cancellationToken);
+            // Validate role ID exists and has not been deleted. An inactive role
+            // is still assignable; a deleted one never can be.
+            var role = await context.BackOfficeRoles
+                .FirstOrDefaultAsync(r => r.Id == request.RoleId.Value, cancellationToken);
 
-            if (!roleExists)
+            if (role is null)
                 return Result<Unit>.Failure("Invalid role ID.", 400);
+
+            if (role.IsDeleted)
+                return Result<Unit>.Failure("This role has been deleted and cannot be assigned.", 400);
 
             if (user.UserRole is null)
             {
@@ -119,6 +127,15 @@ public sealed class UpdateUserCommandHandler(IApplicationDbContext context)
         }
 
         user.UpdatedAtUtc = DateTimeOffset.UtcNow;
+        user.UpdatedBy = currentUser.UserId;
+
+        await auditWriter.RecordAsync(
+            "Update",
+            "BackOfficeUser",
+            user.Id,
+            $"Updated BackOffice user '{user.UserName}'.",
+            cancellationToken);
+
         await context.SaveChangesAsync(cancellationToken);
 
         return Result<Unit>.Success(Unit.Value);

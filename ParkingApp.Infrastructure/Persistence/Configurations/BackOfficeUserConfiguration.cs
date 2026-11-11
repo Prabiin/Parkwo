@@ -39,6 +39,10 @@ public class BackOfficeUserConfiguration : IEntityTypeConfiguration<BackOfficeUs
         builder.Property(x => x.IsActive)
             .HasDefaultValue(true);
 
+        builder.Property(x => x.IsDeleted)
+            .IsRequired()
+            .HasDefaultValue(false);
+
         builder.Property(x => x.LastLoginAtUtc);
 
         builder.Property(x => x.CreatedAtUtc)
@@ -46,11 +50,17 @@ public class BackOfficeUserConfiguration : IEntityTypeConfiguration<BackOfficeUs
 
         builder.Property(x => x.UpdatedAtUtc);
 
+        // Filtered unique indexes: a deleted account keeps its row, but its
+        // username and email are released so the same person can be created
+        // again. Without the filter the soft-deleted row would keep the
+        // address locked forever.
         builder.HasIndex(x => x.UserName)
-            .IsUnique();
+            .IsUnique()
+            .HasFilter("\"IsDeleted\" = false");
 
         builder.HasIndex(x => x.Email)
-            .IsUnique();
+            .IsUnique()
+            .HasFilter("\"IsDeleted\" = false");
 
         // Seed data: SuperAdmin user
         builder.HasData(
@@ -64,6 +74,7 @@ public class BackOfficeUserConfiguration : IEntityTypeConfiguration<BackOfficeUs
                 PasswordHash = "100000.EBESExQVFhcYGRobHB0eHw==.u3Fyc5ZjygvMHMkQlV122zvEFBsQzs5gNbr5qrTujjk=",
                 MustChangePassword = false,
                 IsActive = true,
+                IsDeleted = false,
                 CreatedAtUtc = SeedTime,
                 UpdatedAtUtc = null,
                 CreatedBy = null,

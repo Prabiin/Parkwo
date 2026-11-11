@@ -13,7 +13,9 @@ public sealed record UpdateDrivingLicenseApprovalCommand(
     string? RejectionReason)
     : IRequestResult<UpdateDrivingLicenseApprovalCommand, Unit>;
 
-public sealed class UpdateDrivingLicenseApprovalCommandHandler(IApplicationDbContext context)
+public sealed class UpdateDrivingLicenseApprovalCommandHandler(
+    IApplicationDbContext context,
+    ICurrentUserService currentUser)
     : IRequestResultHandler<UpdateDrivingLicenseApprovalCommand, Unit>
 {
     public async Task<Result<Unit>> Handle(

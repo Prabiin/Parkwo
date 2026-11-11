@@ -1,5 +1,6 @@
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
+using ParkingApp.Application.BackOffice.Audit;
 using ParkingApp.Application.Common;
 using ParkingApp.Application.Common.Constants;
 using ParkingApp.Application.Common.Cqrs;
@@ -37,7 +38,10 @@ public sealed class UpdateRoleCommandValidator : AbstractValidator<UpdateRoleCom
     }
 }
 
-public sealed class UpdateRoleCommandHandler(IApplicationDbContext context)
+public sealed class UpdateRoleCommandHandler(
+    IApplicationDbContext context,
+    ICurrentUserService currentUser,
+    IBackOfficeAuditWriter auditWriter)
     : IRequestResultHandler<UpdateRoleCommand, Unit>
 {
     public async Task<Result<Unit>> Handle(
@@ -46,7 +50,7 @@ public sealed class UpdateRoleCommandHandler(IApplicationDbContext context)
     {
         var role = await context.BackOfficeRoles
             .Include(r => r.RoleMenuActions)
-            .FirstOrDefaultAsync(r => r.Id == request.RoleId, cancellationToken);
+            .FirstOrDefaultAsync(r => !r.IsDeleted && r.Id == request.RoleId, cancellationToken);
 
         if (role is null)
             return Result<Unit>.Failure("Role not found.", 404);
@@ -59,10 +63,10 @@ public sealed class UpdateRoleCommandHandler(IApplicationDbContext context)
         {
             var normalizedName = request.Name.Trim();
             var existingRole = await context.BackOfficeRoles
-                .FirstOrDefaultAsync(r => r.Name == normalizedName && r.Id != request.RoleId, cancellationToken);
+                .FirstOrDefaultAsync(r => !r.IsDeleted && r.Name == normalizedName && r.Id != request.RoleId, cancellationToken);
 
             if (existingRole is not null)
-                return Result<Unit>.Failure("Role with this name already exists.", 400);
+                return Result<Unit>.Failure("Role name already exist.", 400);
 
             role.Name = normalizedName;
         }
@@ -107,14 +111,44 @@ public sealed class UpdateRoleCommandHandler(IApplicationDbContext context)
                 role.RoleMenuActions.Add(new BackOfficeRoleMenuAction
                 {
                     MenuActionId = permissionId,
-                    CreatedAtUtc = DateTimeOffset.UtcNow
+                    CreatedAtUtc = DateTimeOffset.UtcNow,
+                    CreatedBy = currentUser.UserId
                 });
             }
         }
 
         role.UpdatedAtUtc = DateTimeOffset.UtcNow;
+        role.UpdatedBy = currentUser.UserId;
+
+        await auditWriter.RecordAsync(
+            "Update",
+            "BackOfficeRole",
+            role.Id,
+            await DescribePermissionChangeAsync(role, cancellationToken),
+            cancellationToken);
+
         await context.SaveChangesAsync(cancellationToken);
 
         return Result<Unit>.Success(Unit.Value);
+    }
+
+    /// <summary>
+    /// Names the permissions the role actually ended up with, so the trail
+    /// records what access the role grants rather than just that something
+    /// was edited.
+    /// </summary>
+    private async Task<string?> DescribePermissionChangeAsync(
+        BackOfficeRole role, CancellationToken cancellationToken)
+    {
+        var permissions = await context.BackOfficeMenuActions
+            .Where(a => role.RoleMenuActions.Any(rma => rma.MenuActionId == a.Id))
+            .OrderBy(a => a.MenuKey)
+            .ThenBy(a => a.ActionKey)
+            .Select(a => a.CompositeKey)
+            .ToListAsync(cancellationToken);
+
+        return permissions.Count == 0
+            ? $"Updated role '{role.Name}' with no permissions."
+            : $"Updated role '{role.Name}' with permissions: {string.Join(", ", permissions)}.";
     }
 }

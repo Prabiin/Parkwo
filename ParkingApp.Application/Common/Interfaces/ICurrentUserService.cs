@@ -18,4 +18,10 @@ public interface ICurrentUserService
 
     /// <summary>True when the request carries a staff token.</summary>
     bool IsStaff { get; }
+
+    /// <summary>
+    /// The caller's IP address, or null when the request did not come over the
+    /// network (background work, a hosted service).
+    /// </summary>
+    string? IpAddress { get; }
 }

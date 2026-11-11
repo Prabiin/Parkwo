@@ -20,7 +20,8 @@ public sealed class GetRoleByIdQueryHandler(IApplicationDbContext context)
             .AsNoTracking()
             .Include(r => r.RoleMenuActions)
             .Include(r => r.UserRoles)
-            .FirstOrDefaultAsync(r => r.Id == request.RoleId, cancellationToken);
+                .ThenInclude(ur => ur.User)
+            .FirstOrDefaultAsync(r => !r.IsDeleted && r.Id == request.RoleId, cancellationToken);
 
         if (role is null)
             return Result<GetRoleByIdResponse>.Failure("Role not found.", 404);
@@ -62,7 +63,9 @@ public sealed class GetRoleByIdQueryHandler(IApplicationDbContext context)
                     .ToList()))
             .ToList();
 
-        var userCount = role.UserRoles.Count;
+        // Deleted accounts keep their row and their role link, but they are
+        // gone from the console, so they must not be counted here.
+        var userCount = role.UserRoles.Count(ur => ur.User is { IsDeleted: false });
 
         return Result<GetRoleByIdResponse>.Success(
             new GetRoleByIdResponse(
@@ -70,6 +73,7 @@ public sealed class GetRoleByIdQueryHandler(IApplicationDbContext context)
                 role.Name,
                 role.Description,
                 role.IsSystem,
+                role.IsActive,
                 role.CreatedAtUtc,
                 role.UpdatedAtUtc,
                 menus,

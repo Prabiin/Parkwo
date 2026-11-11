@@ -1,5 +1,6 @@
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
+using ParkingApp.Application.BackOffice.Audit;
 using ParkingApp.Application.Common;
 using ParkingApp.Application.Common.Constants;
 using ParkingApp.Application.Common.Cqrs;
@@ -31,7 +32,10 @@ public sealed class CreateRoleCommandValidator : AbstractValidator<CreateRoleCom
     }
 }
 
-public sealed class CreateRoleCommandHandler(IApplicationDbContext context)
+public sealed class CreateRoleCommandHandler(
+    IApplicationDbContext context,
+    ICurrentUserService currentUser,
+    IBackOfficeAuditWriter auditWriter)
     : IRequestResultHandler<CreateRoleCommand, CreateRoleResponse>
 {
     public async Task<Result<CreateRoleResponse>> Handle(
@@ -40,12 +44,14 @@ public sealed class CreateRoleCommandHandler(IApplicationDbContext context)
     {
         var normalizedName = request.Name.Trim();
 
-        // Check if role name already exists
+        // A name is only free if no live role holds it. A deleted role has
+        // released its name, so the role can be recreated; an inactive role
+        // still holds it, because it can be switched back on.
         var existingRole = await context.BackOfficeRoles
-            .FirstOrDefaultAsync(r => r.Name == normalizedName, cancellationToken);
+            .FirstOrDefaultAsync(r => !r.IsDeleted && r.Name == normalizedName, cancellationToken);
 
         if (existingRole is not null)
-            return Result<CreateRoleResponse>.Failure("Role with this name already exists.", 400);
+            return Result<CreateRoleResponse>.Failure("Role name already exist.", 400);
 
         // Validate permission IDs exist
         if (request.PermissionIds.Count > 0)
@@ -76,18 +82,30 @@ public sealed class CreateRoleCommandHandler(IApplicationDbContext context)
             Name = normalizedName,
             Description = request.Description?.Trim(),
             IsSystem = false,
-            CreatedAtUtc = DateTimeOffset.UtcNow
+            IsActive = true,
+            IsDeleted = false,
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+            CreatedBy = currentUser.UserId
         };
 
         role.RoleMenuActions = permissionIds
             .Select(id => new BackOfficeRoleMenuAction
             {
                 MenuActionId = id,
-                CreatedAtUtc = DateTimeOffset.UtcNow
+                CreatedAtUtc = DateTimeOffset.UtcNow,
+                CreatedBy = currentUser.UserId
             })
             .ToList();
 
         context.BackOfficeRoles.Add(role);
+
+        await auditWriter.RecordAsync(
+            "Create",
+            "BackOfficeRole",
+            role.Id,
+            $"Created role '{role.Name}' with {permissionIds.Count} permission(s).",
+            cancellationToken);
+
         await context.SaveChangesAsync(cancellationToken);
 
         return Result<CreateRoleResponse>.Success(

@@ -27,8 +27,20 @@ public class BackOfficeRoleConfiguration : IEntityTypeConfiguration<BackOfficeRo
             .IsRequired()
             .HasDefaultValue(false);
 
+        builder.Property(x => x.IsActive)
+            .IsRequired()
+            .HasDefaultValue(true);
+
+        builder.Property(x => x.IsDeleted)
+            .IsRequired()
+            .HasDefaultValue(false);
+
+        // Unique among roles that have not been deleted. A deleted role keeps
+        // its row, but it releases its name so the role can be recreated; an
+        // inactive role still holds its name, because it can come back.
         builder.HasIndex(x => x.Name)
-            .IsUnique();
+            .IsUnique()
+            .HasFilter("\"IsDeleted\" = false");
 
         builder.HasMany(x => x.UserRoles)
             .WithOne(x => x.Role)
@@ -48,6 +60,8 @@ public class BackOfficeRoleConfiguration : IEntityTypeConfiguration<BackOfficeRo
                 Name = "SuperAdmin",
                 Description = "Full access to all BackOffice features",
                 IsSystem = true,
+                IsActive = true,
+                IsDeleted = false,
                 CreatedAtUtc = SeedTime,
                 UpdatedAtUtc = null,
                 CreatedBy = null,

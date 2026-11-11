@@ -1,5 +1,6 @@
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
+using ParkingApp.Application.BackOffice.Audit;
 using ParkingApp.Application.Common;
 using ParkingApp.Application.Common.Cqrs;
 using ParkingApp.Application.Common.Interfaces;
@@ -34,7 +35,8 @@ public sealed class BackOfficeChangePasswordCommandValidator : AbstractValidator
 public sealed class BackOfficeChangePasswordCommandHandler(
     IApplicationDbContext context,
     ICurrentUserService currentUser,
-    IPasswordHasher passwordHasher)
+    IPasswordHasher passwordHasher,
+    IBackOfficeAuditWriter auditWriter)
     : IRequestResultHandler<BackOfficeChangePasswordCommand, Unit>
 {
     public async Task<Result<Unit>> Handle(
@@ -46,7 +48,7 @@ public sealed class BackOfficeChangePasswordCommandHandler(
             return Result<Unit>.Failure("Authentication required.", 401);
 
         var user = await context.BackOfficeUsers
-            .FirstOrDefaultAsync(u => u.Id == userId.Value, cancellationToken);
+            .FirstOrDefaultAsync(u => !u.IsDeleted && u.Id == userId.Value, cancellationToken);
 
         if (user is null)
             return Result<Unit>.Failure("User not found.", 404);
@@ -61,6 +63,13 @@ public sealed class BackOfficeChangePasswordCommandHandler(
             return Result<Unit>.Failure("Choose a password you have not used before.", 400);
 
         user.SetPassword(passwordHasher.Hash(request.NewPassword), mustChangePassword: false);
+
+        await auditWriter.RecordAsync(
+            "ChangePassword",
+            "BackOfficeUser",
+            user.Id,
+            $"Changed the password for BackOffice user '{user.UserName}'.",
+            cancellationToken);
 
         await context.SaveChangesAsync(cancellationToken);
 

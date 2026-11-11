@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using ParkingApp.Domain;
+using ParkingApp.Domain.BackOffice.Audit;
 using ParkingApp.Domain.BackOffice.Menu;
 using ParkingApp.Domain.BackOffice.Role;
 
@@ -34,6 +35,7 @@ public interface IApplicationDbContext
     DbSet<BackOfficeRole> BackOfficeRoles { get; }
     DbSet<BackOfficeUserRole> BackOfficeUserRoles { get; }
     DbSet<BackOfficeRoleMenuAction> BackOfficeRoleMenuActions { get; }
+    DbSet<BackOfficeAuditLog> BackOfficeAuditLogs { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 
