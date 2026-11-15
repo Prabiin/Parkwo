@@ -45,13 +45,6 @@ namespace ParkingApp.Infrastructure.Persistence.Migrations
                     table.PrimaryKey("PK_BackOfficeAuditLogs", x => x.Id);
                 });
 
-            migrationBuilder.UpdateData(
-                table: "BackOfficeUsers",
-                keyColumn: "Id",
-                keyValue: new Guid("3f2504e0-4f89-11d3-9a0c-0305e82c3301"),
-                columns: new string[0],
-                values: new object[0]);
-
             migrationBuilder.CreateIndex(
                 name: "IX_BackOfficeUsers_Email",
                 table: "BackOfficeUsers",
