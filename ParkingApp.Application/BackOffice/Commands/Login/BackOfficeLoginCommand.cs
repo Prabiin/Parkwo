@@ -46,6 +46,7 @@ public sealed class BackOfficeLoginCommandHandler(
                     && (u.UserName.ToLower() == lowered || u.Email.ToLower() == lowered),
                 cancellationToken);
 
+
         if (user is null)
             return Result<BackOfficeLoginResponse>.Failure("Invalid credentials.", 401);
 
