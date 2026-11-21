@@ -122,6 +122,15 @@ public enum BookingStatusEnum
     Refunded = 7
 }
 
+/// <summary>Which slice of the rider's bookings GET /bookings returns. Omit for all.</summary>
+public enum BookingListScopeEnum
+{
+    [Description("Upcoming")]
+    Upcoming = 1,
+    [Description("History")]
+    History = 2
+}
+
 public enum PaymentGatewayEnum
 {
     [Description("Khalti")]

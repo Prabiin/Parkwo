@@ -16,7 +16,7 @@ public class VehicleConfiguration : IEntityTypeConfiguration<Vehicle>
             .IsRequired();
 
         builder.Property(x => x.VehicleCategory)
-            .IsRequired();
+            .IsRequired(false);
 
         builder.Property(x => x.Name)
             .IsRequired()

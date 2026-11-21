@@ -9,12 +9,12 @@ namespace ParkingApp.Application.Vehicles.Commands.Create;
 
 public sealed record CreateVehicleCommand(
     VehicleTypeEnum VehicleType,
-    VehicleCategoryEnum VehicleCategory,
     string Name,
     string VehicleNumber,
     string Brand,
     string Model,
-    string Color)
+    string Color,
+    VehicleCategoryEnum? VehicleCategory = null)
     : IRequestResult<CreateVehicleCommand, Guid>;
 
 public sealed class CreateVehicleCommandHandler(IApplicationDbContext context, ICurrentUserService currentUser)
@@ -36,15 +36,8 @@ public sealed class CreateVehicleCommandHandler(IApplicationDbContext context, I
             return Result<Guid>.Failure(
                 "This vehicle number is already registered to your account.", 409);
 
-        var license = await context.DrivingLicenses
-            .AsNoTracking()
-            .FirstOrDefaultAsync(d => d.UserId == userId, cancellationToken);
-
-        if (license is not null
-            && license.ApprovalStatus == ApprovalStatusEnum.Verified
-            && !LicenseCoverage.Covers(license.Categories, request.VehicleCategory))
-            return Result<Guid>.Failure(
-                $"Your verified license ({string.Join(", ", license.Categories)}) does not cover {request.VehicleCategory.ToDescription()}.", 409);
+        // No driving-license check: registering (and parking) a vehicle never
+        // depends on a license. Licenses are kept for record only.
 
         var vehicle = Vehicle.Create(
             userId.Value,

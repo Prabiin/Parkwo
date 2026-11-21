@@ -28,6 +28,7 @@ public interface IApplicationDbContext
     DbSet<Booking> Bookings { get; }
     DbSet<Payment> Payments { get; }
     DbSet<OverstayPayment> OverstayPayments { get; }
+    DbSet<SavedParking> SavedParkings { get; }
 
     // BackOffice RBAC
     DbSet<BackOfficeMenu> BackOfficeMenus { get; }

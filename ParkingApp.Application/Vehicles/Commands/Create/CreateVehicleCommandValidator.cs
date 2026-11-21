@@ -11,13 +11,18 @@ public sealed class CreateVehicleCommandValidator : AbstractValidator<CreateVehi
         RuleFor(x => x.VehicleType)
             .IsInEnum();
 
-        RuleFor(x => x.VehicleCategory)
-            .IsInEnum();
+        // Category is optional: the app asks only Two/Four wheeler. An older
+        // client that still sends one must send a value consistent with the type.
+        When(x => x.VehicleCategory.HasValue, () =>
+        {
+            RuleFor(x => x.VehicleCategory)
+                .IsInEnum();
 
-        RuleFor(x => x)
-            .Must(x => LicenseCoverage.MatchesSpotType(x.VehicleType, x.VehicleCategory))
-            .WithMessage("VehicleCategory must agree with VehicleType: Scooter/Motorcycle are TwoWheeler, Car / Jeep / Van is FourWheeler.")
-            .OverridePropertyName(nameof(CreateVehicleCommand.VehicleCategory));
+            RuleFor(x => x)
+                .Must(x => LicenseCoverage.MatchesSpotType(x.VehicleType, x.VehicleCategory!.Value))
+                .WithMessage("VehicleCategory must agree with VehicleType: Scooter/Motorcycle are TwoWheeler, Car / Jeep / Van is FourWheeler.")
+                .OverridePropertyName(nameof(CreateVehicleCommand.VehicleCategory));
+        });
 
         RuleFor(x => x.Name)
             .NotEmpty()

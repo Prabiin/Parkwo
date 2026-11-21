@@ -1850,6 +1850,51 @@ namespace ParkingApp.Infrastructure.Persistence.Migrations
                     b.ToTable("RefreshTokens", (string)null);
                 });
 
+            modelBuilder.Entity("ParkingApp.Domain.SavedParking", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("FacilityId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("FreeParkingFacilityId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FacilityId");
+
+                    b.HasIndex("FreeParkingFacilityId");
+
+                    b.HasIndex("UserId", "FacilityId")
+                        .IsUnique();
+
+                    b.HasIndex("UserId", "FreeParkingFacilityId")
+                        .IsUnique();
+
+                    b.ToTable("SavedParkings", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_SavedParkings_ExactlyOneTarget", "(\"FacilityId\" IS NOT NULL)::int + (\"FreeParkingFacilityId\" IS NOT NULL)::int = 1");
+                        });
+                });
+
             modelBuilder.Entity("ParkingApp.Domain.Staff", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2105,7 +2150,7 @@ namespace ParkingApp.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
 
-                    b.Property<int>("VehicleCategory")
+                    b.Property<int?>("VehicleCategory")
                         .HasColumnType("integer");
 
                     b.Property<string>("VehicleNumber")
@@ -2365,6 +2410,31 @@ namespace ParkingApp.Infrastructure.Persistence.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("ParkingApp.Domain.SavedParking", b =>
+                {
+                    b.HasOne("ParkingApp.Domain.ParkingFacility", "Facility")
+                        .WithMany()
+                        .HasForeignKey("FacilityId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("ParkingApp.Domain.FreeParkingFacility", "FreeParkingFacility")
+                        .WithMany()
+                        .HasForeignKey("FreeParkingFacilityId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("ParkingApp.Domain.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Facility");
+
+                    b.Navigation("FreeParkingFacility");
 
                     b.Navigation("User");
                 });

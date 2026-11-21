@@ -2,7 +2,9 @@ using ParkingApp.Api.Infrastructure;
 using ParkingApp.Application.Bookings.Commands.Cancel;
 using ParkingApp.Application.Bookings.Commands.Create;
 using ParkingApp.Application.Bookings.Commands.RotatePass;
+using ParkingApp.Application.Bookings.Queries.GetActiveBooking;
 using ParkingApp.Application.Bookings.Queries.GetBookingById;
+using ParkingApp.Application.Bookings.Queries.GetMyBookings;
 using ParkingApp.Application.Bookings.Queries.GetBookingInit;
 using ParkingApp.Application.Bookings.Queries.GetBookingPass;
 using ParkingApp.Application.Bookings.Queries.GetBookingSummary;
@@ -22,9 +24,13 @@ public class BookingApi : EndpointGroupBase
     {
         app.MapGroup("bookings")
             .MapPost(CreateBooking, "", "")
+            // The Bookings tab: ?scope=1 upcoming, ?scope=2 history, omit for all.
+            .MapGet(ListMyBookings, "", "")
+            // Home/Bookings card: the booking to show now + any unpaid overstay.
+            .MapGet(GetActiveBooking, "active", "")
             // The "Book a spot" screen: parking name + the rider's vehicles.
             .MapGet(GetBookingInit, "init", "")
-            .MapGet(GetBookingById, "{bookingId}", "")
+            .MapGet(GetBookingById, "{bookingId:guid}", "")
             // The rate/amount confirmation shown before the prepaid payment starts.
             .MapGet(GetBookingSummary, "{bookingId}/summary", "")
             .MapPost(CancelBooking, "{bookingId}/cancel", "")
@@ -47,6 +53,16 @@ public class BookingApi : EndpointGroupBase
         CreateBookingCommand request, CancellationToken cancellationToken)
         => await ExecuteCommand<CreateBookingCommand, CreateBookingResponse>(sender,
             request, serviceProvider, cancellationToken);
+
+    private static async Task<IResult> ListMyBookings(ISender sender, IServiceProvider serviceProvider,
+        BookingListScopeEnum? scope, int? page, int? pageSize, CancellationToken cancellationToken)
+        => await ExecuteQuery<GetMyBookingsQuery, GetMyBookingsResponse>(sender,
+            new GetMyBookingsQuery(scope, page ?? 1, pageSize ?? 20), serviceProvider, cancellationToken);
+
+    private static async Task<IResult> GetActiveBooking(ISender sender, IServiceProvider serviceProvider,
+        CancellationToken cancellationToken)
+        => await ExecuteQuery<GetActiveBookingQuery, GetActiveBookingResponse>(sender,
+            new GetActiveBookingQuery(), serviceProvider, cancellationToken);
 
     private static async Task<IResult> GetBookingInit(ISender sender, IServiceProvider serviceProvider,
         Guid facilityId, CancellationToken cancellationToken)

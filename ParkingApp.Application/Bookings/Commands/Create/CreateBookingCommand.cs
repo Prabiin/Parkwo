@@ -30,7 +30,10 @@ public sealed class CreateBookingCommandHandler(
     IOptions<ParkwoPricingSettings> pricingSettings)
     : IRequestResultHandler<CreateBookingCommand, CreateBookingResponse>
 {
-    private const int HoldMinutes = 10;
+    // How long an unpaid app booking holds its space. The app tells the rider
+    // "held for 5 mins"; walk-ins keep their own (longer) hold because the
+    // rider is paying on someone else's phone at the barrier.
+    public const int HoldMinutes = 5;
 
     public async Task<Result<CreateBookingResponse>> Handle(
         CreateBookingCommand request,

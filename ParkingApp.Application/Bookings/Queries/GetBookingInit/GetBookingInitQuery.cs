@@ -62,7 +62,7 @@ public sealed class GetBookingInitQueryHandler(
                 v.VehicleType,
                 v.VehicleType.ToDescription(),
                 v.VehicleCategory,
-                v.VehicleCategory.ToDescription(),
+                v.VehicleCategory?.ToDescription(),
                 v.Name,
                 v.VehicleNumber,
                 v.Brand,

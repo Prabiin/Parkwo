@@ -35,6 +35,7 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<Booking> Bookings => Set<Booking>();
     public DbSet<Payment> Payments => Set<Payment>();
     public DbSet<OverstayPayment> OverstayPayments => Set<OverstayPayment>();
+    public DbSet<SavedParking> SavedParkings => Set<SavedParking>();
 
     // BackOffice RBAC
     public DbSet<BackOfficeMenu> BackOfficeMenus => Set<BackOfficeMenu>();

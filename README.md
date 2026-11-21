@@ -4,6 +4,16 @@ A peer-to-peer parking marketplace API where users find parking spaces and land 
 
 ## Change Log
 
+### 2026-11-21 — Rider app backing: booking list, active booking, saved places, simpler vehicles
+
+- **Vehicles no longer depend on licenses.** `POST /vehicles` needs only `vehicleType` (Two/Four wheeler) plus name, plate, brand, model and colour. `vehicleCategory` is optional (nullable column); if an older client still sends one it must agree with the type. The "verified license must cover this category" 409 is gone.
+- **App booking hold is 5 minutes** (`CreateBookingCommand.HoldMinutes`). Walk-in holds stay at 10.
+- **`GET /bookings`**: the rider's own bookings, `?scope=1` upcoming (soonest first) / `?scope=2` history (newest first) / omitted = all, with `page`/`pageSize` (max 50). Each item carries the effective status (a lapsed unpaid hold reads `Expired`), local times, entry/exit, `overstayDue` and `totalPaidNpr`.
+- **`GET /bookings/active`**: `current` (parked → paid and not ended → live unpaid hold) and `unsettledOverstay` (the debt that blocks new bookings), for the Home and Bookings cards.
+- **Saved places** (`SavedParkings` table): `GET /saved`, `POST /saved` `{ facilityId }` or `{ freeParkingId }` (idempotent), `DELETE /saved/{savedId}` or `DELETE /saved?facilityId=` / `?freeParkingId=` (idempotent). Paid lots and free parkings are both supported; a check constraint enforces exactly one target and a rider saves a place once.
+- **Fix:** editing a BackOffice role (`PUT /backoffice/roles/{id}`) threw "LINQ expression could not be translated" while writing the audit entry — the permission lookup filtered on an in-memory entity collection. It now filters on a materialised id list.
+- Migration `AddSavedParkingsAndOptionalVehicleCategory`. Tests 373 (+18), including SQL-translation checks that build queries against the Npgsql provider without a database.
+
 ### 2026-10-23 — Acknowledging a walk-in payment is the entry
 
 - **A walk-in no longer scans in.** The rider is standing at the barrier with the staff member who took the money, so `POST /walkins/{id}/verify-payment` now admits the vehicle: it records `EnteredAtUtc` against that staff member and starts the measured stay. Scanning the photographed pass on the way in was a second gate action that could only fail — a photo that would not read, a phone with no camera — at the one moment the rider had already parked.

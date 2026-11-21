@@ -140,12 +140,22 @@ public sealed class UpdateRoleCommandHandler(
     private async Task<string?> DescribePermissionChangeAsync(
         BackOfficeRole role, CancellationToken cancellationToken)
     {
-        var permissions = await context.BackOfficeMenuActions
-            .Where(a => role.RoleMenuActions.Any(rma => rma.MenuActionId == a.Id))
-            .OrderBy(a => a.MenuKey)
-            .ThenBy(a => a.ActionKey)
-            .Select(a => a.CompositeKey)
-            .ToListAsync(cancellationToken);
+        // Materialise the ids first: an in-memory entity collection cannot be
+        // used inside a SQL predicate (EF throws "could not be translated"),
+        // but a List<Guid> translates to "= ANY(@ids)".
+        var actionIds = role.RoleMenuActions
+            .Select(rma => rma.MenuActionId)
+            .Distinct()
+            .ToList();
+
+        var permissions = (await context.BackOfficeMenuActions
+                .Where(a => actionIds.Contains(a.Id))
+                .OrderBy(a => a.MenuKey)
+                .ThenBy(a => a.ActionKey)
+                .Select(a => new { a.MenuKey, a.ActionKey })
+                .ToListAsync(cancellationToken))
+            .Select(a => $"{a.MenuKey}:{a.ActionKey}")
+            .ToList();
 
         return permissions.Count == 0
             ? $"Updated role '{role.Name}' with no permissions."
